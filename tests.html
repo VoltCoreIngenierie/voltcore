@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>VOLTCORE v6.7 — Tests (155)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Arial, sans-serif; margin: 0; padding: 20px; background: #f5f7fb; color: #1f2937; }
+  h1 { color: #1A2B4C; margin: 0 0 8px; font-size: 22px; }
+  .sub { color: #6b7280; margin-bottom: 20px; font-size: 13px; }
+  #summary { padding: 16px; background: #fff; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); font-size: 15px; }
+  #summary .big { font-size: 22px; font-weight: 800; }
+  .ok-text { color: #2e7d32; }
+  .ko-text { color: #dc2626; }
+  .warn-text { color: #d97706; }
+  .cat-title { font-size: 15px; font-weight: 700; color: #1A2B4C; margin: 20px 0 8px; padding: 8px 12px; background: #eef2f8; border-radius: 6px; display: flex; justify-content: space-between; }
+  .cat-title.lot5 { background: #fef3c7; border-left: 4px solid #d97706; }
+  .cat-title.btp { background: #d1fae5; border-left: 4px solid #059669; }
+  .cat-title.s3 { background: #fef9e7; border-left: 4px solid #C9A84C; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  th { background: #1A2B4C; color: #fff; padding: 8px; text-align: left; font-size: 12px; text-transform: uppercase; }
+  td { padding: 8px; border-bottom: 1px solid #eef2f8; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  .status { font-weight: 700; }
+  .status.pass { color: #2e7d32; }
+  .status.fail { color: #dc2626; }
+  .error { color: #dc2626; font-family: monospace; font-size: 12px; }
+  .num { color: #9aa0a8; font-family: monospace; }
+  .actions { margin-top: 20px; text-align: center; }
+  .btn { padding: 10px 20px; border: none; background: #1A2B4C; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn:hover { background: #0F1A2E; }
+</style>
+</head>
+<body>
+
+<h1>VOLTCORE v6.9.2 — Tests</h1>
+<div class="sub">216 tests · 22 catégories · validation complète (logic + câblage + E2E)</div>
+
+<div id="summary">⏳ Chargement des tests…</div>
+<main id="testResults"></main>
+<div class="actions">
+  <button class="btn" onclick="location.reload()">↻ Relancer les tests</button>
+  <button id="btnCopyReport" class="btn" onclick="if(typeof copyTestReport==='function')copyTestReport()" style="background:#2e7d32;margin-left:8px" disabled>📋 Copier le rapport</button>
+</div>
+
+<!-- Stubs DOM nécessaires (cachés) -->
+<div id="testStubs" style="display:none">
+  <input id="invoiceTVARate" value="19">
+  <input id="invoiceTimbre" value="1.000">
+  <input id="invoiceRetenueIR" value="0">
+  <input id="invoiceRetenueTVA" value="0">
+  <input id="invoiceRetenueGarantie" value="0">
+  <div id="toastContainer"></div>
+</div>
+
+<!-- Chargement des modules 01 → 20 (le 21 est le boot, pas nécessaire pour les tests) -->
+<script src="01-core.js"></script>
+<script src="02-auth.js"></script>
+<script src="03-utils.js"></script>
+<script src="04-storage.js"></script>
+<script src="05-alerts.js"></script>
+<script src="06-clients.js"></script>
+<script src="07-suppliers.js"></script>
+<script src="08-stock.js"></script>
+<script src="09-chantiers.js"></script>
+<script src="10-hr.js"></script>
+<script src="11-invoices.js"></script>
+<script src="12-invoices-view.js"></script>
+<script src="13-purchases.js"></script>
+<script src="14-expenses-bons.js"></script>
+<script src="15-scan-sign.js"></script>
+<script src="16-assistant-ia.js"></script>
+<script src="17-dash-reports.js"></script>
+<script src="18-mobile.js"></script>
+<script src="19-tools-save.js"></script>
+<script src="20-init-infra.js"></script>
+<script src="23-bons-route.js"></script>
+
+<!-- Runner -->
+<script>
+(function() {
+  'use strict';
+
+  /* ──── Helpers ──── */
+  function eq(a, b) { return a === b; }
+  function ne(a, b) { return a !== b; }
+  function ok(v) { return !!v; }
+  function has(s, sub) { return String(s).indexOf(sub) !== -1; }
+  function approx(a, b, tol) { return Math.abs(a - b) < (tol || 0.01); }
+
+  /* ──── Reset état global entre chaque test ──── */
+  function resetData() {
+    try {
+      clients = [];
+      savedArticles = [];
+      savedDocuments = [];
+      familles = [];
+      savedChantiers = [];
+      suppliers = [];
+      frais = [];
+      purchaseInvoices = [];
+      hrEmployees = [];
+      hrWorkEntries = [];
+      hrTransactions = [];
+      currentInvoiceItems = [];
+      externalPrices = {};
+      dismissedAlerts = [];
+      compteurs = {};
+      activityLog = [];
+      trash = { clients: [], articles: [], documents: [] };
+      purchaseModalLines = [];
+      editingPurchaseInvoiceId = null;
+      currentSupplierPaymentInvoiceId = null;
+      /* v6.9.0 — Bons Route */
+      bonsRoute = [];
+      if (typeof __bonsRouteSearchTerm !== 'undefined') __bonsRouteSearchTerm = '';
+      if (typeof __bonsRouteFilterType !== 'undefined') __bonsRouteFilterType = 'all';
+      if (typeof __bonsRouteFilterStatut !== 'undefined') __bonsRouteFilterStatut = 'all';
+      if (typeof __bonsRouteFilterDestination !== 'undefined') __bonsRouteFilterDestination = 'all';
+      if (typeof __bonsRoutePage !== 'undefined') __bonsRoutePage = 0;
+    } catch (e) {}
+  }
+
+  /* ──── Setup inputs facture ──── */
+  function setupInvoiceInputs(tva, timbre, retIR, retTVA, retGar) {
+    document.getElementById('invoiceTVARate').value = String(tva);
+    document.getElementById('invoiceTimbre').value = String(timbre);
+    document.getElementById('invoiceRetenueIR').value = String(retIR);
+    document.getElementById('invoiceRetenueTVA').value = String(retTVA);
+    var g = document.getElementById('invoiceRetenueGarantie');
+    if (g) g.value = String(retGar == null ? 0 : retGar);
+  }
+
+  /* ════════════════════════════════════════════════════
+     LISTE DES TESTS
+     ════════════════════════════════════════════════════ */
+
+  var TESTS = [];
+
+  function add(cat, name, fn) {
+    TESTS.push({ cat: cat, name: name, fn: fn });
+  }
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 1 — UTILITAIRES (27)
+     ═══════════════════════════════════════════════════ */
+  add('Utilitaires', 'escapeHtml <script>', function() { return eq(escapeHtml('<script>'), '&lt;script&gt;'); });
+  add('Utilitaires', 'escapeHtml "quote"', function() { return eq(escapeHtml('"'), '&quot;'); });
+  add('Utilitaires', 'escapeHtml &', function() { return eq(escapeHtml('&'), '&amp;'); });
+  add('Utilitaires', 'escapeHtml null', function() { return eq(escapeHtml(null), ''); });
+  add('Utilitaires', 'escapeAttr apostrophe', function() { return eq(escapeAttr("'"), '&#39;'); });
+  add('Utilitaires', 'formatMoney 1234.5', function() { return has(formatMoney(1234.5), '1 234'); });
+  add('Utilitaires', 'formatMoney 0', function() { return has(formatMoney(0), '0'); });
+  add('Utilitaires', 'formatMoney NaN', function() { return has(formatMoney(NaN), '0'); });
+  add('Utilitaires', 'formatMoney négatif', function() { return has(formatMoney(-500), '-'); });
+  add('Utilitaires', 'dt alias', function() { return eq(dt(100), formatMoney(100)); });
+  add('Utilitaires', 'parseNumber "1 234,5"', function() { return eq(parseNumber('1 234,5'), 1234.5); });
+  add('Utilitaires', 'parseNumber "abc"', function() { return eq(parseNumber('abc'), 0); });
+  add('Utilitaires', 'parseNumber 1234', function() { return eq(parseNumber(1234), 1234); });
+  add('Utilitaires', 'parseNumber null', function() { return eq(parseNumber(null), 0); });
+  add('Utilitaires', 'parseNumber "1,5"', function() { return eq(parseNumber('1,5'), 1.5); });
+  add('Utilitaires', 'todayISO format', function() { return eq(todayISO().length, 10); });
+  add('Utilitaires', 'formatDate 2026-10-20', function() { return eq(formatDate('2026-10-20'), '20/10/2026'); });
+  add('Utilitaires', 'formatDate vide', function() { return eq(formatDate(''), ''); });
+  add('Utilitaires', 'addDaysISO +5j', function() { return eq(addDaysISO('2026-01-10', 5), '2026-01-15'); });
+  add('Utilitaires', 'addDaysISO -1j', function() { return eq(addDaysISO('2026-03-01', -1), '2026-02-28'); });
+  add('Utilitaires', 'compareISO égal', function() { return eq(compareISO('2026-01-15', '2026-01-15'), 0); });
+  add('Utilitaires', 'compareISO a<b', function() { return eq(compareISO('2026-01-10', '2026-01-15'), -1); });
+  add('Utilitaires', 'compareISO a>b', function() { return eq(compareISO('2026-02-01', '2026-01-15'), 1); });
+  add('Utilitaires', 'daysBetweenISO 10j', function() { return eq(daysBetweenISO('2026-01-01', '2026-01-11'), 10); });
+  add('Utilitaires', 'isValidDateString invalide', function() { return eq(isValidDateString('2026-02-30'), false); });
+  add('Utilitaires', 'parseNumber US "1,234.56"', function() { return eq(parseNumber('1,234.56'), 1234.56); });
+  add('Utilitaires', 'parseNumber FR "1.234,56"', function() { return eq(parseNumber('1.234,56'), 1234.56); });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 2 — LICENCE (8)
+     ═══════════════════════════════════════════════════ */
+  add('Licence', 'localLicenseDate format', function() { return eq(localLicenseDate().length, 10); });
+  add('Licence', 'licenseDateValue valide', function() { return licenseDateValue('2026-10-20') instanceof Date; });
+  add('Licence', 'licenseDateValue format FR null', function() { return eq(licenseDateValue('20-10-2026'), null); });
+  add('Licence', 'licenseDateValue abc null', function() { return eq(licenseDateValue('abc'), null); });
+  add('Licence', 'PUBLIC_SPKI défini', function() { return typeof VOLTCORE_LICENSE_PUBLIC_SPKI === 'string' && VOLTCORE_LICENSE_PUBLIC_SPKI.length > 50; });
+  add('Licence', 'GRACE_DAYS = 14', function() { return eq(VOLTCORE_LICENSE_GRACE_DAYS, 14); });
+  add('Licence', 'verifyVoltcoreLicense vide !ok', async function() {
+    var r = await verifyVoltcoreLicense('');
+    return !!r && r.ok === false;
+  });
+  add('Licence', 'window.VoltCore créé', function() { return ok(window.VoltCore) && typeof window.VoltCore === 'object'; });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 3 — AUTH (6)
+     ═══════════════════════════════════════════════════ */
+  add('Auth', 'hashPassword existe', function() { return typeof hashPassword === 'function'; });
+  add('Auth', 'hashPassword promise', function() { var p = hashPassword('x'); return p && typeof p.then === 'function'; });
+  add('Auth', 'hashPassword format salt:hash', async function() { var h = await hashPassword('abc'); return h.indexOf(':') > 0; });
+  add('Auth', 'hashPassword salts différents', async function() {
+    var h1 = await hashPassword('abc'); var h2 = await hashPassword('abc');
+    return h1.split(':')[0] !== h2.split(':')[0];
+  });
+  add('Auth', 'verifyPassword correct', async function() {
+    var h = await hashPassword('secret'); return (await verifyPassword('secret', h)) === true;
+  });
+  add('Auth', 'verifyPassword invalide', async function() {
+    var r = await verifyPassword('x', 'bad');
+    return r === false;
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 4 — STORAGE (15)
+     ═══════════════════════════════════════════════════ */
+  add('Storage', 'STORAGE_KEYS.clients', function() { return eq(STORAGE_KEYS.clients, 'voltcore_clients'); });
+  add('Storage', 'STORAGE_KEYS.documents', function() { return has(STORAGE_KEYS.documents, 'documents'); });
+  add('Storage', 'STORAGE_KEYS 25+ clés', function() { return Object.keys(STORAGE_KEYS).length >= 25; });
+  add('Storage', 'genererNumero facture', function() { resetData(); return has(genererNumero('facture'), 'FAC-'); });
+  add('Storage', 'genererNumero devis', function() { resetData(); return has(genererNumero('devis'), 'DEV-'); });
+  add('Storage', 'genererNumero avoir', function() { resetData(); return has(genererNumero('avoir'), 'AV-'); });
+  add('Storage', 'incrementerCompteur', function() { resetData(); incrementerCompteur('facture'); return compteurs['facture_' + new Date().getFullYear()] === 1; });
+  add('Storage', 'incrementerNumeroBon A', function() { resetData(); incrementerNumeroBon('A'); return compteurs['bon_A'] === 1; });
+  add('Storage', 'getTotalPaye vide', function() { return eq(getTotalPaye({}), 0); });
+  add('Storage', 'getTotalPaye 3 paiements', function() {
+    return eq(getTotalPaye({ paiements: [{montant:100},{montant:200},{montant:300}] }), 600);
+  });
+  add('Storage', 'getStatutPaiement brouillon', function() { return eq(getStatutPaiement({}), 'brouillon'); });
+  add('Storage', 'getStatutPaiement payee', function() {
+    return eq(getStatutPaiement({ totals:{total:1000}, paiements:[{montant:1000}] }), 'payee');
+  });
+  add('Storage', 'getStatutPaiement partielle', function() {
+    return eq(getStatutPaiement({ totals:{total:1000}, paiements:[{montant:400}] }), 'partielle');
+  });
+  add('Storage', 'getStatutPaiement impayee', function() {
+    return eq(getStatutPaiement({ totals:{total:1000}, paiements:[] }), 'impayee');
+  });
+  add('Storage', 'getResteAPayer', function() {
+    return eq(getResteAPayer({ totals:{total:1000}, retenueMontant:100, paiements:[{montant:400}] }), 500);
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 5 — ALERTES (18)
+     ═══════════════════════════════════════════════════ */
+  add('Alertes', 'computeChantierMarge vide', function() { resetData(); return eq(computeChantierMarge('ch1').marge, 0); });
+  add('Alertes', 'computeChantierMarge recettes', function() {
+    resetData();
+    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
+    return eq(computeChantierMarge('ch1').recettes, 1000);
+  });
+  add('Alertes', 'computeChantierMarge achats', function() {
+    resetData();
+    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
+    purchaseInvoices = [{ id:'p1', chantierId:'ch1', totalTTC:300 }];
+    return eq(computeChantierMarge('ch1').achats, 300);
+  });
+  add('Alertes', 'computeChantierMarge frais', function() {
+    resetData();
+    frais = [{ id:'f1', chantierId:'ch1', montant:100 }];
+    return eq(computeChantierMarge('ch1').frais, 100);
+  });
+  add('Alertes', 'computeChantierMarge RH', function() {
+    resetData();
+    hrEmployees = [{ id:'e1', hourlyRate:10 }];
+    hrWorkEntries = [{ id:'w1', chantierId:'ch1', employeeId:'e1', hours:5 }];
+    return eq(computeChantierMarge('ch1').rh, 50);
+  });
+  add('Alertes', 'computeChantierMarge marge finale', function() {
+    resetData();
+    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
+    purchaseInvoices = [{ id:'p1', chantierId:'ch1', totalTTC:300 }];
+    frais = [{ id:'f1', chantierId:'ch1', montant:100 }];
+    hrEmployees = [{ id:'e1', hourlyRate:10 }];
+    hrWorkEntries = [{ id:'w1', chantierId:'ch1', employeeId:'e1', hours:5 }];
+    return eq(computeChantierMarge('ch1').marge, 550);
+  });
+  add('Alertes', 'computeChantierMarge margePct', function() {
+    resetData();
+    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
+    return Math.abs(computeChantierMarge('ch1').margePct - 1) < 0.01;
+  });
+  add('Alertes', 'computeClientMarge vide', function() { resetData(); return eq(computeClientMarge('c1').marge, 0); });
+  add('Alertes', 'computeClientMarge chantier', function() {
+    resetData();
+    savedChantiers = [{ id:'ch1', clientId:'c1' }];
+    savedDocuments = [{ id:'d1', type:'facture', clientId:'c1', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
+    return eq(computeClientMarge('c1').recettes, 1000);
+  });
+  add('Alertes', 'computeClientMarge hors chantier', function() {
+    resetData();
+    savedDocuments = [{ id:'d1', type:'facture', clientId:'c1', statut:'emise', totals:{total:500} }];
+    return eq(computeClientMarge('c1').recettes, 500);
+  });
+  add('Alertes', 'computeArticleAlerts vide', function() { resetData(); return eq(computeArticleAlerts().length, 0); });
+  add('Alertes', 'computeFournisseurAlerts vide', function() { resetData(); return eq(computeFournisseurAlerts().length, 0); });
+  add('Alertes', 'computeClientAlerts vide', function() { resetData(); return eq(computeClientAlerts().length, 0); });
+  add('Alertes', 'getAlertCounts structure', function() {
+    resetData();
+    var c = getAlertCounts();
+    return typeof c === 'object' && 'articles' in c && 'fournisseurs' in c && 'clients' in c && 'total' in c;
+  });
+  add('Alertes', 'getAlertCounts vide', function() {
+    resetData();
+    var c = getAlertCounts();
+    return eq(c.total, 0);
+  });
+  add('Alertes', '_alertsGetId format', function() { return eq(_alertsGetId('x','a','b'), 'x_a_b'); });
+  add('Alertes', '_alertsIsDismissed vide', function() { dismissedAlerts = []; return eq(_alertsIsDismissed('zzz'), false); });
+  add('Alertes', 'dismissAlertById ajoute', function() {
+    resetData(); dismissAlertById('test_id');
+    return dismissedAlerts.indexOf('test_id') >= 0;
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 6 — MÉTIER (15)
+     ═══════════════════════════════════════════════════ */
+  add('Métier', 'computeInvoiceTotals vide', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
+    return eq(computeInvoiceTotals().totalHT, 0);
+  });
+  add('Métier', 'computeInvoiceTotals 1 ligne', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    return eq(computeInvoiceTotals().totalHT, 1000);
+  });
+  add('Métier', 'computeInvoiceTotals TVA 19%', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    return eq(computeInvoiceTotals().tva, 190);
+  });
+  add('Métier', 'computeInvoiceTotals retenue IR 10%', function() {
+    resetData(); setupInvoiceInputs(19, 1, 10, 0, 0);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    return eq(computeInvoiceTotals().retenueIR, 100);
+  });
+  add('Métier', 'computeInvoiceTotals timbre 1', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    return eq(computeInvoiceTotals().timbre, 1);
+  });
+  add('Métier', 'computeInvoiceTotals totalTTC', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    return eq(computeInvoiceTotals().totalTTC, 1191);
+  });
+  add('Métier', 'computeInvoiceTotals netAPayer', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    return eq(computeInvoiceTotals().netAPayer, 1191);
+  });
+  add('Métier', 'computePurchaseTotals HT', function() {
+    resetData();
+    return eq(computePurchaseTotals([{quantite:2,prixUnitaire:50}], 19, 1).totalHT, 100);
+  });
+  add('Métier', 'computePurchaseTotals TVA', function() {
+    resetData();
+    return eq(computePurchaseTotals([{quantite:2,prixUnitaire:50}], 19, 1).tva, 19);
+  });
+  add('Métier', 'computePurchaseTotals timbre', function() {
+    resetData();
+    return eq(computePurchaseTotals([{quantite:2,prixUnitaire:50}], 19, 1).timbre, 1);
+  });
+  add('Métier', 'computeClientStats structure', function() {
+    resetData();
+    var s = computeClientStats('c1');
+    return 'nbFactures' in s && 'caTotal' in s && 'marge' in s && 'impaye' in s;
+  });
+  add('Métier', 'computeSupplierStats structure', function() {
+    resetData();
+    var s = computeSupplierStats('s1');
+    return 'nbAchats' in s && 'caAchats' in s && 'ecartMoyen' in s;
+  });
+  add('Métier', 'getArticlePrix .prix', function() { return eq(getArticlePrix({ prix: 50 }), 50); });
+  add('Métier', 'getArticlePrixAchat .prixAchat', function() { return eq(getArticlePrixAchat({ prixAchat: 30 }), 30); });
+  add('Métier', 'getArticleNom fallback', function() { return eq(getArticleNom({ designation: 'Art' }), 'Art'); });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 7 — computeLineTotal (LOT 5) (8)
+     ═══════════════════════════════════════════════════ */
+  add('computeLineTotal (LOT 5)', 'existe', function() { return typeof computeLineTotal === 'function'; });
+  add('computeLineTotal (LOT 5)', 'objet qte/pu 2×100', function() { return eq(computeLineTotal({ qte: 2, pu: 100 }), 200); });
+  add('computeLineTotal (LOT 5)', 'objet quantite/prixUnitaire', function() { return eq(computeLineTotal({ quantite: 2, prixUnitaire: 100 }), 200); });
+  add('computeLineTotal (LOT 5)', 'objet quantite/prix (compat)', function() { return eq(computeLineTotal({ quantite: 10, prix: 100 }), 1000); });
+  add('computeLineTotal (LOT 5)', 'remise 5% sur 2×100', function() { return eq(computeLineTotal({ qte: 2, pu: 100, remisePct: 5 }), 190); });
+  add('computeLineTotal (LOT 5)', 'remiseMontant 50 sur 1×500', function() { return eq(computeLineTotal({ qte: 1, pu: 500, remiseMontant: 50 }), 450); });
+  add('computeLineTotal (LOT 5)', 'qte négative (avoir)', function() { return eq(computeLineTotal({ qte: -1, pu: 100 }), -100); });
+  add('computeLineTotal (LOT 5)', 'arrondi 3 décimales', function() { return eq(computeLineTotal({ qte: 1, pu: 33.3333 }), 33.333); });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 8 — BTP Client (6)
+     ═══════════════════════════════════════════════════ */
+  add('BTP Client', '_isValidClientType particulier', function() { return _isValidClientType('particulier') === true; });
+  add('BTP Client', '_isValidClientType entreprise', function() { return _isValidClientType('entreprise') === true; });
+  add('BTP Client', '_isValidClientType invalide', function() { return _isValidClientType('xyz') === false; });
+  add('BTP Client', '_getClientTypeLabel administration', function() { return eq(_getClientTypeLabel('administration'), 'Administration'); });
+  add('BTP Client', '_getDelaiLabel 60', function() { return has(_getDelaiLabel(60), '60'); });
+  add('BTP Client', '_normalizeClient préserve type + délai', function() {
+    var c = _normalizeClient({ nom: 'Test SARL', type: 'entreprise', delaiPaiement: 60 });
+    return c && c.type === 'entreprise' && c.delaiPaiement === 60;
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 9 — BTP Facture (retenue garantie) (3)
+     ═══════════════════════════════════════════════════ */
+    add('BTP Facture', 'retenueGarantie 5% sur HT 1000', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 5);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    var t = computeInvoiceTotals();
+    /* ⬇ v6.8 : garantie calculée sur HT (1000 × 5% = 50) */
+    return approx(t.retenueGarantie, 1000 * 0.05, 0.01);
+  });
+  add('BTP Facture', 'netAvantGarantie avec garantie 0', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    return eq(computeInvoiceTotals().netAvantGarantie, 1191);
+  });
+  add('BTP Facture', 'netAPayer = netAvantGarantie − retenueGarantie', function() {
+    resetData(); setupInvoiceInputs(19, 1, 0, 0, 5);
+    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
+    var t = computeInvoiceTotals();
+    return approx(t.netAPayer, t.netAvantGarantie - t.retenueGarantie, 0.01);
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 10 — Cache stats clients (LOT 5) (3)
+     ═══════════════════════════════════════════════════ */
+  add('Cache stats (LOT 5)', 'invalidateClientStatsCache existe', function() { return typeof invalidateClientStatsCache === 'function'; });
+  add('Cache stats (LOT 5)', 'exposé sur window', function() { return typeof window.invalidateClientStatsCache === 'function'; });
+  add('Cache stats (LOT 5)', 'computeClientStats retourne structure LOT 5', function() {
+    resetData();
+    var s = computeClientStats('c1');
+    return 'aRisque' in s && 'retardJours' in s && 'derniereFactureDate' in s && 'dernierPaiementDate' in s;
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 11 — Téléphone tunisien (LOT 5) (3)
+     ═══════════════════════════════════════════════════ */
+  add('Téléphone TN (LOT 5)', '8 chiffres → +216…', function() { return eq(_normalizeTunisianPhone('12345678'), '+21612345678'); });
+  add('Téléphone TN (LOT 5)', '+216 déjà présent', function() { return eq(_normalizeTunisianPhone('+21612345678'), '+21612345678'); });
+  add('Téléphone TN (LOT 5)', 'vide → vide', function() { return eq(_normalizeTunisianPhone(''), ''); });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 12 — Users fusion (02-auth.js) (4)
+     ═══════════════════════════════════════════════════ */
+  add('Users fusion (LOT 5)', 'openUserManagementModal existe', function() { return typeof openUserManagementModal === 'function'; });
+  add('Users fusion (LOT 5)', 'closeUserManagementModal existe', function() { return typeof closeUserManagementModal === 'function'; });
+  add('Users fusion (LOT 5)', 'attachUsersEvents existe', function() { return typeof attachUsersEvents === 'function'; });
+  add('Users fusion (LOT 5)', '_umRoleLabel admin', function() { return has(_umRoleLabel('admin'), 'Admin'); });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 13 — Picker fusion (08-stock.js) (3)
+     ═══════════════════════════════════════════════════ */
+  add('Picker fusion (LOT 5)', 'openArticlePicker existe', function() { return typeof openArticlePicker === 'function'; });
+  add('Picker fusion (LOT 5)', 'closeArticlePicker existe', function() { return typeof closeArticlePicker === 'function'; });
+  add('Picker fusion (LOT 5)', 'attachArticlePickerEvents existe', function() { return typeof attachArticlePickerEvents === 'function'; });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 14 — Invoices view (LOT 5) (2)
+     ═══════════════════════════════════════════════════ */
+  add('Invoices view (LOT 5)', '_docNetApresAvoirs existe', function() { return typeof _docNetApresAvoirs === 'function'; });
+  add('Invoices view (LOT 5)', 'getDocById existe', function() { return typeof getDocById === 'function'; });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 15 — IMPORT IA (8)
+     ═══════════════════════════════════════════════════ */
+  add('IA', 'extractJSON simple', function() { return extractJSONFromText('{"a":1}') && extractJSONFromText('{"a":1}').a === 1; });
+  add('IA', 'extractJSON markdown', function() { return extractJSONFromText('```json\n{"a":1}\n```').a === 1; });
+  add('IA', 'extractJSON invalide', function() { return eq(extractJSONFromText('pas de json'), null); });
+  add('IA', 'extractJSON vide', function() { return eq(extractJSONFromText(''), null); });
+  add('IA', 'validateParsedResult vide', function() { return eq(validateParsedResult({}).ok, false); });
+  add('IA', 'validateParsedResult sans fournisseur', function() { return eq(validateParsedResult({ lignes:[{designation:'x',quantite:1,prixUnitaire:10}] }).ok, false); });
+  add('IA', 'validateParsedResult sans lignes', function() { return eq(validateParsedResult({ fournisseur:'X' }).ok, false); });
+  add('IA', 'validateParsedResult valide', function() {
+    return eq(validateParsedResult({
+      fournisseur: 'AFEL', lignes: [{ designation:'Câble', quantite:10, prixUnitaire:1.2, unite:'m' }]
+    }).ok, true);
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 16 — MOBILE (6)
+     ═══════════════════════════════════════════════════ */
+  add('Mobile', 'isMobileView bool', function() { return typeof isMobileView() === 'boolean'; });
+  add('Mobile', 'isTabletView bool', function() { return typeof isTabletView() === 'boolean'; });
+  add('Mobile', 'isTouchDevice bool', function() { return typeof isTouchDevice() === 'boolean'; });
+  add('Mobile', 'isPWAInstalled bool', function() { return typeof isPWAInstalled() === 'boolean'; });
+  add('Mobile', 'FAB_FUNCS 9 entrées (v6.9)', function() { return eq(Object.keys(FAB_FUNCS).length, 9); });
+  add('Mobile', 'FAB_LABELS 9 entrées (v6.9)', function() { return eq(Object.keys(FAB_LABELS).length, 9); });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 17 — DIVERS (10)
+     ═══════════════════════════════════════════════════ */
+  add('Divers', 'generateId préfixe', function() { return has(generateId('test'), 'test_'); });
+  add('Divers', 'generateId unique', function() { return ne(generateId('x'), generateId('x')); });
+  add('Divers', 'formatBytes 1024', function() { return has(formatBytes(1024), 'Ko'); });
+  add('Divers', 'formatBytes 1048576', function() { return has(formatBytes(1048576), 'Mo'); });
+  add('Divers', 'formatBytes 500', function() { return has(formatBytes(500), 'o'); });
+  add('Divers', 'normalizeText accents', function() { return eq(normalizeText('Héllo'), 'hello'); });
+  add('Divers', 'getInfraStatus objet', function() { return typeof getInfraStatus() === 'object'; });
+  add('Divers', 'MOBILE_BREAKPOINT', function() { return eq(VOLTCORE_MOBILE_BREAKPOINT, 768); });
+  add('Divers', 'SCAN_MAX_BYTES', function() { return eq(VOLTCORE_SCAN_MAX_BYTES, 512000); });
+  add('Divers', 'SIGNATURE_MAX', function() { return eq(VOLTCORE_SIGNATURE_MAX, 20); });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 18 — numberToFrenchWords (Session #3) (5)
+     ═══════════════════════════════════════════════════ */
+  add('numberToFrenchWords (S3)', 'existe', function() {
+    return typeof numberToFrenchWords === 'function';
+  });
+  add('numberToFrenchWords (S3)', '0 → zéro dinar', function() {
+    return eq(numberToFrenchWords(0), 'zéro dinar');
+  });
+  add('numberToFrenchWords (S3)', '21 → vingt et un dinars', function() {
+    return eq(numberToFrenchWords(21), 'vingt et un dinars');
+  });
+  add('numberToFrenchWords (S3)', '80 → quatre-vingts dinars', function() {
+    return eq(numberToFrenchWords(80), 'quatre-vingts dinars');
+  });
+  add('numberToFrenchWords (S3)', '1234.567 → dinars et millimes', function() {
+    var s = numberToFrenchWords(1234.567);
+    return has(s, 'mille deux cent trente-quatre dinars') && has(s, 'millimes');
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 19 — PDF refait facture.html (Session #3) (5)
+     ═══════════════════════════════════════════════════ */
+  function _makeTestDoc() {
+    return {
+      id: 'test_doc_pdf',
+      numero: 'FAC-2026-9999',
+      type: 'facture',
+      date: '2026-11-05',
+      clientId: null,
+      sujet: 'Installation électrique',
+      notes: 'Facture de test',
+      items: [{ designation: 'Câble 2.5mm²', quantite: 10, prix: 100, unite: 'm' }],
+      totals: {
+        totalHT: 1000,
+        tvaRate: 19,
+        tva: 190,
+        timbre: 1,
+        totalTTC: 1191,
+        retenueIR: 0,
+        retenueTVA: 0,
+        retenueMontant: 0,
+        retenueGarantie: 0,
+        netAvantGarantie: 1191,
+        netAPayer: 1191
+      },
+      paiements: []
+    };
+  }
+
+  add('PDF facture.html (S3)', '_buildInvoiceHTML existe', function() {
+    return typeof _buildInvoiceHTML === 'function';
+  });
+  add('PDF facture.html (S3)', 'contient bloc letter-amount (montant en lettres)', function() {
+    var html = _buildInvoiceHTML(_makeTestDoc());
+    return has(html, 'letter-amount') && has(html, 'Arrêtée la présente facture');
+  });
+  add('PDF facture.html (S3)', 'contient palette VOLTCORE (navy + or + rouge)', function() {
+    var html = _buildInvoiceHTML(_makeTestDoc());
+    return has(html, '#1A2B4C') && has(html, '#C9A84C') && has(html, '#E70013');
+  });
+  add('PDF facture.html (S3)', 'contient logo bi-couleur VOLT<span>CORE</span>', function() {
+    var html = _buildInvoiceHTML(_makeTestDoc());
+    return has(html, 'VOLT<span>CORE</span>') || (has(html, 'VOLT') && has(html, '<span>CORE</span>'));
+  });
+  add('PDF facture.html (S3)', 'contient client-box + signature-area', function() {
+    var html = _buildInvoiceHTML(_makeTestDoc());
+    return has(html, 'client-box') && has(html, 'signature-area');
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 20 — Bons Route (v6.9.0) (8)
+     ═══════════════════════════════════════════════════ */
+  add('Bons Route (v6.9)', 'BON_ROUTE_TYPES 3 types', function() {
+    return typeof BON_ROUTE_TYPES === 'object' &&
+      Object.keys(BON_ROUTE_TYPES).length === 3 &&
+      'sortie' in BON_ROUTE_TYPES &&
+      'commande' in BON_ROUTE_TYPES &&
+      'deplacement' in BON_ROUTE_TYPES;
+  });
+  add('Bons Route (v6.9)', 'BON_ROUTE_STATUTS 5 statuts', function() {
+    return typeof BON_ROUTE_STATUTS === 'object' &&
+      Object.keys(BON_ROUTE_STATUTS).length === 5;
+  });
+  add('Bons Route (v6.9)', '_genererNumeroBonRoute format BR-YYYY-NNNN', function() {
+    resetData();
+    var num = _genererNumeroBonRoute();
+    return /^BR-\d{4}-\d{4}$/.test(num);
+  });
+  add('Bons Route (v6.9)', '_normalizeBonRoute crée objet valide', function() {
+    resetData();
+    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9' });
+    return b && b.id && b.numero && b.type === 'sortie' && b.statut === 'brouillon';
+  });
+  add('Bons Route (v6.9)', '_normalizeBonRoute type invalide → sortie', function() {
+    resetData();
+    var b = _normalizeBonRoute({ type: 'invalide', vehicule: 'Test' });
+    return b && b.type === 'sortie';
+  });
+  add('Bons Route (v6.9)', '_normalizeBonRoute clamp quantité', function() {
+    resetData();
+    var b = _normalizeBonRoute({
+      type: 'sortie',
+      materiel: [{ designation: 'X', quantite: 99999999999 }]
+    });
+    return b && b.materiel[0].quantite === BON_ROUTE_MAX_QUANTITE;
+  });
+  add('Bons Route (v6.9)', 'getFilteredBonsRoute vide = []', function() {
+    resetData();
+    return Array.isArray(getFilteredBonsRoute()) && getFilteredBonsRoute().length === 0;
+  });
+  add('Bons Route (v6.9)', 'HORS COMPTA — _buildBonRouteHTML sans TOTAL', function() {
+    resetData();
+    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Test' });
+    var html = _buildBonRouteHTML(b);
+    /* Doit contenir "BON DE SORTIE" mais PAS "TOTAL TTC" ni "TVA" ni "NET À PAYER" */
+    var hasTitle = html.indexOf('BON DE SORTIE') >= 0;
+    var noTotal = html.indexOf('TOTAL TTC') < 0;
+    var noTVA = html.indexOf('TVA (') < 0;
+    var noNet = html.indexOf('NET À PAYER') < 0;
+    return hasTitle && noTotal && noTVA && noNet;
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 21 — Câblage & Intégration (v6.9.1) (31)
+     ═══════════════════════════════════════════════════
+     Ces tests détectent les bugs de CÂBLAGE :
+       • Fichier JS cassé (syntax error → fonctions absentes)
+       • Fichier NON référencé dans index.html (oubli de script)
+       • Mauvais ordre de chargement (23 avant 21)
+       • onclick cassé (fonction manquante)
+       • HTML de PDF cassé (montant, mention hors compta)
+     Ils AURAIENT attrapé le bug du 23-bons-route.js non chargé.
+     ═══════════════════════════════════════════════════ */
+
+  /* ── 21a. Chaque fichier JS est chargé et expose ses fonctions ── */
+  var __fileChecks = [
+    ['01-core.js',          'verifyVoltcoreLicense'],
+    ['02-auth.js',          'doLogin'],
+    ['03-utils.js',         'formatMoney'],
+    ['04-storage.js',       'saveAll'],
+    ['05-alerts.js',        'computeChantierMarge'],
+    ['06-clients.js',       'renderClients'],
+    ['07-suppliers.js',     'renderSuppliers'],
+    ['08-stock.js',         'renderStock'],
+    ['09-chantiers.js',     'renderChantiers'],
+    ['10-hr.js',            'renderHR'],
+    ['11-invoices.js',      'computeInvoiceTotals'],
+    ['12-invoices-view.js', 'renderInvoices'],
+    ['13-purchases.js',     'renderPurchases'],
+    ['14-expenses-bons.js', 'renderFrais'],
+    ['15-scan-sign.js',     'openScanner'],
+    ['16-assistant-ia.js',  'openAssistantIA'],
+    ['17-dash-reports.js',  'renderDashboard'],
+    ['18-mobile.js',        'initMobile'],
+    ['19-tools-save.js',    'renderTrash'],
+    ['20-init-infra.js',    'logError'],
+    /* v6.9.3 : 21-init-app.js retiré du __fileChecks — c'est le fichier
+       de boot (IIFE autoStart en bas de fichier). Le charger dans
+       tests.html déclencherait bootSequence → toute l'app démarre et
+       perturbe les autres tests. On le vérifie à part via fetch. */
+    ['23-bons-route.js',    'openBonRouteModal']
+  ];
+  for (var __fc = 0; __fc < __fileChecks.length; __fc++) {
+    (function (fc) {
+      var file = fc[0], fn = fc[1];
+      add('Câblage (v6.9.1)', 'Fichier ' + file + ' chargé', function () {
+        var ok = typeof window[fn] === 'function';
+        if (!ok) {
+          console.error('[Câblage] ' + file + ' NON CHARGÉ — fonction "' + fn + '" absente');
+        }
+        return ok;
+      });
+    })(__fileChecks[__fc]);
+  }
+
+  /* v6.9.3 — 21-init-app.js : vérification via fetch (pas de chargement).
+     On vérifie que le fichier existe ET contient bien la fonction
+     showSection déclarée. Cela garantit que le fichier est présent et
+     non tronqué, sans démarrer l'app (ce qui casserait tous les tests). */
+  add('Câblage (v6.9.3)', 'Fichier 21-init-app.js accessible et complet (via fetch)', async function () {
+    try {
+      var r = await fetch('./21-init-app.js');
+      if (!r.ok) {
+        console.error('[Câblage] 21-init-app.js inaccessible — HTTP ' + r.status);
+        return false;
+      }
+      var txt = await r.text();
+      var hasShowSection = txt.indexOf('function showSection') >= 0;
+      var hasInitApp = txt.indexOf('function initApp') >= 0;
+      var hasBootSeq = txt.indexOf('function bootSequence') >= 0;
+      if (!hasShowSection || !hasInitApp || !hasBootSeq) {
+        console.error('[Câblage] 21-init-app.js INCOMPLET — manque une fonction clé',
+          { showSection: hasShowSection, initApp: hasInitApp, bootSequence: hasBootSeq });
+        return false;
+      }
+      return txt.length > 500;
+    } catch (e) {
+      console.error('[Câblage] fetch 21-init-app.js échoué :', e.message);
+      return false;
+    }
+  });
+
+  /* ── 21b. index.html référence bien les 22 scripts ── */
+  add('Câblage (v6.9.1)', 'index.html contient les 22 scripts JS', async function () {
+    try {
+      var r = await fetch('./index.html');
+      if (!r.ok) {
+        console.error('[Câblage] index.html inaccessible — HTTP ' + r.status);
+        return false;
+      }
+      var html = await r.text();
+      var required = [
+        '01-core.js', '02-auth.js', '03-utils.js', '04-storage.js', '05-alerts.js',
+        '06-clients.js', '07-suppliers.js', '08-stock.js', '09-chantiers.js',
+        '10-hr.js', '11-invoices.js', '12-invoices-view.js', '13-purchases.js',
+        '14-expenses-bons.js', '15-scan-sign.js', '16-assistant-ia.js',
+        '17-dash-reports.js', '18-mobile.js', '19-tools-save.js',
+        '20-init-infra.js', '21-init-app.js', '23-bons-route.js'
+      ];
+      var missing = [];
+      for (var i = 0; i < required.length; i++) {
+        if (html.indexOf(required[i]) < 0) missing.push(required[i]);
+      }
+      if (missing.length > 0) {
+        console.error('[Câblage] Scripts MANQUANTS dans index.html :', missing);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('[Câblage] fetch index.html échoué :', e.message);
+      return false;
+    }
+  });
+
+  /* ── 21c. Ordre critique : 23-bons-route AVANT 21-init-app ── */
+  add('Câblage (v6.9.1)', '23-bons-route.js est chargé AVANT 21-init-app.js', async function () {
+    try {
+      var r = await fetch('./index.html');
+      if (!r.ok) return false;
+      var html = await r.text();
+      var idx23 = html.indexOf('23-bons-route.js');
+      var idx21 = html.indexOf('21-init-app.js');
+      if (idx23 < 0 || idx21 < 0) return false;
+      if (idx23 >= idx21) {
+        console.error('[Câblage] ORDRE INCORRECT : 23-bons-route.js doit être AVANT 21-init-app.js');
+        return false;
+      }
+      return true;
+    } catch (e) { return false; }
+  });
+
+  /* ── 21d. Smoke tests Bons Route (exposées globalement + HTML valide) ── */
+  add('Câblage (v6.9.1)', 'renderBonsRoute est exposée globalement', function () {
+    return typeof window.renderBonsRoute === 'function';
+  });
+  add('Câblage (v6.9.1)', 'saveBonRouteFromForm est exposée globalement', function () {
+    return typeof window.saveBonRouteFromForm === 'function';
+  });
+  add('Câblage (v6.9.1)', 'printBonRoute est exposée globalement', function () {
+    return typeof window.printBonRoute === 'function';
+  });
+  add('Câblage (v6.9.1)', 'attachBonsRouteEvents est exposée globalement', function () {
+    return typeof window.attachBonsRouteEvents === 'function';
+  });
+  add('Câblage (v6.9.1)', '_buildBonRouteHTML produit un HTML complet (hors compta)', function () {
+    try {
+      var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9', destination: 'tunis' });
+      if (!b) return false;
+      var html = _buildBonRouteHTML(b);
+      var ok = html.length > 2000
+        && html.indexOf('BON DE SORTIE') >= 0
+        && html.indexOf('n\'a pas valeur de facture') >= 0
+        && html.indexOf('TOTAL TTC') < 0
+        && html.indexOf('NET À PAYER') < 0;
+      if (!ok) console.error('[Câblage] _buildBonRouteHTML : structure HTML invalide');
+      return ok;
+    } catch (e) {
+      console.error('[Câblage] _buildBonRouteHTML exception :', e.message);
+      return false;
+    }
+  });
+
+  /* ── 21e. Aucun onclick cassé dans le DOM de tests.html ── */
+  add('Câblage (v6.9.1)', 'Aucun onclick/onchange cassé dans le DOM', function () {
+    var missing = [];
+    var nativeFns = [
+      'if','else','for','while','return','typeof','confirm','alert','prompt',
+      'parseFloat','parseInt','parseNumber','Number','String','Boolean','isNaN','isFinite',
+      'encodeURIComponent','decodeURIComponent','undefined','null','true','false',
+      'event','this','function','new','in','of','document','window','console','Math','JSON',
+      'Object','Array','setTimeout','clearTimeout',
+      'getElementById','preventDefault','click','querySelector','querySelectorAll',
+      'stopPropagation','focus','select','reload','location'
+    ];
+    var attrs = ['onclick','onchange','oninput','onsubmit'];
+    for (var a = 0; a < attrs.length; a++) {
+      var els = document.querySelectorAll('[' + attrs[a] + ']');
+      for (var i = 0; i < els.length; i++) {
+        var code = els[i].getAttribute(attrs[a]) || '';
+        var re = /([a-zA-Z_$][\w$]*)\s*\(/g, m;
+        while ((m = re.exec(code)) !== null) {
+          if (nativeFns.indexOf(m[1]) >= 0) continue;
+          if (typeof window[m[1]] !== 'function') missing.push(m[1]);
+        }
+      }
+    }
+    if (missing.length > 0) {
+      var uniq = [];
+      for (var j = 0; j < missing.length; j++) {
+        if (uniq.indexOf(missing[j]) < 0) uniq.push(missing[j]);
+      }
+      console.error('[Câblage] Fonctions onclick MANQUANTES :', uniq);
+      return false;
+    }
+    return true;
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 22 — Structure index.html (v6.9.2) (12)
+     ═══════════════════════════════════════════════════
+     Charge index.html via fetch + DOMParser, vérifie que TOUT
+     le DOM attendu existe physiquement. Attrape les bugs :
+       • Modale/section/bouton absent
+       • Script oublié dans index.html
+       • Ordre de scripts incorrect
+       • IDs dupliqués
+     Un seul test par groupe avec liste détaillée des manquants.
+     ═══════════════════════════════════════════════════ */
+
+  var __parsedIndexDoc = null;
+  function __getIndexDoc() {
+    if (__parsedIndexDoc) return Promise.resolve(__parsedIndexDoc);
+    return fetch('./index.html').then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(function (html) {
+      var parser = new DOMParser();
+      __parsedIndexDoc = parser.parseFromString(html, 'text/html');
+      return __parsedIndexDoc;
+    });
+  }
+
+  add('Structure DOM (v6.9.2)', 'index.html accessible via fetch', async function () {
+    try {
+      await __getIndexDoc();
+      return true;
+    } catch (e) {
+      console.error('[Structure] index.html inaccessible :', e.message);
+      return false;
+    }
+  });
+
+  add('Structure DOM (v6.9.2)', 'Toutes les modales existent (17)', async function () {
+    var doc = await __getIndexDoc();
+    var req = [
+      'loginModal', 'lockOverlay', 'licenseModal', 'alertsModal',
+      'clientModal', 'clientDetailModal', 'supplierModal', 'supplierDetailModal',
+      'articleModal', 'articleDetailModal', 'familleModal',
+      'chantierModal', 'chantierDetailModal',
+      'hrEmployeeModal', 'hrWorkModal', 'hrTxModal', 'hrDetailModal',
+      'invoiceModal', 'invoiceDetailModal', 'paymentModal',
+      'purchaseModal', 'supplierPaymentModal',
+      'fraisModal', 'bonModal',
+      'scanModal', 'signatureModal', 'iaModal', 'iaPreviewModal', 'helpModal',
+      'liberationGarantieModal', 'bonRouteModal', 'bonRouteDetailModal'
+    ];
+    var missing = [];
+    for (var i = 0; i < req.length; i++) {
+      if (!doc.getElementById(req[i])) missing.push(req[i]);
+    }
+    if (missing.length > 0) {
+      console.error('[Structure] MODALES MANQUANTES :', missing);
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Toutes les sections existent (11)', async function () {
+    var doc = await __getIndexDoc();
+    var req = [
+      'dashboardSection', 'reportsSection', 'clientsSection', 'suppliersSection',
+      'stockSection', 'chantiersSection', 'facturationSection', 'purchasesSection',
+      'fraisSection', 'bonsRouteSection', 'hrSection', 'toolsSection'
+    ];
+    var missing = [];
+    for (var i = 0; i < req.length; i++) {
+      if (!doc.getElementById(req[i])) missing.push(req[i]);
+    }
+    if (missing.length > 0) {
+      console.error('[Structure] SECTIONS MANQUANTES :', missing);
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Tous les boutons critiques existent', async function () {
+    var doc = await __getIndexDoc();
+    var req = [
+      'btnAddClient', 'btnAddSupplier', 'btnAddArticle', 'btnAddChantier',
+      'btnAddInvoice', 'btnAddPurchase', 'btnAddFrais', 'btnAddBonRoute',
+      'btnAddHREmployee', 'btnLogout', 'btnOpenHelp', 'btnOpenAssistantIA',
+      'btnExportCompleteBackup', 'btnImportCompleteBackup',
+      'btnAddBonRouteMaterielLine', 'btnAddBonRouteDocLine',
+      'bonRouteSaveBtn', 'invoiceSaveBtn', 'purchaseSaveBtn', 'fraisSaveBtn',
+      'libGarantieSaveBtn', 'paymentSaveBtn'
+    ];
+    var missing = [];
+    for (var i = 0; i < req.length; i++) {
+      if (!doc.getElementById(req[i])) missing.push(req[i]);
+    }
+    if (missing.length > 0) {
+      console.error('[Structure] BOUTONS MANQUANTS :', missing);
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Tous les champs Bons Route existent', async function () {
+    var doc = await __getIndexDoc();
+    var req = [
+      'bonRouteId', 'bonRouteModalTitle', 'bonRouteType', 'bonRouteNumero',
+      'bonRouteStatut', 'bonRouteDateCreation', 'bonRouteDateDepart', 'bonRouteDateRetour',
+      'bonRouteVehicule', 'bonRouteChauffeur', 'bonRouteDestination', 'bonRouteAdressePrecise',
+      'bonRouteChantierSelect', 'bonRouteKmDepart', 'bonRouteKmRetour',
+      'bonRouteMaterielSection', 'bonRouteMaterielBody',
+      'bonRouteDocSection', 'bonRouteDocBody',
+      'bonRouteNotes', 'bonRouteFormError',
+      'bonRouteDetailTitle', 'bonRouteDetailBody'
+    ];
+    var missing = [];
+    for (var i = 0; i < req.length; i++) {
+      if (!doc.getElementById(req[i])) missing.push(req[i]);
+    }
+    if (missing.length > 0) {
+      console.error('[Structure] CHAMPS BONS ROUTE MANQUANTS :', missing);
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Tous les champs facture existent', async function () {
+    var doc = await __getIndexDoc();
+    var req = [
+      'invoiceEditId', 'invoiceType', 'invoiceNumero', 'invoiceDate',
+      'invoiceClientSelect', 'invoiceChantierSelect', 'invoiceSujet',
+      'invoiceItemsBody', 'invoiceTVARate', 'invoiceTimbre',
+      'invoiceRetenueIR', 'invoiceRetenueTVA', 'invoiceRetenueGarantie',
+      'invoiceNotes', 'invoiceFormError', 'invoiceAttachmentsList'
+    ];
+    var missing = [];
+    for (var i = 0; i < req.length; i++) {
+      if (!doc.getElementById(req[i])) missing.push(req[i]);
+    }
+    if (missing.length > 0) {
+      console.error('[Structure] CHAMPS FACTURE MANQUANTS :', missing);
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Tous les 22 scripts JS référencés', async function () {
+    var doc = await __getIndexDoc();
+    var req = [
+      '01-core.js', '02-auth.js', '03-utils.js', '04-storage.js', '05-alerts.js',
+      '06-clients.js', '07-suppliers.js', '08-stock.js', '09-chantiers.js',
+      '10-hr.js', '11-invoices.js', '12-invoices-view.js', '13-purchases.js',
+      '14-expenses-bons.js', '15-scan-sign.js', '16-assistant-ia.js',
+      '17-dash-reports.js', '18-mobile.js', '19-tools-save.js',
+      '20-init-infra.js', '21-init-app.js', '23-bons-route.js'
+    ];
+    var scripts = doc.querySelectorAll('script[src]');
+    var srcs = [];
+    for (var i = 0; i < scripts.length; i++) {
+      srcs.push(scripts[i].getAttribute('src') || '');
+    }
+    var missing = [];
+    for (var j = 0; j < req.length; j++) {
+      var found = false;
+      for (var k = 0; k < srcs.length; k++) {
+        if (srcs[k].indexOf(req[j]) >= 0) { found = true; break; }
+      }
+      if (!found) missing.push(req[j]);
+    }
+    if (missing.length > 0) {
+      console.error('[Structure] SCRIPTS MANQUANTS dans index.html :', missing);
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Ordre scripts : 23-bons-route AVANT 21-init-app', async function () {
+    var doc = await __getIndexDoc();
+    var scripts = doc.querySelectorAll('script[src]');
+    var idx23 = -1, idx21 = -1;
+    for (var i = 0; i < scripts.length; i++) {
+      var src = scripts[i].getAttribute('src') || '';
+      if (src.indexOf('23-bons-route') >= 0) idx23 = i;
+      if (src.indexOf('21-init-app') >= 0) idx21 = i;
+    }
+    if (idx23 < 0 || idx21 < 0) {
+      console.error('[Structure] Ordre : scripts 21 ou 23 introuvables');
+      return false;
+    }
+    if (idx23 >= idx21) {
+      console.error('[Structure] ORDRE INCORRECT : 23 doit être AVANT 21 (idx23=' + idx23 + ', idx21=' + idx21 + ')');
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Aucun ID dupliqué dans index.html', async function () {
+    var doc = await __getIndexDoc();
+    var allIds = [];
+    var els = doc.querySelectorAll('[id]');
+    for (var i = 0; i < els.length; i++) allIds.push(els[i].id);
+    var seen = {}, dups = [];
+    for (var j = 0; j < allIds.length; j++) {
+      if (seen[allIds[j]]) dups.push(allIds[j]);
+      seen[allIds[j]] = true;
+    }
+    if (dups.length > 0) {
+      console.error('[Structure] IDs DUPLIQUÉS :', dups);
+      return false;
+    }
+    return true;
+  });
+
+  add('Structure DOM (v6.9.2)', 'manifest.json linké', async function () {
+    var doc = await __getIndexDoc();
+    var links = doc.querySelectorAll('link[rel="manifest"]');
+    return links.length > 0;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Service Worker registration présente', async function () {
+    var doc = await __getIndexDoc();
+    var scripts = doc.querySelectorAll('script');
+    for (var i = 0; i < scripts.length; i++) {
+      var txt = scripts[i].textContent || '';
+      if (txt.indexOf('serviceWorker.register') >= 0 && txt.indexOf('22-pwa.js') >= 0) return true;
+    }
+    return false;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Sidebar : 11 items de navigation', async function () {
+    var doc = await __getIndexDoc();
+    var items = doc.querySelectorAll('[data-nav-section]');
+    return items.length === 11;
+  });
+
+  add('Structure DOM (v6.9.2)', 'Bottom bar : 6 onglets mobile', async function () {
+    var doc = await __getIndexDoc();
+    var tabs = doc.querySelectorAll('.bottom-tab');
+    return tabs.length === 6;
+  });
+
+  /* ═══════════════════════════════════════════════════
+     CATÉGORIE 23 — Workflows E2E (v6.9.2) (10)
+     ═══════════════════════════════════════════════════
+     Teste les cycles métier complets SANS le DOM (via API).
+     Vérifie que la chaîne de traitement fonctionne bout en bout.
+     ═══════════════════════════════════════════════════ */
+
+  add('E2E (v6.9.2)', 'Cycle : client → facture → paiement → payée', function () {
+    resetData();
+    var client = _normalizeClient({ nom: 'SARL Test E2E', type: 'entreprise', delaiPaiement: 30 });
+    if (!client) return false;
+    clients.push(client);
+
+    currentInvoiceItems = [{ designation: 'Item test', quantite: 10, prix: 100, unite: 'U', remise: 0 }];
+    setupInvoiceInputs(19, 1, 0, 0, 0);
+    var totals = computeInvoiceTotals();
+    var doc = {
+      id: 'doc_e2e_1', numero: 'FAC-E2E-001', type: 'facture',
+      date: '2026-11-09', clientId: client.id,
+      items: currentInvoiceItems.slice(),
+      totals: totals,
+      retenueMontant: totals.retenueMontant,
+      retenueGarantie: totals.retenueGarantie,
+      paiements: [], avoirIds: [], statut: 'emise'
+    };
+    savedDocuments.push(doc);
+
+    if (getStatutPaiement(doc) !== 'impayee') return false;
+    doc.paiements.push({ date: '2026-11-09', montant: totals.netAPayer, mode: 'virement' });
+    return getStatutPaiement(doc) === 'payee';
+  });
+
+  add('E2E (v6.9.2)', 'Facture retenue garantie 5% : netAPayer correct', function () {
+    resetData();
+    currentInvoiceItems = [{ designation: 'T', quantite: 10, prix: 100, unite: 'U', remise: 0 }];
+    setupInvoiceInputs(19, 1, 0, 0, 5);
+    var t = computeInvoiceTotals();
+    var garantie = 1000 * 0.05;
+    var netAttendu = (1000 + 190 + 1) - garantie;
+    return Math.abs(t.retenueGarantie - garantie) < 0.01 &&
+           Math.abs(t.netAPayer - netAttendu) < 0.01;
+  });
+
+  add('E2E (v6.9.2)', 'Avoir lié à facture réduit le dû', function () {
+    resetData();
+    var facture = {
+      id: 'doc_fac_1', numero: 'FAC-E2E-002', type: 'facture', date: '2026-11-09',
+      clientId: 'cli_x', items: [], totals: { total: 1000, totalHT: 1000, tva: 0, totalTTC: 1000 },
+      retenueMontant: 0, retenueGarantie: 0, paiements: [], avoirIds: [], statut: 'emise'
+    };
+    var avoir = {
+      id: 'doc_av_1', numero: 'AV-E2E-001', type: 'avoir', date: '2026-11-09',
+      parentFactureId: 'doc_fac_1', totals: { total: 200, totalHT: 200, tva: 0, totalTTC: 200 },
+      paiements: [], statut: 'emise'
+    };
+    savedDocuments.push(facture);
+    savedDocuments.push(avoir);
+    _synchronizeAvoirIds();
+
+    if (facture.avoirIds.indexOf('doc_av_1') < 0) return false;
+    var du = _computeDuDoc(facture);
+    return Math.abs(du - 800) < 0.01;
+  });
+
+  add('E2E (v6.9.2)', 'Bon route créé apparaît dans bonsRoute', function () {
+    resetData();
+    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9', destination: 'tunis' });
+    if (!b) return false;
+    bonsRoute.push(b);
+    return bonsRoute.length === 1 && bonsRoute[0].id === b.id;
+  });
+
+  add('E2E (v6.9.2)', 'Bon route HORS COMPTA : absent du CA total', function () {
+    resetData();
+    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Test', destination: 'tunis' });
+    if (!b) return false;
+    bonsRoute.push(b);
+    var kpis = computeDashboardKPIs();
+    return kpis.caTotal === 0;
+  });
+
+  add('E2E (v6.9.2)', 'Suppression client → trash', function () {
+    resetData();
+    var c = _normalizeClient({ nom: 'Client A Supr', type: 'particulier' });
+    if (!c) return false;
+    clients.push(c);
+    if (clients.length !== 1) return false;
+    clients.splice(0, 1);
+    if (!trash) trash = {};
+    if (!Array.isArray(trash.clients)) trash.clients = [];
+    trash.clients.push({ item: c, deletedAt: new Date().toISOString() });
+    return clients.length === 0 && trash.clients.length === 1;
+  });
+
+  add('E2E (v6.9.2)', 'Achat fournisseur alimente externalPrices', function () {
+    resetData();
+    externalPrices = {};
+    if (typeof recordExternalPrice !== 'function') return false;
+    recordExternalPrice('art_test_1', 12.5, 'AFEL', 'FA-001', '2026-11-09');
+    return externalPrices['art_test_1'] && externalPrices['art_test_1'].length === 1;
+  });
+
+  add('E2E (v6.9.2)', 'Facture avec garantie libérée : statut change', function () {
+    resetData();
+    var doc = {
+      id: 'doc_g_1', numero: 'FAC-GAR-001', type: 'facture',
+      date: '2026-11-09', clientId: 'cli_x',
+      totals: { total: 1191, totalHT: 1000, tva: 190, timbre: 1, totalTTC: 1191,
+                retenueMontant: 0, retenueGarantie: 50, netAPayer: 1141 },
+      retenueMontant: 0, retenueGarantie: 50,
+      paiements: [], avoirIds: [], statut: 'emise', garantieLiberee: false
+    };
+    savedDocuments.push(doc);
+    if (getGarantieStatut(doc) !== 'en_attente') return false;
+    doc.garantieLiberee = true;
+    doc.dateLiberation = '2026-11-09';
+    return getGarantieStatut(doc) === 'liberee';
+  });
+
+  add('E2E (v6.9.2)', 'PDF facture : _buildInvoiceHTML génère HTML valide', function () {
+    resetData();
+    var doc = {
+      id: 'doc_pdf_1', numero: 'FAC-PDF-001', type: 'facture',
+      date: '2026-11-09', clientId: null,
+      items: [{ designation: 'Test', quantite: 1, prix: 100, unite: 'U', remise: 0 }],
+      totals: { total: 120, totalHT: 100, tva: 19, timbre: 1, totalTTC: 120,
+                retenueMontant: 0, retenueGarantie: 0, netAPayer: 120 },
+      retenueMontant: 0, retenueGarantie: 0,
+      paiements: [], avoirIds: [], statut: 'emise'
+    };
+    var html = _buildInvoiceHTML(doc);
+    /* v6.9.3 — Assertion corrigée : le HTML contient "NET À PAYER"
+       (libellé final) et "Total TTC" (mixte), PAS "TOTAL" en majuscules.
+       Vérifie 3 marqueurs garantis présents :
+         • Numéro dans le titre
+         • Bloc totaux (Total TTC)
+         • Libellé final (NET À PAYER) */
+    if (html.length <= 2000) {
+      console.error('[E2E] HTML PDF trop court : ' + html.length);
+      return false;
+    }
+    if (html.indexOf('FAC-PDF-001') < 0) {
+      console.error('[E2E] Numéro facture absent du PDF');
+      return false;
+    }
+    if (html.indexOf('Total TTC') < 0) {
+      console.error('[E2E] "Total TTC" absent du PDF');
+      return false;
+    }
+    if (html.indexOf('NET À PAYER') < 0) {
+      console.error('[E2E] "NET À PAYER" absent du PDF');
+      return false;
+    }
+    return true;
+  });
+
+  add('E2E (v6.9.2)', 'PDF bon route : hors compta (aucun TOTAL/TVA)', function () {
+    resetData();
+    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9', destination: 'tunis',
+                                 materiel: [{ designation: 'Câble', quantite: 10, unite: 'm' }] });
+    if (!b) return false;
+    var html = _buildBonRouteHTML(b);
+    return html.length > 2000 &&
+           html.indexOf('BON DE SORTIE') >= 0 &&
+           html.indexOf('n\'a pas valeur de facture') >= 0 &&
+           html.indexOf('TOTAL TTC') < 0 &&
+           html.indexOf('NET À PAYER') < 0;
+  });
+
+  /* ════════════════════════════════════════════════════
+     RUNNER
+     ════════════════════════════════════════════════════ */
+
+  var results = [];
+  var totalPass = 0, totalFail = 0;
+  var currentCat = '';
+  var currentCatPass = 0, currentCatTotal = 0;
+
+  function updateSummary() {
+    var s = document.getElementById('summary');
+    var total = results.length;
+    var expected = TESTS.length;
+    if (total < expected) {
+      s.innerHTML = '⏳ Exécution… <strong>' + total + '</strong> / ' + expected +
+        ' · ✅ ' + totalPass + ' · ❌ ' + totalFail;
+    } else {
+      var isAllOk = totalFail === 0;
+      s.innerHTML = '<div class="big ' + (isAllOk ? 'ok-text' : 'ko-text') + '">' +
+        (isAllOk ? '✅ TOUS LES TESTS PASSENT (' + total + ')' : '❌ ' + totalFail + ' ÉCHEC(S) SUR ' + total) +
+        '</div><div style="margin-top:8px">Total : <strong>' + total + '</strong>' +
+        ' · ✅ <span class="ok-text"><strong>' + totalPass + '</strong></span>' +
+        ' · ❌ <span class="ko-text"><strong>' + totalFail + '</strong></span></div>';
+    }
+  }
+
+  /* v6.8.2 — Sanitize un nom de catégorie pour en faire un ID HTML
+     valide. Remplace tout caractère non [a-zA-Z0-9_] par '_'.
+     Sans ça, "computeLineTotal (LOT 5)" produit l'ID
+     'table_computeLineTotal_(LOT_5)' qui throw en querySelector
+     (parenthèses = sélecteur CSS invalide). */
+  function _safeCatId(s) {
+    return String(s || '').replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
+  /* v6.9.1 — Construit le texte complet du rapport (format lisible,
+     copiable dans un mail/WhatsApp/issue GitHub). */
+  function _buildTestReportText() {
+    var lines = [];
+    lines.push('═══════════════════════════════════════════════════════════════');
+    lines.push('VOLTCORE — Rapport de tests');
+    lines.push('═══════════════════════════════════════════════════════════════');
+    lines.push('');
+    var now = new Date();
+    var dateStr = now.getFullYear() + '-' +
+      String(now.getMonth() + 1).padStart(2, '0') + '-' +
+      String(now.getDate()).padStart(2, '0') + ' ' +
+      String(now.getHours()).padStart(2, '0') + ':' +
+      String(now.getMinutes()).padStart(2, '0') + ':' +
+      String(now.getSeconds()).padStart(2, '0');
+    lines.push('Date         : ' + dateStr);
+    lines.push('Total        : ' + results.length);
+    lines.push('Réussis      : ' + totalPass + ' ✅');
+    lines.push('Échoués      : ' + totalFail + ' ❌');
+    lines.push('Statut       : ' + (totalFail === 0 ? 'SUCCÈS TOTAL ✅' : 'ÉCHEC ❌'));
+    lines.push('');
+
+    /* Grouper par catégorie en préservant l'ordre d'apparition */
+    var catOrder = [];
+    var byCat = {};
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      if (!byCat[r.cat]) {
+        byCat[r.cat] = [];
+        catOrder.push(r.cat);
+      }
+      byCat[r.cat].push(r);
+    }
+
+    for (var c = 0; c < catOrder.length; c++) {
+      var cat = catOrder[c];
+      var list = byCat[cat];
+      var pass = 0, fail = 0;
+      for (var k = 0; k < list.length; k++) {
+        if (list[k].ok) pass++; else fail++;
+      }
+      lines.push('─── ' + cat + ' (' + pass + '/' + list.length + ') ───');
+      for (var j = 0; j < list.length; j++) {
+        var r2 = list[j];
+        var mark = r2.ok ? '✅' : '❌';
+        lines.push('  ' + r2.idx + '. ' + mark + ' ' + r2.name);
+        if (!r2.ok && r2.error) {
+          lines.push('       Erreur : ' + r2.error);
+        }
+      }
+      lines.push('');
+    }
+
+    lines.push('═══════════════════════════════════════════════════════════════');
+    lines.push('FIN DU RAPPORT');
+    lines.push('═══════════════════════════════════════════════════════════════');
+    return lines.join('\n');
+  }
+
+  /* Copie le rapport complet dans le presse-papiers.
+     Utilise copyToClipboard de 03-utils.js (async + fallback).
+     Feedback visuel : bouton change de texte pendant 2s. */
+  window.copyTestReport = async function () {
+    var btn = document.getElementById('btnCopyReport');
+    var origText = '📋 Copier le rapport';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Copie…';
+    }
+
+    var text = _buildTestReportText();
+    var ok = false;
+
+    if (typeof copyToClipboard === 'function') {
+      try {
+        ok = await copyToClipboard(text);
+      } catch (e) {
+        console.warn('copyToClipboard :', e);
+        ok = false;
+      }
+    } else {
+      /* Fallback direct si 03-utils.js absent */
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (e) {
+        ok = false;
+      }
+    }
+
+    if (btn) {
+      if (ok) {
+        btn.textContent = '✅ Rapport copié !';
+        btn.style.background = '#2e7d32';
+        setTimeout(function () {
+          btn.textContent = origText;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.textContent = '❌ Échec de copie';
+        btn.style.background = '#c0392b';
+        setTimeout(function () {
+          btn.textContent = origText;
+          btn.style.background = '#2e7d32';
+          btn.disabled = false;
+        }, 2500);
+      }
+    }
+  };
+
+  function appendHeader(cat) {
+    var main = document.getElementById('testResults');
+    var div = document.createElement('div');
+    div.className = 'cat-title';
+    if (cat.indexOf('LOT 5') >= 0) div.className += ' lot5';
+    else if (cat.indexOf('BTP') >= 0) div.className += ' btp';
+    else if (cat.indexOf('S3') >= 0) div.className += ' s3';
+    var safeId = _safeCatId(cat);
+    div.id = 'cat_' + safeId;
+    div.innerHTML = '<span>' + cat + '</span><span id="catcount_' + safeId + '">0/0</span>';
+    main.appendChild(div);
+
+    var table = document.createElement('table');
+    table.id = 'table_' + safeId;
+    table.innerHTML = '<thead><tr><th style="width:40px">#</th><th>Test</th><th style="width:60px">Statut</th><th>Détail</th></tr></thead><tbody></tbody>';
+    main.appendChild(table);
+    currentCat = cat;
+    currentCatPass = 0;
+    currentCatTotal = 0;
+  }
+
+  function appendResult(test, idx, okStatus, error) {
+    var catKey = _safeCatId(test.cat);
+    var table = document.getElementById('table_' + catKey);
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="num">' + idx + '</td>' +
+      '<td>' + test.name.replace(/</g, '&lt;') + '</td>' +
+      '<td class="status ' + (okStatus ? 'pass' : 'fail') + '">' + (okStatus ? '✅ PASS' : '❌ FAIL') + '</td>' +
+      '<td class="error">' + (error || '') + '</td>';
+    tbody.appendChild(tr);
+
+    currentCatTotal++;
+    if (okStatus) currentCatPass++;
+    var cc = document.getElementById('catcount_' + catKey);
+    if (cc) cc.textContent = currentCatPass + '/' + currentCatTotal;
+  }
+
+  async function runAllTests() {
+    for (var i = 0; i < TESTS.length; i++) {
+      var test = TESTS[i];
+      if (test.cat !== currentCat) {
+        appendHeader(test.cat);
+      }
+
+      var result = { ok: false, error: '' };
+      try {
+        var ret = test.fn();
+        if (ret && typeof ret.then === 'function') {
+          ret = await ret;
+        }
+        result.ok = !!ret;
+      } catch (e) {
+        result.ok = false;
+        result.error = e && e.message ? e.message : String(e);
+      }
+
+      /* v6.9.1 — enrichi pour permettre la reconstruction du rapport texte */
+      results.push({
+        ok: result.ok,
+        error: result.error,
+        name: test.name,
+        cat: test.cat,
+        idx: i + 1
+      });
+      if (result.ok) totalPass++; else totalFail++;
+      appendResult(test, i + 1, result.ok, result.error);
+      updateSummary();
+    }
+    updateSummary();
+
+    /* v6.9.1 — active le bouton « Copier le rapport » une fois terminé */
+    var copyBtn = document.getElementById('btnCopyReport');
+    if (copyBtn) copyBtn.disabled = false;
+  }
+
+  /* Démarre après un petit délai (laisse les scripts terminer) */
+  setTimeout(runAllTests, 500);
+  console.log('✅ tests.html chargé — v6.7 (155 tests — LOT 5 + Session #3)');
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "name": "VOLTCORE — Gestion d'ingénierie",
+  "short_name": "VOLTCORE",
+  "description": "Gestion complète : clients, factures, stock, chantiers, RH, achats",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b3d91",
+  "theme_color": "#0b3d91",
+  "lang": "fr",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouvelle facture",
+      "short_name": "Facture",
+      "url": "./index.html#facturation",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Clients",
+      "short_name": "Clients",
+      "url": "./index.html#clients"
+    },
+    {
+      "name": "Stock",
+      "short_name": "Stock",
+      "url": "./index.html#stock"
+    }
+  ]
+}

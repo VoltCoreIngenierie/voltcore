@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1A2B4C">
+<meta name="description" content="VOLTCORE v6 — Gestion d'ingénierie (clients, factures, stock, chantiers, RH)">
+<title>VOLTCORE v6 — Gestion d'ingénierie</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon.png">
+<link rel="stylesheet" href="./00-style.css">
+</head>
+<body>
+
+<!-- ═══════════ SKELETON (écran de chargement) ═══════════ -->
+<div id="appSkeleton" class="app-skeleton">
+  <div class="skeleton-content">
+    <div class="skeleton-logo">VOLT<span>CORE</span></div>
+    <div class="skeleton-subtitle">INGÉNIERIE · ÉLECTRICITÉ · BÂTIMENT</div>
+    <div class="skeleton-spinner"></div>
+    <div class="skeleton-text">Chargement des données…</div>
+  </div>
+</div>
+
+<!-- ═══════════ APP ROOT (caché tant que non connecté) ═══════════ -->
+<div id="appRoot" class="app-root" style="display:none">
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <header class="app-header">
+    <div class="header-left">
+      <button id="btnToggleSidebar" class="btn-icon" title="Menu" aria-label="Menu">☰</button>
+      <img data-voltcore-logo alt="Logo VOLTCORE" class="header-logo" style="display:none">
+      <div class="header-title">
+        <div class="header-brand">VOLT<span class="brand-core">CORE</span></div>
+        <div class="header-logo-underline">
+          <div class="u-gold"></div>
+          <div class="u-red"></div>
+        </div>
+        <div class="header-subtitle">INGÉNIERIE · ÉLECTRICITÉ · BÂTIMENT</div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <span id="activeChantierBadge" class="active-chantier-badge" style="display:none"></span>
+    </div>
+
+    <div class="header-right">
+      <span id="autosaveBadge" class="autosave-badge" style="display:none"></span>
+      <span id="licenseExpiryBadge" class="license-badge" title="Licence hors ligne"></span>
+      <button id="btnOpenHelp" class="btn-icon" title="Aide" aria-label="Aide">❓</button>
+      <button id="btnOpenAssistantIA" class="btn-icon" title="Assistant IA" aria-label="Assistant IA">🤖</button>
+      <button id="btnFullscreen" class="btn-icon" title="Plein écran" aria-label="Plein écran">⛶</button>
+      <button id="btnLogout" class="btn-icon" title="Déconnexion" aria-label="Déconnexion">⏻</button>
+    </div>
+  </header>
+
+  <!-- ═══════════ SIDEBAR ═══════════ -->
+  <aside class="app-sidebar">
+    <nav class="sidebar-nav">
+      <button class="nav-item" data-nav-section="dashboard">
+        <span class="nav-icon">🏠</span><span class="nav-label">Tableau de bord</span>
+      </button>
+      <button class="nav-item" data-nav-section="clients">
+        <span class="nav-icon">👥</span><span class="nav-label">Clients</span>
+        <span id="alertCountClients" class="nav-badge" style="display:none"></span>
+      </button>
+      <button class="nav-item" data-nav-section="fournisseurs">
+        <span class="nav-icon">🏭</span><span class="nav-label">Fournisseurs</span>
+        <span id="alertCountSuppliers" class="nav-badge" style="display:none"></span>
+      </button>
+      <button class="nav-item" data-nav-section="stock">
+        <span class="nav-icon">📦</span><span class="nav-label">Stock</span>
+        <span id="alertCountArticles" class="nav-badge" style="display:none"></span>
+      </button>
+      <button class="nav-item" data-nav-section="chantiers">
+        <span class="nav-icon">🏗️</span><span class="nav-label">Chantiers</span>
+      </button>
+      <button class="nav-item" data-nav-section="facturation">
+        <span class="nav-icon">🧾</span><span class="nav-label">Facturation</span>
+      </button>
+      <button class="nav-item" data-nav-section="achats">
+        <span class="nav-icon">🛒</span><span class="nav-label">Achats</span>
+      </button>
+      <button class="nav-item" data-nav-section="frais">
+        <span class="nav-icon">💰</span><span class="nav-label">Frais</span>
+      </button>
+      <button class="nav-item" data-nav-section="bonsRoute">
+        <span class="nav-icon">🚐</span><span class="nav-label">Bons Route</span>
+      </button>
+      <button class="nav-item" data-nav-section="rh">
+        <span class="nav-icon">👤</span><span class="nav-label">RH</span>
+      </button>
+      <button class="nav-item" data-nav-section="outils">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Outils</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ═══════════ MAIN ═══════════ -->
+  <main class="app-main">
+
+    <!-- ─────────── SECTION : DASHBOARD ─────────── -->
+    <section id="dashboardSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Tableau de bord</h1>
+        <div class="section-tabs">
+          <button id="tabDashboard" class="section-tab active" onclick="if(typeof showSection==='function') showSection('dashboard')">Dashboard</button>
+          <button id="tabReports" class="section-tab" onclick="if(typeof showSection==='function') showSection('reports')">Rapports</button>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">CA total</div><div id="kpiCA" class="kpi-value">0 DT</div></div>
+        <div class="kpi-card"><div class="kpi-label">CA ce mois</div><div id="kpiCAMois" class="kpi-value">0 DT</div></div>
+        <div class="kpi-card"><div class="kpi-label">Marge totale</div><div id="kpiMarge" class="kpi-value">0 DT</div></div>
+        <div class="kpi-card"><div class="kpi-label">Bénéfice net</div><div id="kpiBenefice" class="kpi-value">0 DT</div></div>
+        <div class="kpi-card"><div class="kpi-label">Impayés</div><div id="kpiImpayes" class="kpi-value">0 DT</div></div>
+        <div class="kpi-card"><div class="kpi-label">🔒 Garanties en attente</div><div id="kpiGaranties" class="kpi-value">0 DT</div><div id="kpiNbGaranties" class="muted" style="font-size:11px;margin-top:4px;color:var(--text-light)">0 facture</div></div>
+        <div class="kpi-card"><div class="kpi-label">Factures</div><div id="kpiNbFactures" class="kpi-value">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Clients</div><div id="kpiNbClients" class="kpi-value">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Chantiers</div><div id="kpiNbChantiers" class="kpi-value">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Alertes</div><div id="kpiNbAlertes" class="kpi-value">0</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>CA vs Marge (12 mois)</h3>
+          <div id="chartCAWrapper" class="chart-wrapper" style="height:300px"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Répartition par famille</h3>
+          <div id="chartFamillesWrapper" class="chart-wrapper" style="height:300px"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Modes de paiement</h3>
+          <div id="chartPaiementsWrapper" class="chart-wrapper" style="height:300px"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Top 10 chantiers (marge)</h3>
+          <div id="chartMargeChantiersWrapper" class="chart-wrapper" style="height:300px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── SECTION : RAPPORTS ─────────── -->
+    <section id="reportsSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Rapports</h1>
+        <div class="section-tabs">
+          <button id="tabReportTVA" class="section-tab active">TVA</button>
+          <button id="tabReportMonthly" class="section-tab">Mensuel</button>
+          <button id="tabReportRelances" class="section-tab">Relances</button>
+          <button id="tabReportGaranties" class="section-tab">🔒 Garanties</button>
+        </div>
+      </div>
+      <div class="report-controls">
+        <label>Mois TVA : <input type="month" id="tvaReportMonth"></label>
+      </div>
+      <div id="tvaReportBody" class="report-body"></div>
+      <div id="monthlyReportBody" class="report-body" style="display:none"></div>
+      <div id="relancesBody" class="report-body" style="display:none"></div>
+      <div id="garantiesBody" class="report-body" style="display:none"></div>
+    </section>
+
+    <!-- ─────────── SECTION : CLIENTS ─────────── -->
+    <section id="clientsSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Clients <span id="clientsCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddClient" class="btn btn-primary">+ Nouveau client</button>
+          <button id="btnImportClients" class="btn">Importer</button>
+          <button id="btnExportClientsJSON" class="btn">JSON</button>
+          <button id="btnExportClientsCSV" class="btn">CSV</button>
+          <button id="btnPrintClients" class="btn">🖨️</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="clientsSearchInput" placeholder="Rechercher un client…" class="input-search">
+        <select id="clientsFilterSelect" class="input-select">
+          <option value="all">Tous</option>
+          <option value="with_docs">Avec documents</option>
+          <option value="without_docs">Sans documents</option>
+          <option value="with_impayes">Avec impayés</option>
+          <option value="a_risque">Clients à risque</option>
+        </select>
+        <select id="clientsSortSelect" class="input-select" title="Trier par">
+          <option value="nom">Trier : Nom</option>
+          <option value="ca">Trier : CA</option>
+          <option value="marge">Trier : Marge</option>
+          <option value="impaye">Trier : Impayé</option>
+          <option value="retard">Trier : Retard</option>
+        </select>
+        <button id="clientsSortDirBtn" class="btn btn-sm" title="Inverser le sens">↑</button>
+      </div>
+      <div id="clientsList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : FOURNISSEURS ─────────── -->
+    <section id="suppliersSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Fournisseurs <span id="suppliersCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddSupplier" class="btn btn-primary">+ Nouveau fournisseur</button>
+          <button id="btnImportSuppliers" class="btn">Importer</button>
+          <button id="btnExportSuppliersJSON" class="btn">JSON</button>
+          <button id="btnExportSuppliersCSV" class="btn">CSV</button>
+          <button id="btnPrintSuppliers" class="btn">🖨️</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="suppliersSearchInput" placeholder="Rechercher un fournisseur…" class="input-search">
+        <select id="suppliersFilterSelect" class="input-select">
+          <option value="all">Tous</option>
+          <option value="with_invoices">Avec achats</option>
+          <option value="without_invoices">Sans achats</option>
+          <option value="expensive">Plus chers</option>
+        </select>
+      </div>
+      <div id="suppliersList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : STOCK ─────────── -->
+    <section id="stockSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Stock <span id="stockCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddArticle" class="btn btn-primary">+ Nouvel article</button>
+          <button id="btnAddFamille" class="btn">+ Famille</button>
+          <button id="btnImportStock" class="btn">Importer</button>
+          <button id="btnExportStockJSON" class="btn">JSON</button>
+          <button id="btnExportStockCSV" class="btn">CSV</button>
+          <button id="btnPrintEtiquettes" class="btn">🏷️ Étiquettes</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="stockSearchInput" placeholder="Rechercher un article…" class="input-search">
+        <select id="stockFilterSelect" class="input-select">
+          <option value="actif">Actifs</option>
+          <option value="tous">Tous</option>
+          <option value="hs">Hors stock</option>
+          <option value="alertes">Alertes prix</option>
+          <option value="sans_famille">Sans famille</option>
+        </select>
+        <select id="stockFamilleFilterSelect" class="input-select">
+          <option value="">Toutes familles</option>
+        </select>
+      </div>
+      <div id="stockList" class="list-container"></div>
+      <div class="pagination">
+        <button id="stockPrevBtn" class="btn btn-sm">◀ Précédent</button>
+        <span id="stockPageInfo" class="muted">0 article</span>
+        <button id="stockNextBtn" class="btn btn-sm">Suivant ▶</button>
+      </div>
+    </section>
+
+    <!-- ─────────── SECTION : CHANTIERS ─────────── -->
+    <section id="chantiersSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Chantiers <span id="chantiersCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddChantier" class="btn btn-primary">+ Nouveau chantier</button>
+          <button id="btnImportChantiers" class="btn">Importer</button>
+          <button id="btnExportChantiersJSON" class="btn">JSON</button>
+          <button id="btnExportChantiersCSV" class="btn">CSV</button>
+          <button id="btnPrintChantiers" class="btn">🖨️</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="chantiersSearchInput" placeholder="Rechercher un chantier…" class="input-search">
+        <select id="chantiersFilterSelect" class="input-select">
+          <option value="all">Tous</option>
+          <option value="actifs">En cours</option>
+          <option value="termines">Terminés</option>
+          <option value="planifies">Planifiés</option>
+          <option value="negatifs">Marge négative</option>
+        </select>
+      </div>
+      <div id="chantiersList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : FACTURATION ─────────── -->
+    <section id="facturationSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Facturation <span id="invoicesCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddInvoice" class="btn btn-primary">+ Nouveau document</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="invoicesSearchInput" placeholder="Rechercher (n°, sujet, client)…" class="input-search">
+        <select id="invoicesFilterSelect" class="input-select">
+          <option value="all">Tous</option>
+          <option value="facture">Factures</option>
+          <option value="devis">Devis</option>
+          <option value="bl">Bons de livraison</option>
+          <option value="attachement">Attachements</option>
+          <option value="avoir">Avoirs</option>
+          <option value="impayees">Impayés</option>
+          <option value="payees">Payés</option>
+          <option value="annulees">Annulés</option>
+        </select>
+        <select id="invoicesClientFilterSelect" class="input-select">
+          <option value="">Tous les clients</option>
+        </select>
+      </div>
+      <div id="invoicesList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : ACHATS ─────────── -->
+    <section id="purchasesSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Achats <span id="purchasesCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddPurchase" class="btn btn-primary">+ Nouvel achat</button>
+          <button id="btnImportPurchases" class="btn">Importer</button>
+          <button id="btnExportPurchases" class="btn">JSON</button>
+          <button id="btnPrintPurchases" class="btn">🖨️</button>
+        </div>
+      </div>
+      <div class="purchases-summary">
+        <div>HT : <span id="purchasesTotalHT">0 DT</span></div>
+        <div>TVA : <span id="purchasesTotalTVA">0 DT</span></div>
+        <div>TTC : <span id="purchasesTotalTTC">0 DT</span></div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="purchasesSearchInput" placeholder="Rechercher (n°, fournisseur)…" class="input-search">
+        <select id="purchasesFilterSelect" class="input-select">
+          <option value="all">Tous</option>
+          <option value="impayees">Impayés</option>
+          <option value="payees">Payés</option>
+          <option value="mois_courant">Mois courant</option>
+        </select>
+      </div>
+      <div id="purchasesList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : FRAIS + BONS ─────────── -->
+    <section id="fraisSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Notes de frais <span id="fraisCount" class="count-badge">0</span> · <span id="fraisTotal">0 DT</span></h1>
+        <div class="section-actions">
+          <button id="btnAddFrais" class="btn btn-primary">+ Nouveau frais</button>
+          <button id="btnImportFrais" class="btn">Importer</button>
+          <button id="btnExportFraisJSON" class="btn">JSON</button>
+          <button id="btnExportFraisCSV" class="btn">CSV</button>
+          <button id="btnPrintFrais" class="btn">🖨️</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="fraisSearchInput" placeholder="Rechercher un frais…" class="input-search">
+        <select id="fraisFilterSelect" class="input-select">
+          <option value="all">Toutes</option>
+          <option value="mois_courant">Mois courant</option>
+        </select>
+      </div>
+      <div id="fraisList" class="list-container"></div>
+
+      <div class="section-subsection">
+        <h2>Bons de sortie</h2>
+        <div class="bons-actions">
+          <button id="btnOpenBonA" class="btn btn-bon-a">Bon A</button>
+          <button id="btnOpenBonB" class="btn btn-bon-b">Bon B</button>
+          <button id="btnOpenBonC" class="btn btn-bon-c">Bon C</button>
+          <button id="btnOpenBonD" class="btn btn-bon-d">Bon D</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── SECTION : BONS ROUTE (v6.9.0) ─────────── -->
+    <section id="bonsRouteSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Bons Route <span id="bonsRouteCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddBonRoute" class="btn btn-primary">+ Nouveau bon route</button>
+          <button id="btnImportBonsRoute" class="btn">Importer</button>
+          <button id="btnExportBonsRouteJSON" class="btn">JSON</button>
+          <button id="btnExportBonsRouteCSV" class="btn">CSV</button>
+          <button id="btnPrintBonsRouteList" class="btn">🖨️</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="bonsRouteSearchInput" placeholder="Rechercher (n°, véhicule, chauffeur, matériel, documents)…" class="input-search">
+        <select id="bonsRouteFilterType" class="input-select">
+          <option value="all">Tous types</option>
+          <option value="sortie">📤 Sortie</option>
+          <option value="commande">📥 Commande</option>
+          <option value="deplacement">🚐 Déplacement</option>
+        </select>
+        <select id="bonsRouteFilterStatut" class="input-select">
+          <option value="all">Tous statuts</option>
+          <option value="brouillon">📝 Brouillon</option>
+          <option value="envoye">📤 Envoyé</option>
+          <option value="recu">📥 Reçu</option>
+          <option value="retourne">🔙 Retourné</option>
+          <option value="archive">📚 Archivé</option>
+        </select>
+        <select id="bonsRouteFilterDestination" class="input-select">
+          <option value="all">Toutes destinations</option>
+          <option value="tunis">Tunis</option>
+          <option value="sfax">Sfax</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+      <div id="bonsRouteList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : RH ─────────── -->
+    <section id="hrSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Ressources humaines <span id="hrCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddHREmployee" class="btn btn-primary">+ Nouvel employé</button>
+          <button id="btnImportHR" class="btn">Importer</button>
+          <button id="btnExportHR" class="btn">JSON</button>
+          <button id="btnPrintHR" class="btn">🖨️</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="hrSearchInput" placeholder="Rechercher un employé…" class="input-search">
+        <select id="hrFilterSelect" class="input-select">
+          <option value="all">Tous</option>
+          <option value="actifs">Actifs</option>
+          <option value="inactifs">Inactifs</option>
+          <option value="doivent">Avec solde dû</option>
+        </select>
+      </div>
+      <div id="hrList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : OUTILS ─────────── -->
+    <section id="toolsSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Outils & Paramètres</h1>
+      </div>
+
+      <div class="tools-grid">
+        <div class="tools-card">
+          <h2>🗑️ Corbeille <span id="trashCount" class="count-badge">0</span></h2>
+          <div class="tools-actions">
+            <button id="btnPurgeTrash" class="btn">Purger > 30 j</button>
+            <button id="btnEmptyTrash" class="btn btn-danger">Vider</button>
+          </div>
+          <div id="trashList" class="list-container"></div>
+        </div>
+
+        <div class="tools-card">
+          <h2>📜 Historique</h2>
+          <div class="tools-actions">
+            <label>Garder les <input type="number" id="historyDaysInput" value="90" min="7" max="365" style="width:70px"> derniers jours</label>
+            <button id="btnClearOldHistory" class="btn">Nettoyer</button>
+          </div>
+          <div id="historyList" class="list-container"></div>
+        </div>
+
+        <div class="tools-card">
+          <h2>💾 Sauvegarde complète</h2>
+          <div class="tools-actions">
+            <button id="btnExportCompleteBackup" class="btn btn-primary">Exporter (JSON)</button>
+            <button id="btnImportCompleteBackup" class="btn">Importer un backup</button>
+          </div>
+        </div>
+
+        <div class="tools-card">
+          <h2>🔄 Backups automatiques (IndexedDB)</h2>
+          <div class="tools-actions">
+            <button id="btnRefreshIDBBackups" class="btn">Rafraîchir</button>
+          </div>
+          <div id="idbBackupsList" class="list-container"></div>
+        </div>
+
+        <div class="tools-card">
+          <h2>🔍 Doublons</h2>
+          <div class="tools-actions">
+            <button id="btnScanDuplicates" class="btn">Scanner</button>
+          </div>
+          <div id="duplicatesList" class="list-container"></div>
+        </div>
+
+        <div class="tools-card">
+          <h2>⚙️ Paramètres société</h2>
+          <div class="form-grid">
+            <label>RIB<input type="text" id="settingsRib" class="input"></label>
+            <label>Banque<input type="text" id="settingsBanque" class="input"></label>
+            <label>MF<input type="text" id="settingsMF" class="input"></label>
+            <label>RNE<input type="text" id="settingsRNE" class="input" placeholder="Numéro RNE"></label>
+          </div>
+          <div class="form-row">
+            <label class="checkbox-label"><input type="checkbox" id="settingsDarkMode"> Mode sombre</label>
+          </div>
+          <div class="tools-actions">
+            <button id="btnSaveSettings" class="btn btn-primary">Enregistrer</button>
+            <button id="btnResetCompteurs" class="btn btn-danger">Reset compteurs</button>
+          </div>
+        </div>
+
+        <div class="tools-card">
+          <h2>🖼️ Logo</h2>
+          <div class="logo-preview-container">
+            <img id="settingsLogoPreview" style="display:none; max-width:200px; max-height:100px" alt="Logo">
+          </div>
+          <div class="tools-actions">
+            <button id="btnChangeLogo" class="btn">Changer</button>
+            <button id="btnRemoveLogo" class="btn btn-danger">Supprimer</button>
+          </div>
+        </div>
+
+        <div class="tools-card">
+          <h2>🔧 Modules</h2>
+          <div class="tools-actions">
+            <button id="btnOpenScanner" class="btn">📷 Scanner</button>
+            <button id="btnOpenSignature" class="btn">✍️ Signature</button>
+            <button class="btn" onclick="var b=document.getElementById('btnOpenAssistantIA');if(b)b.click();">🤖 Assistant IA</button>
+            <button id="btnOpenUserManagement" class="btn">👥 Utilisateurs</button>
+            <button id="btnResetServiceWorker" class="btn btn-danger">🔄 Réinitialiser cache</button>
+          </div>
+        </div>
+
+        <div class="tools-card">
+          <h2>🔬 Diagnostic</h2>
+          <p class="muted" style="margin-bottom:12px;font-size:12px;line-height:1.6">
+            Outil de dépannage : vérifie l'état des fichiers chargés,
+            mesure les performances et calcule l'occupation du stockage local.
+          </p>
+          <div class="tools-actions">
+            <button id="diagBtn" class="btn btn-primary">🔍 Ouvrir le diagnostic</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tools-card">
+        <h2>👥 Familles d'articles</h2>
+        <div id="famillesList" class="list-container"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════ BOTTOM BAR (mobile) ═══════════ -->
+  <nav id="bottomBar" class="bottom-bar">
+    <button class="bottom-tab" data-section="dashboard"><span>🏠</span><span>Accueil</span></button>
+    <button class="bottom-tab" data-section="clients"><span>👥</span><span>Clients</span></button>
+    <button class="bottom-tab" data-section="facturation"><span>🧾</span><span>Factures</span></button>
+    <button class="bottom-tab" data-section="stock"><span>📦</span><span>Stock</span></button>
+    <button class="bottom-tab" data-section="bonsRoute"><span>🚐</span><span>Route</span></button>
+    <button class="bottom-tab" data-section="outils"><span>⚙️</span><span>Outils</span></button>
+  </nav>
+
+  <!-- ═══════════ FAB ═══════════ -->
+  <button id="mobileFab" class="mobile-fab" aria-label="Nouveau" style="display:none">＋</button>
+
+  <!-- ═══════════ INSTALL BANNER ═══════════ -->
+  <div id="installPwaBanner" class="install-banner" style="display:none">
+    <span>📱 Installer VOLTCORE</span>
+    <button id="btnInstallPwa" class="btn btn-sm btn-primary">Installer</button>
+    <button id="btnDismissInstallPwa" class="btn-icon">✕</button>
+  </div>
+
+</div>
+<!-- ═══════════ FIN APP ROOT ═══════════ -->
+
+<!-- ═══════════ MODALE : LOGIN ═══════════ -->
+<div id="loginModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>Connexion VOLTCORE</h2>
+    <div class="form-grid">
+      <label>Utilisateur<input type="text" id="loginUsername" autocomplete="username" class="input"></label>
+      <label>Mot de passe<input type="password" id="loginPassword" autocomplete="current-password" class="input"></label>
+    </div>
+    <div id="loginError" class="form-error"></div>
+    <div class="modal-actions">
+      <button id="biometricLoginBtn" class="btn" style="display:none">🔐 Empreinte</button>
+      <button class="btn btn-primary" onclick="if(typeof doLogin==='function')doLogin()">Connexion</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ OVERLAY : LOCK ═══════════ -->
+<div id="lockOverlay" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>🔒 Application verrouillée</h2>
+    <p>Inactivité détectée (5 min). Saisis ton mot de passe pour reprendre.</p>
+    <div class="form-grid">
+      <label>Mot de passe<input type="password" id="unlockPassword" class="input"></label>
+    </div>
+    <div id="unlockError" class="form-error"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof doLogout==='function')doLogout()">Changer d'utilisateur</button>
+      <button class="btn btn-primary" onclick="if(typeof unlockApp==='function')unlockApp()">Déverrouiller</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : LICENCE ═══════════ -->
+<div id="licenseModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>Licence VOLTCORE</h2>
+    <div id="licenseStatus" class="muted"></div>
+    <label>Clé de licence<textarea id="licenseKeyInput" rows="4" class="input"></textarea></label>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof exportBackupFromLicenseGate==='function')exportBackupFromLicenseGate()">💾 Exporter mes données</button>
+      <button id="activateLicenseBtn" class="btn btn-primary" onclick="if(typeof activateVoltcoreLicense==='function')activateVoltcoreLicense()">Activer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : ALERTES (badges) ═══════════ -->
+<div id="alertsModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2>Alertes</h2>
+    <div id="alertsModalBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeAlertsModal==='function')closeAlertsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : CLIENT ═══════════ -->
+<div id="clientModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2 id="clientModalTitle">Nouveau client</h2>
+    <form id="clientForm" onsubmit="event.preventDefault(); if(typeof saveClientFromForm==='function')saveClientFromForm();">
+      <input type="hidden" id="clientId">
+      <div class="form-grid">
+        <label>Nom *<input type="text" id="clientNom" class="input" required></label>
+        <label>Téléphone<input type="tel" id="clientTelephone" class="input"></label>
+        <label>Email<input type="email" id="clientEmail" class="input"></label>
+        <label>Adresse<input type="text" id="clientAdresse" class="input"></label>
+        <label>MF<input type="text" id="clientMF" class="input"></label>
+        <label>CIN<input type="text" id="clientCIN" class="input"></label>
+      </div>
+
+      <h3>Informations BTP (optionnel)</h3>
+      <div class="form-grid">
+        <label>Type
+          <select id="clientType" class="input">
+            <option value="particulier">Particulier</option>
+            <option value="entreprise">Entreprise</option>
+            <option value="administration">Administration</option>
+            <option value="sous-traitant">Sous-traitant</option>
+          </select>
+        </label>
+        <label>Délai paiement
+          <select id="clientDelai" class="input">
+            <option value="0">Comptant</option>
+            <option value="30">30 jours</option>
+            <option value="60">60 jours</option>
+            <option value="90">90 jours</option>
+          </select>
+        </label>
+        <label>Retenue source (%)
+          <input type="number" step="0.01" min="0" max="100" id="clientRetenue" class="input" value="0">
+        </label>
+        <label>Gouvernorat
+          <input type="text" id="clientGouvernorat" class="input">
+        </label>
+        <label>Adresse chantier
+          <input type="text" id="clientAdresseChantier" class="input">
+        </label>
+        <label>Code TVA
+          <input type="text" id="clientCodeTVA" class="input">
+        </label>
+        <label>Code catégorie
+          <input type="text" id="clientCodeCategorie" class="input">
+        </label>
+      </div>
+
+      <label>Notes<textarea id="clientNotes" rows="3" class="input"></textarea></label>
+      <div id="clientFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="if(typeof closeClientModal==='function')closeClientModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : CLIENT DETAIL ═══════════ -->
+<div id="clientDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2 id="clientDetailTitle">Client</h2>
+    <div id="clientDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeClientDetail==='function')closeClientDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : FOURNISSEUR ═══════════ -->
+<div id="supplierModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="supplierModalTitle">Nouveau fournisseur</h2>
+    <form id="supplierForm" onsubmit="event.preventDefault(); if(typeof saveSupplierFromForm==='function')saveSupplierFromForm();">
+      <input type="hidden" id="supplierId">
+      <div class="form-grid">
+        <label>Nom *<input type="text" id="supplierNom" class="input" required></label>
+        <label>Téléphone<input type="tel" id="supplierTelephone" class="input"></label>
+        <label>Email<input type="email" id="supplierEmail" class="input"></label>
+        <label>Adresse<input type="text" id="supplierAdresse" class="input"></label>
+        <label>MF<input type="text" id="supplierMF" class="input"></label>
+        <label>RIB<input type="text" id="supplierRIB" class="input"></label>
+      </div>
+      <label>Notes<textarea id="supplierNotes" rows="3" class="input"></textarea></label>
+      <div id="supplierFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="if(typeof closeSupplierModal==='function')closeSupplierModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : FOURNISSEUR DETAIL ═══════════ -->
+<div id="supplierDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2 id="supplierDetailTitle">Fournisseur</h2>
+    <div id="supplierDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeSupplierDetail==='function')closeSupplierDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : ARTICLE ═══════════ -->
+<div id="articleModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="articleModalTitle">Nouvel article</h2>
+    <form id="articleForm" onsubmit="event.preventDefault(); if(typeof saveArticleFromForm==='function')saveArticleFromForm();">
+      <input type="hidden" id="articleId">
+      <div class="form-grid">
+        <label>Nom *<input type="text" id="articleNom" class="input" required></label>
+        <label>Prix vente<input type="number" step="0.001" id="articlePrix" class="input"></label>
+        <label>Prix achat<input type="number" step="0.001" id="articlePrixAchat" class="input"></label>
+        <label>Stock<input type="number" step="0.01" id="articleStock" class="input"></label>
+        <label>Seuil alerte<input type="number" step="0.01" id="articleSeuil" class="input"></label>
+        <label>Unité<input type="text" id="articleUnite" class="input" value="U"></label>
+        <label>Famille<input type="text" id="articleFamille" class="input" list="famillesDatalist"><datalist id="famillesDatalist"></datalist></label>
+        <label>Code-barres<input type="text" id="articleCodeBarre" class="input"></label>
+      </div>
+      <label>Notes<textarea id="articleNotes" rows="2" class="input"></textarea></label>
+      <label class="checkbox-label"><input type="checkbox" id="articleHS"> Hors stock</label>
+      <label class="checkbox-label"><input type="checkbox" id="articleActif" checked> Actif</label>
+      <div id="articleFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="if(typeof closeArticleModal==='function')closeArticleModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : ARTICLE DETAIL ═══════════ -->
+<div id="articleDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2 id="articleDetailTitle">Article</h2>
+    <div id="articleDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeArticleDetail==='function')closeArticleDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : FAMILLE ═══════════ -->
+<div id="familleModal" class="modal" style="display:none">
+  <div class="modal-content modal-small">
+    <h2>Nouvelle famille</h2>
+    <div class="form-grid">
+      <label>Nom *<input type="text" id="familleNom" class="input" required></label>
+      <label>Couleur<input type="color" id="familleCouleur" class="input" value="#C9A84C"></label>
+    </div>
+    <div id="familleFormError" class="form-error"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="document.getElementById('familleModal').style.display='none'">Annuler</button>
+      <button class="btn btn-primary" onclick="if(typeof saveFamilleFromForm==='function')saveFamilleFromForm()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : CHANTIER ═══════════ -->
+<div id="chantierModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="chantierModalTitle">Nouveau chantier</h2>
+    <form id="chantierForm" onsubmit="event.preventDefault(); if(typeof saveChantierFromForm==='function')saveChantierFromForm();">
+      <input type="hidden" id="chantierId">
+      <div class="form-grid">
+        <label>Nom *<input type="text" id="chantierNom" class="input" required></label>
+        <label>Client<select id="chantierClientSelect" class="input"></select></label>
+        <label>Adresse<input type="text" id="chantierAdresse" class="input"></label>
+        <label>Date début<input type="date" id="chantierDateDebut" class="input"></label>
+        <label>Date fin<input type="date" id="chantierDateFin" class="input"></label>
+        <label>Budget<input type="number" step="0.001" id="chantierBudget" class="input"></label>
+        <label>Responsable<input type="text" id="chantierResponsable" class="input"></label>
+        <label>Statut<select id="chantierStatut" class="input">
+          <option value="planifie">Planifié</option>
+          <option value="en_cours" selected>En cours</option>
+          <option value="termine">Terminé</option>
+          <option value="annule">Annulé</option>
+        </select></label>
+      </div>
+      <label>Notes<textarea id="chantierNotes" rows="3" class="input"></textarea></label>
+      <div id="chantierFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="if(typeof closeChantierModal==='function')closeChantierModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : CHANTIER DETAIL ═══════════ -->
+<div id="chantierDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2 id="chantierDetailTitle">Chantier</h2>
+    <div id="chantierDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeChantierDetail==='function')closeChantierDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : EMPLOYÉ ═══════════ -->
+<div id="hrEmployeeModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="hrEmployeeModalTitle">Nouvel employé</h2>
+    <form id="hrEmployeeForm" onsubmit="event.preventDefault(); if(typeof saveHREmployeeFromForm==='function')saveHREmployeeFromForm();">
+      <input type="hidden" id="hrEmployeeId">
+      <div class="form-grid">
+        <label>Nom *<input type="text" id="hrEmployeeNom" class="input" required></label>
+        <label>Poste<input type="text" id="hrEmployeePoste" class="input"></label>
+        <label>Téléphone<input type="tel" id="hrEmployeeTelephone" class="input"></label>
+        <label>Taux horaire<input type="number" step="0.001" id="hrEmployeeRate" class="input"></label>
+        <label>Date embauche<input type="date" id="hrEmployeeDate" class="input"></label>
+      </div>
+      <label>Notes<textarea id="hrEmployeeNotes" rows="2" class="input"></textarea></label>
+      <label class="checkbox-label"><input type="checkbox" id="hrEmployeeActif" checked> Actif</label>
+      <div id="hrEmployeeFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="if(typeof closeHREmployeeModal==='function')closeHREmployeeModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : JOURNÉE TRAVAILLÉE ═══════════ -->
+<div id="hrWorkModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>Journée travaillée</h2>
+    <form id="hrWorkForm" onsubmit="event.preventDefault(); if(typeof saveHRWorkFromForm==='function')saveHRWorkFromForm();">
+      <input type="hidden" id="hrWorkId">
+      <input type="hidden" id="hrWorkEmployeeId">
+      <div class="form-grid">
+        <label>Employé<select id="hrWorkEmployeeSelect" class="input"></select></label>
+        <label>Date<input type="date" id="hrWorkDate" class="input"></label>
+        <label>Heures<input type="number" step="0.1" id="hrWorkHours" class="input" value="8"></label>
+        <label>Taux<input type="number" step="0.001" id="hrWorkRate" class="input"></label>
+        <label>Chantier<select id="hrWorkChantierSelect" class="input"></select></label>
+      </div>
+      <label>Description<input type="text" id="hrWorkDescription" class="input"></label>
+      <div id="hrWorkFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="document.getElementById('hrWorkModal').style.display='none'">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : PAIEMENT RH ═══════════ -->
+<div id="hrTxModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>Paiement employé</h2>
+    <form id="hrTxForm" onsubmit="event.preventDefault(); if(typeof saveHRTxFromForm==='function')saveHRTxFromForm();">
+      <input type="hidden" id="hrTxEmployeeId">
+      <div class="form-grid">
+        <label>Employé<select id="hrTxEmployeeSelect" class="input"></select></label>
+        <label>Date<input type="date" id="hrTxDate" class="input"></label>
+        <label>Montant<input type="number" step="0.001" id="hrTxMontant" class="input"></label>
+        <label>Type<select id="hrTxType" class="input">
+          <option value="salaire">Salaire</option>
+          <option value="avance">Avance</option>
+          <option value="prime">Prime</option>
+          <option value="autre">Autre</option>
+        </select></label>
+        <label>Période<input type="text" id="hrTxPeriod" class="input" placeholder="ex: Oct 2026"></label>
+      </div>
+      <label>Note<input type="text" id="hrTxNote" class="input"></label>
+      <div id="hrTxFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="document.getElementById('hrTxModal').style.display='none'">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : RH DETAIL ═══════════ -->
+<div id="hrDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2 id="hrDetailTitle">Employé</h2>
+    <div id="hrDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeHRDetail==='function')closeHRDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : FACTURE ═══════════ -->
+<div id="invoiceModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2>Facture / Document <span id="invoiceTypeBadge" class="badge">Facture</span></h2>
+    <input type="hidden" id="invoiceEditId">
+    <div class="form-grid">
+      <label>Type<select id="invoiceType" class="input">
+        <option value="facture">Facture</option>
+        <option value="devis">Devis</option>
+        <option value="bl">Bon de livraison</option>
+        <option value="attachement">Attachement</option>
+        <option value="avoir">Avoir</option>
+      </select></label>
+      <label>N°<input type="text" id="invoiceNumero" class="input" placeholder="(auto)"></label>
+      <label>Date<input type="date" id="invoiceDate" class="input"></label>
+      <label>Client<select id="invoiceClientSelect" class="input"></select></label>
+      <label>Chantier<select id="invoiceChantierSelect" class="input"></select></label>
+      <label>Sujet<input type="text" id="invoiceSujet" class="input"></label>
+    </div>
+
+    <div class="invoice-items-section">
+      <h3>Lignes</h3>
+      <table class="invoice-items-table">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th class="col-qte">Qté</th>
+            <th class="col-unite">Unité</th>
+            <th class="col-pu">P.U.</th>
+            <th class="col-remise">Remise %</th>
+            <th class="col-total">Total</th>
+            <th class="col-action"></th>
+          </tr>
+        </thead>
+        <tbody id="invoiceItemsBody"></tbody>
+      </table>
+      <div class="invoice-items-actions">
+        <button type="button" id="btnAddInvoiceItem" class="btn btn-sm">+ Ajouter une ligne</button>
+        <button type="button" id="btnAddItemFromStock" class="btn btn-sm">+ Depuis stock</button>
+      </div>
+    </div>
+
+    <div class="invoice-totals-section">
+      <div class="form-grid">
+        <label>TVA %<input type="number" step="0.01" id="invoiceTVARate" class="input" value="19"></label>
+        <label>Timbre<input type="number" step="0.001" id="invoiceTimbre" class="input" value="1.000"></label>
+        <label>Retenue IR %<input type="number" step="0.01" id="invoiceRetenueIR" class="input" value="0"></label>
+        <label>Retenue TVA %<input type="number" step="0.01" id="invoiceRetenueTVA" class="input" value="0"></label>
+        <label>Retenue garantie %<input type="number" step="0.01" id="invoiceRetenueGarantie" class="input" value="0"></label>
+      </div>
+      <div class="totals-display">
+        <div>Total HT : <span id="totalHTDisplay">0 DT</span></div>
+        <div>TVA (<span id="tvaRateDisplay">19%</span>) : <span id="tvaDisplay">0 DT</span></div>
+        <div>Timbre : <span id="timbreDisplay">0 DT</span></div>
+        <div class="total-ttc">Total TTC : <span id="totalTTCDisplay">0 DT</span></div>
+        <div id="retenuesSummary" style="display:none">
+          <div>Retenue IR : <span id="retenueIRDisplay">0 DT</span></div>
+          <div>Retenue TVA : <span id="retenueTVADisplay">0 DT</span></div>
+          <div>Total retenues : <span id="retenueMontantDisplay">0 DT</span></div>
+        </div>
+        <div id="garantieSummary" style="display:none">
+          <div>Retenue garantie : <span id="retenueGarantieDisplay">0 DT</span></div>
+          <div>Net avant garantie : <span id="netAvantGarantieDisplay">0 DT</span></div>
+        </div>
+        <div class="net-a-payer">NET À PAYER : <span id="netAPayerDisplay">0 DT</span></div>
+      </div>
+    </div>
+
+    <div class="invoice-attachments-section">
+      <h3>Pièces jointes</h3>
+      <div id="invoiceAttachmentsList"></div>
+      <button type="button" id="btnAddInvoiceAttachment" class="btn btn-sm">+ Ajouter pièce jointe</button>
+    </div>
+
+    <label>Notes<textarea id="invoiceNotes" rows="2" class="input"></textarea></label>
+    <div id="invoiceFormError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(typeof closeInvoiceForm==='function')closeInvoiceForm()">Annuler</button>
+      <button type="button" id="btnSaveBrouillon" class="btn">💾 Brouillon</button>
+      <button type="button" id="btnClearBrouillon" class="btn">🗑️ Vider brouillon</button>
+      <button type="button" id="invoiceSaveBtn" class="btn btn-primary">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : FACTURE DETAIL ═══════════ -->
+<div id="invoiceDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="invoiceDetailTitle">Document</h2>
+    <div id="invoiceDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeInvoiceDetail==='function')closeInvoiceDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : PAIEMENT FACTURE ═══════════ -->
+<div id="paymentModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="paymentModalTitle">Paiement</h2>
+    <div class="form-grid">
+      <label>Montant<input type="number" step="0.001" id="paymentMontant" class="input"></label>
+      <label>Date<input type="date" id="paymentDate" class="input"></label>
+      <label>Mode<select id="paymentMode" class="input">
+        <option value="espèces">Espèces</option>
+        <option value="chèque">Chèque</option>
+        <option value="virement">Virement</option>
+        <option value="traite">Traite</option>
+      </select></label>
+    </div>
+    <label>Note<input type="text" id="paymentNote" class="input"></label>
+    <div id="paymentFormError" class="form-error"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="document.getElementById('paymentModal').style.display='none'">Annuler</button>
+      <button id="paymentSaveBtn" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : ACHAT ═══════════ -->
+<div id="purchaseModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="purchaseModalTitle">Nouvel achat</h2>
+    <div class="form-grid">
+      <label>Date<input type="date" id="purchaseDate" class="input"></label>
+      <label>Réf facture<input type="text" id="purchaseRef" class="input"></label>
+      <label>Fournisseur<select id="purchaseSupplierSelect" class="input"></select></label>
+      <label>Chantier<select id="purchaseChantierSelect" class="input"></select></label>
+      <label>TVA %<input type="number" step="0.01" id="purchaseTvaRate" class="input" value="19"></label>
+      <label>Timbre<input type="number" step="0.001" id="purchaseTimbre" class="input" value="1.000"></label>
+    </div>
+
+    <div class="invoice-items-section">
+      <h3>Lignes</h3>
+      <table class="invoice-items-table">
+        <thead>
+          <tr><th>Désignation</th><th class="col-qte">Qté</th><th class="col-pu">P.U.</th><th class="col-total">Total</th><th class="col-action"></th></tr>
+        </thead>
+        <tbody id="purchaseLinesBody"></tbody>
+      </table>
+      <button type="button" id="btnAddPurchaseLine" class="btn btn-sm">+ Ajouter une ligne</button>
+    </div>
+
+    <div class="totals-display">
+      <div>Total HT : <span id="purchaseTotalHT">0 DT</span></div>
+      <div>TVA : <span id="purchaseTVA">0 DT</span></div>
+      <div class="total-ttc">Total TTC : <span id="purchaseTotalTTC">0 DT</span></div>
+    </div>
+
+    <label>Notes<textarea id="purchaseNotes" rows="2" class="input"></textarea></label>
+    <div id="purchaseFormError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(typeof closePurchaseModal==='function')closePurchaseModal()">Annuler</button>
+      <button type="button" id="purchaseSaveBtn" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : PAIEMENT FOURNISSEUR ═══════════ -->
+<div id="supplierPaymentModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="supplierPaymentModalTitle">Paiement fournisseur</h2>
+    <div class="form-grid">
+      <label>Montant<input type="number" step="0.001" id="supplierPaymentMontant" class="input"></label>
+      <label>Date<input type="date" id="supplierPaymentDate" class="input"></label>
+      <label>Mode<select id="supplierPaymentMode" class="input">
+        <option value="espèces">Espèces</option>
+        <option value="chèque">Chèque</option>
+        <option value="virement" selected>Virement</option>
+        <option value="traite">Traite</option>
+      </select></label>
+    </div>
+    <label>Note<input type="text" id="supplierPaymentNote" class="input"></label>
+    <div id="supplierPaymentFormError" class="form-error"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="document.getElementById('supplierPaymentModal').style.display='none'">Annuler</button>
+      <button id="supplierPaymentSaveBtn" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : FRAIS ═══════════ -->
+<div id="fraisModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="fraisModalTitle">Nouveau frais</h2>
+    <form id="fraisForm" onsubmit="event.preventDefault(); if(typeof saveFraisFromForm==='function')saveFraisFromForm();">
+      <input type="hidden" id="fraisId">
+      <div class="form-grid">
+        <label>Date<input type="date" id="fraisDate" class="input"></label>
+        <label>Catégorie<select id="fraisCategorie" class="input"></select></label>
+        <label>Montant *<input type="number" step="0.001" id="fraisMontant" class="input" required></label>
+        <label>Chantier<select id="fraisChantierSelect" class="input"></select></label>
+        <label>Fournisseur<input type="text" id="fraisFournisseur" class="input"></label>
+      </div>
+      <label>Description<input type="text" id="fraisDescription" class="input"></label>
+      <label>Notes<textarea id="fraisNotes" rows="2" class="input"></textarea></label>
+      <div id="fraisFormError" class="form-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="if(typeof closeFraisModal==='function')closeFraisModal()">Annuler</button>
+        <button type="submit" id="fraisSaveBtn" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : BON ═══════════ -->
+<div id="bonModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2 id="bonModalTitle">Bon <span id="bonTypeBadge" class="badge">A</span></h2>
+    <div class="form-grid">
+      <label>N°<input type="text" id="bonNumero" class="input" placeholder="(auto)"></label>
+      <label>Date<input type="date" id="bonDate" class="input"></label>
+      <label>Destinataire<input type="text" id="bonDestinataire" class="input"></label>
+      <label>Émetteur<input type="text" id="bonEmetteur" class="input"></label>
+    </div>
+    <table class="invoice-items-table">
+      <thead><tr><th>#</th><th>Désignation</th><th class="col-qte">Qté</th><th>Observations</th><th></th></tr></thead>
+      <tbody id="bonLinesBody"></tbody>
+    </table>
+    <button type="button" id="btnAddBonLine" class="btn btn-sm">+ Ajouter ligne</button>
+    <label>Observations<textarea id="bonObservations" rows="2" class="input"></textarea></label>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(typeof closeBonEditor==='function')closeBonEditor()">Fermer</button>
+      <button type="button" id="btnSaveBonDraft" class="btn">💾 Brouillon</button>
+      <button type="button" id="btnClearBonDraft" class="btn">🗑️ Vider</button>
+      <button type="button" id="btnPrintBon" class="btn btn-primary">🖨️ Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : SCANNER ═══════════ -->
+<div id="scanModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2>Scanner un document</h2>
+    <div id="scanError" class="form-error"></div>
+    <div id="scanEmptyHint" class="empty-state">Choisis une option ci-dessous.</div>
+    <div id="scanVideoContainer" style="display:none">
+      <video id="scanVideo" autoplay playsinline></video>
+    </div>
+    <div id="scanPreviewContainer" style="display:none">
+      <img id="scanPreview" alt="Aperçu">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeScanner==='function')closeScanner()">Fermer</button>
+      <button id="btnStartCamera" class="btn">📷 Démarrer caméra</button>
+      <button id="btnStopCamera" class="btn" style="display:none">⏹️ Arrêter</button>
+      <button id="btnCapturePhoto" class="btn btn-primary" style="display:none">📸 Capturer</button>
+      <button id="btnImportScanGallery" class="btn">🖼️ Galerie</button>
+      <button id="btnSaveScan" class="btn btn-primary" style="display:none">💾 Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : SIGNATURE ═══════════ -->
+<div id="signatureModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2>Signature tactile</h2>
+    <div class="signature-canvas-container">
+      <canvas id="signatureCanvas"></canvas>
+    </div>
+    <label>Nom<input type="text" id="signatureName" class="input" placeholder="Signature pour…"></label>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeSignatureModal==='function')closeSignatureModal()">Fermer</button>
+      <button id="btnClearSignature" class="btn">🗑️ Effacer</button>
+      <button id="btnSaveSignature" class="btn">💾 Enregistrer</button>
+      <button id="btnDownloadSignature" class="btn">⬇️ Télécharger</button>
+      <button id="btnAttachSignatureToInvoice" class="btn btn-primary">📎 Attacher</button>
+    </div>
+    <div class="signature-history">
+      <h3>Historique</h3>
+      <div id="signaturesList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : ASSISTANT IA ═══════════ -->
+<div id="iaModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2>Assistant IA</h2>
+    <div class="ia-model-tabs">
+      <button id="iaModelBtn_chatgpt" class="ia-model-btn active">🟢 ChatGPT</button>
+      <button id="iaModelBtn_claude" class="ia-model-btn">🟣 Claude</button>
+      <button id="iaModelBtn_deepseek" class="ia-model-btn">🔵 DeepSeek</button>
+    </div>
+    <div class="ia-model-info">
+      <strong id="iaModelLabel">🟢 ChatGPT</strong>
+      <span id="iaPromptSize" class="muted"></span>
+    </div>
+    <label>Prompt (à copier)<textarea id="iaPromptDisplay" rows="8" class="input" readonly></textarea></label>
+    <div class="modal-actions">
+      <button id="iaCopyBtn" class="btn btn-primary">📋 Copier</button>
+      <button id="iaOpenWebsiteBtn" class="btn">🌐 Ouvrir le site</button>
+    </div>
+    <label>Réponse de l'IA (JSON à coller)<textarea id="iaPasteTextarea" rows="6" class="input" placeholder="Colle ici la réponse JSON de l'IA…"></textarea></label>
+    <div id="iaError" class="form-error"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeAssistantIA==='function')closeAssistantIA()">Fermer</button>
+      <button id="iaClearBtn" class="btn">Effacer</button>
+      <button id="iaAnalyzeBtn" class="btn btn-primary">🔍 Analyser</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : APERÇU IMPORT IA ═══════════ -->
+<div id="iaPreviewModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2>Aperçu de l'import</h2>
+    <div id="iaPreviewBody"></div>
+    <div class="modal-actions">
+      <button id="iaPreviewCancelBtn" class="btn">Annuler</button>
+      <button id="iaPreviewConfirmBtn" class="btn btn-primary">✓ Confirmer l'import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : AIDE ═══════════ -->
+<div id="helpModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2>❓ Aide VOLTCORE</h2>
+    <div id="helpBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="if(typeof closeHelpModal==='function')closeHelpModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : LIBÉRATION GARANTIE BTP (v6.8.1) ═══════════ -->
+<div id="liberationGarantieModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="libGarantieTitle">🔓 Libérer la garantie BTP</h2>
+    <div id="libGarantieInfo" class="muted" style="margin-bottom:12px"></div>
+    <input type="hidden" id="libGarantieDocId">
+    <div class="form-grid">
+      <label>Montant à libérer (DT)
+        <input type="number" step="0.001" min="0" id="libGarantieMontant" class="input">
+      </label>
+      <label>Date de libération
+        <input type="date" id="libGarantieDate" class="input">
+      </label>
+      <label>Mode de règlement
+        <select id="libGarantieMode" class="input">
+          <option value="virement" selected>Virement</option>
+          <option value="cheque">Chèque</option>
+          <option value="especes">Espèces</option>
+          <option value="traite">Traite</option>
+        </select>
+      </label>
+    </div>
+    <label>Note (optionnelle)
+      <input type="text" id="libGarantieNote" class="input" maxlength="200">
+    </label>
+    <div id="libGarantieError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(typeof closeLiberationGarantieModal==='function')closeLiberationGarantieModal(); else document.getElementById('liberationGarantieModal').style.display='none';">Annuler</button>
+      <button type="button" id="libGarantieSaveBtn" class="btn btn-primary" onclick="if(typeof confirmLiberationGarantie==='function')confirmLiberationGarantie()">🔓 Confirmer la libération</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : BON ROUTE (v6.9.0) ═══════════ -->
+<div id="bonRouteModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="bonRouteModalTitle">Nouveau bon route</h2>
+    <input type="hidden" id="bonRouteId">
+
+    <div class="form-grid">
+      <label>Type
+        <select id="bonRouteType" class="input"
+          onchange="if(typeof _bonRouteToggleTypeSections==='function')_bonRouteToggleTypeSections(this.value)">
+        </select>
+      </label>
+      <label>Numéro
+        <input type="text" id="bonRouteNumero" class="input" placeholder="(auto)">
+      </label>
+      <label>Statut<select id="bonRouteStatut" class="input"></select></label>
+      <label>Date création<input type="date" id="bonRouteDateCreation" class="input"></label>
+      <label>Date départ<input type="date" id="bonRouteDateDepart" class="input"></label>
+      <label>Date retour<input type="date" id="bonRouteDateRetour" class="input"></label>
+      <label>Véhicule *<input type="text" id="bonRouteVehicule" class="input" placeholder="Partner K9 — 248 TU 8239" maxlength="80"></label>
+      <label>Chauffeur<input type="text" id="bonRouteChauffeur" class="input" maxlength="80"></label>
+      <label>Destination<select id="bonRouteDestination" class="input"></select></label>
+      <label>Adresse précise<input type="text" id="bonRouteAdressePrecise" class="input" maxlength="200"></label>
+      <label>Chantier lié (info)<select id="bonRouteChantierSelect" class="input"></select></label>
+      <label>Km départ<input type="number" step="1" min="0" id="bonRouteKmDepart" class="input" value="0"></label>
+      <label>Km retour<input type="number" step="1" min="0" id="bonRouteKmRetour" class="input" value="0"></label>
+    </div>
+
+    <div id="bonRouteMaterielSection" class="invoice-items-section" style="display:none">
+      <h3>📦 Matériel sorti</h3>
+      <table class="invoice-items-table">
+        <thead>
+          <tr>
+            <th>Désignation</th>
+            <th class="col-qte">Qté</th>
+            <th class="col-unite">Unité</th>
+            <th>Observation</th>
+            <th class="col-action"></th>
+          </tr>
+        </thead>
+        <tbody id="bonRouteMaterielBody"></tbody>
+      </table>
+      <div class="invoice-items-actions">
+        <button type="button" id="btnAddBonRouteMaterielLine" class="btn btn-sm"
+          onclick="if(typeof addBonRouteMaterielLine==='function')addBonRouteMaterielLine()">+ Ajouter une ligne</button>
+      </div>
+    </div>
+
+    <div id="bonRouteDocSection" class="invoice-items-section" style="display:none">
+      <h3>📄 Documents commandés</h3>
+      <table class="invoice-items-table">
+        <thead>
+          <tr>
+            <th style="width:100px">Réf.</th>
+            <th>Désignation</th>
+            <th style="width:150px">Fournisseur</th>
+            <th class="col-qte">Qté</th>
+            <th>Observation</th>
+            <th class="col-action"></th>
+          </tr>
+        </thead>
+        <tbody id="bonRouteDocBody"></tbody>
+      </table>
+      <div class="invoice-items-actions">
+        <button type="button" id="btnAddBonRouteDocLine" class="btn btn-sm"
+          onclick="if(typeof addBonRouteDocLine==='function')addBonRouteDocLine()">+ Ajouter une ligne</button>
+      </div>
+    </div>
+
+    <label>Notes<textarea id="bonRouteNotes" rows="2" class="input"></textarea></label>
+    <div id="bonRouteFormError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(typeof closeBonRouteModal==='function')closeBonRouteModal()">Annuler</button>
+      <button type="button" id="bonRouteSaveBtn" class="btn btn-primary"
+        onclick="if(typeof saveBonRouteFromForm==='function')saveBonRouteFromForm()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : BON ROUTE DÉTAIL (v6.9.0) ═══════════ -->
+<div id="bonRouteDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="bonRouteDetailTitle">Bon route</h2>
+    <div id="bonRouteDetailBody"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(typeof closeBonRouteDetail==='function')closeBonRouteDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SCRIPTS (ordre strict — NE PAS CHANGER) ═══════════ -->
+<script src="./01-core.js"></script>
+<script src="./02-auth.js"></script>
+<script src="./03-utils.js"></script>
+<script src="./04-storage.js"></script>
+<script src="./05-alerts.js"></script>
+<script src="./06-clients.js"></script>
+<script src="./07-suppliers.js"></script>
+<script src="./08-stock.js"></script>
+<script src="./09-chantiers.js"></script>
+<script src="./10-hr.js"></script>
+<script src="./11-invoices.js"></script>
+<script src="./12-invoices-view.js"></script>
+<script src="./13-purchases.js"></script>
+<script src="./14-expenses-bons.js"></script>
+<script src="./15-scan-sign.js"></script>
+<script src="./16-assistant-ia.js"></script>
+<script src="./17-dash-reports.js"></script>
+<script src="./18-mobile.js"></script>
+<script src="./19-tools-save.js"></script>
+<script src="./20-init-infra.js"></script>
+<script src="./23-bons-route.js"></script>
+<script src="./21-init-app.js"></script>
+
+<!-- ═══════════ BRANCHEMENT TRI CLIENTS (UI) ═══════════ -->
+<script>
+(function () {
+  function updateDirBtn() {
+    var btn = document.getElementById('clientsSortDirBtn');
+    if (!btn) return;
+    var dir = (typeof __clientsSortDir !== 'undefined') ? __clientsSortDir : 'asc';
+    btn.textContent = (dir === 'asc') ? '↑' : '↓';
+  }
+  function bindOnce() {
+    var sel = document.getElementById('clientsSortSelect');
+    var btn = document.getElementById('clientsSortDirBtn');
+    if (sel && !sel.__bound) {
+      sel.__bound = true;
+      sel.addEventListener('change', function (ev) {
+        var v = ev.target.value;
+        if (typeof setClientsSort === 'function') {
+          setClientsSort(v);
+          updateDirBtn();
+        }
+      });
+    }
+    if (btn && !btn.__bound) {
+      btn.__bound = true;
+      btn.addEventListener('click', function () {
+        var field = (typeof __clientsSortField !== 'undefined') ? __clientsSortField : 'nom';
+        if (typeof setClientsSort === 'function') {
+          setClientsSort(field);
+          updateDirBtn();
+        }
+      });
+    }
+    var current = (typeof __clientsSortField !== 'undefined') ? __clientsSortField : 'nom';
+    if (sel && !sel.value) sel.value = current;
+    updateDirBtn();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindOnce);
+  } else {
+    bindOnce();
+  }
+  window.addEventListener('load', function () { setTimeout(bindOnce, 200); });
+})();
+</script>
+
+<!-- ═══════════ SERVICE WORKER ═══════════ -->
+<script>
+var VOLTCORE_SW_ENABLED = true;
+
+if ('serviceWorker' in navigator) {
+  if (VOLTCORE_SW_ENABLED) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./22-pwa.js')
+        .then(function () { console.log('[App] SW enregistré'); })
+        .catch(function (e) { console.warn('[App] SW échec :', e); });
+      navigator.serviceWorker.addEventListener('message', function (ev) {
+        var d = ev.data || {};
+        if (d.type === 'SW_ACTIVATED' && typeof showToast === 'function') {
+          try { showToast('Mise à jour installée. Rafraîchis (F5).', 'info', 5000); } catch (e) {}
+        }
+      });
+    });
+  } else {
+    console.log('[App] Mode correction : Service Worker désactivé');
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      for (var i = 0; i < regs.length; i++) {
+        regs[i].unregister().then(function () {
+          console.log('[App] SW désinscrit');
+        });
+      }
+    }).catch(function () {});
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (keys) {
+        for (var j = 0; j < keys.length; j++) {
+          if (keys[j].indexOf('voltcore-') === 0) {
+            caches.delete(keys[j]);
+            console.log('[App] Cache supprimé :', keys[j]);
+          }
+        }
+      }).catch(function () {});
+    }
+  }
+}
+</script>
+
+<!-- ═══════════ BOUTON RESET SW (filet de sécurité) ═══════════ -->
+<script>
+(function () {
+  function bindResetButton() {
+    var btn = document.getElementById('btnResetServiceWorker');
+    if (!btn || btn.__bound) return;
+    btn.__bound = true;
+    btn.addEventListener('click', function (ev) {
+      try { ev.preventDefault(); } catch (e) {}
+
+      var ok;
+      if (typeof confirmDialog === 'function') {
+        ok = confirmDialog(
+          'Réinitialiser le cache de l\'application ?\n\n' +
+          '⚠️ Tes données (clients, factures, stock…) ne sont PAS touchées.\n\n' +
+          'L\'application va recharger automatiquement après nettoyage.'
+        );
+      } else {
+        ok = window.confirm('Réinitialiser le cache de l\'application ?');
+      }
+      if (!ok) return;
+
+      console.log('[App] Réinitialisation SW + caches…');
+
+      function done() {
+        try { location.reload(); } catch (e) { location.href = location.href; }
+      }
+
+      var tasks = [];
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+        tasks.push(
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) {
+              return r.unregister().then(function () {
+                console.log('[App] SW désinscrit');
+              }).catch(function () {});
+            }));
+          }).catch(function () {})
+        );
+      }
+
+      if (window.caches && caches.keys) {
+        tasks.push(
+          caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) {
+              if (k.indexOf('voltcore-') === 0) {
+                console.log('[App] cache supprimé :', k);
+                return caches.delete(k);
+              }
+              return null;
+            }));
+          }).catch(function () {})
+        );
+      }
+
+      Promise.all(tasks).then(done, done);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindResetButton);
+  } else {
+    bindResetButton();
+  }
+})();
+</script>
+
+<!-- ═══ DIAGNOSTIC (accessible depuis Outils → Diagnostic) ═══ -->
+<div id="diagPanel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:10000;padding:16px;overflow:auto;font-family:monospace;font-size:12px;line-height:1.5">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;position:sticky;top:0;background:#fff;padding-bottom:8px;border-bottom:2px solid #1A2B4C">
+    <strong style="font-size:15px;color:#1A2B4C">🔍 Diagnostic VOLTCORE</strong>
+    <button onclick="document.getElementById('diagPanel').style.display='none'" style="background:#C0392B;color:#fff;border:none;padding:6px 12px;border-radius:4px;font-size:16px">✕</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <button onclick="runDiag()" style="padding:8px 12px;background:#1A2B4C;color:#fff;border:none;border-radius:4px;font-weight:600">🔄 État app</button>
+    <button onclick="runPerfTest()" style="padding:8px 12px;background:#2E8B57;color:#fff;border:none;border-radius:4px;font-weight:600">⏱️ Perf Stock</button>
+    <button onclick="runPerfAlerts()" style="padding:8px 12px;background:#7B1FA2;color:#fff;border:none;border-radius:4px;font-weight:600">⏱️ Perf Alertes</button>
+  </div>
+  <pre id="diagOutput" style="white-space:pre-wrap;word-break:break-word;margin:0;background:#F9FAFE;padding:12px;border-radius:6px;min-height:100px">Clique sur un bouton ci-dessus pour lancer un test.</pre>
+</div>
+<script>
+(function(){
+  function fmt(n) { return (isFinite(n) && n >= 0) ? n.toFixed(1) + ' ms' : 'n/a'; }
+  function count(arr) { return Array.isArray(arr) ? arr.length : 0; }
+  function ok(fn) { return (typeof fn === 'function') ? '✅' : '❌'; }
+
+  window.runDiag = function() {
+    var out = [];
+    out.push('═══════════════════════════════');
+    out.push('  ÉTAT DE L\'APP VOLTCORE');
+    out.push('═══════════════════════════════');
+    out.push('');
+    out.push('▶ RUNTIME');
+    out.push('Service Worker   : ' + (typeof VOLTCORE_SW_ENABLED !== 'undefined' ? (VOLTCORE_SW_ENABLED ? '🔴 ACTIF' : '🟢 DÉSACTIVÉ') : '❓ inconnu'));
+    out.push('Utilisateur      : ' + (typeof currentUser !== 'undefined' && currentUser ? currentUser.username : 'non connecté'));
+    out.push('');
+    out.push('▶ FICHIERS CHARGÉS (détection via fonctions)');
+    out.push('01-core          : ' + ok(window.verifyVoltcoreLicense));
+    out.push('02-auth          : ' + ok(window.doLogin) + ' (fusion 23-users v6.5)');
+    out.push('03-utils         : ' + ok(window.computeLineTotal) + ' (LOT 2 + numberToFrenchWords v6.6)');
+    out.push('04-storage       : ' + ok(window.getAvoirTotalForFacture) + ' (LOT 2)');
+    out.push('05-alerts        : ' + ok(window.computeClientAlerts));
+    out.push('06-clients       : ' + ok(window.computeClientStats) + ' (v6.2)');
+    out.push('07-suppliers     : ' + ok(window.renderSuppliers));
+    out.push('08-stock         : ' + ok(window.renderStock) + ' (v6.6 fusion 24-picker)');
+    out.push('09-chantiers     : ' + ok(window.renderChantiers));
+    out.push('10-hr            : ' + ok(window.renderHR));
+    out.push('11-invoices      : ' + ok(window.computeInvoiceTotals));
+    out.push('12-invoices-view : ' + ok(window.renderInvoices) + ' (v6.7.2 PDF refait)');
+    out.push('13-purchases     : ' + ok(window.renderPurchases));
+    out.push('14-expenses-bons : ' + ok(window.renderFrais));
+    out.push('15-scan-sign     : ' + ok(window.openScanner));
+    out.push('16-assistant-ia  : ' + ok(window.openAssistantIA));
+    out.push('17-dash-reports  : ' + ok(window.renderDashboard));
+    out.push('18-mobile        : ' + ok(window.initMobile));
+    out.push('19-tools-save    : ' + ok(window.renderTrash));
+    out.push('20-init-infra    : ' + ok(window.logError));
+    out.push('21-init-app      : ' + ok(window.showSection) + ' (showSection)');
+    out.push('');
+    out.push('▶ SESSION #3 — NOUVEAUTÉS');
+    out.push('numberToFrenchWords : ' + ok(window.numberToFrenchWords));
+    out.push('_buildInvoiceHTML   : ' + ok(window._buildInvoiceHTML));
+    out.push('_docNetApresAvoirs  : ' + ok(window._docNetApresAvoirs));
+    out.push('');
+    out.push('▶ FONCTIONS FUSIONNÉES (LOT 5)');
+    out.push('openUserManagementModal  : ' + ok(window.openUserManagementModal) + ' (dans 02-auth.js)');
+    out.push('openArticlePicker        : ' + ok(window.openArticlePicker) + ' (dans 08-stock.js)');
+    out.push('closeArticlePicker       : ' + ok(window.closeArticlePicker));
+    out.push('closeUserManagementModal : ' + ok(window.closeUserManagementModal));
+    out.push('');
+    out.push('▶ ÉLÉMENTS HTML CLÉS');
+    out.push('#btnOpenAssistantIA      : ' + (document.getElementById('btnOpenAssistantIA') ? '✅' : '❌'));
+    out.push('#btnOpenUserManagement   : ' + (document.getElementById('btnOpenUserManagement') ? '✅' : '❌'));
+    out.push('#btnResetServiceWorker   : ' + (document.getElementById('btnResetServiceWorker') ? '✅' : '❌'));
+    out.push('#clientsList             : ' + (document.getElementById('clientsList') ? '✅' : '❌'));
+    out.push('#clientsSortSelect       : ' + (document.getElementById('clientsSortSelect') ? '✅' : '❌'));
+    out.push('#clientsSortDirBtn       : ' + (document.getElementById('clientsSortDirBtn') ? '✅' : '❌'));
+    out.push('#clientType              : ' + (document.getElementById('clientType') ? '✅ BTP' : '❌'));
+    out.push('#clientDelai             : ' + (document.getElementById('clientDelai') ? '✅ BTP' : '❌'));
+    out.push('#clientRetenue           : ' + (document.getElementById('clientRetenue') ? '✅ BTP' : '❌'));
+    out.push('#invoiceRetenueGarantie  : ' + (document.getElementById('invoiceRetenueGarantie') ? '✅ BTP' : '❌'));
+    out.push('.header-brand span       : ' + (document.querySelector('.header-brand .brand-core') ? '✅ Session #3' : '❌'));
+    out.push('.header-logo-underline   : ' + (document.querySelector('.header-logo-underline') ? '✅ Session #3' : '❌'));
+    out.push('');
+    out.push('▶ DONNÉES');
+    out.push('Clients          : ' + count(clients));
+    out.push('Articles         : ' + count(savedArticles));
+    out.push('Documents        : ' + count(savedDocuments));
+    out.push('Fournisseurs     : ' + count(suppliers));
+    out.push('Chantiers        : ' + count(savedChantiers));
+    out.push('Achats           : ' + count(purchaseInvoices));
+    out.push('Frais            : ' + count(frais));
+    out.push('Employés RH      : ' + count(hrEmployees));
+    out.push('Alertes          : ' + (typeof getAlertCounts === 'function' ? getAlertCounts().total : 'n/a'));
+    out.push('');
+    out.push('▶ STOCKAGE');
+    try {
+      var total = 0;
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('voltcore_') === 0) {
+          total += (localStorage.getItem(k) || '').length;
+        }
+      }
+      out.push('localStorage     : ' + (total / 1024).toFixed(1) + ' Ko (~' + (total / 1024 / 1024).toFixed(2) + ' Mo)');
+      out.push('Limite navigateur: ~5 Mo');
+      out.push('Utilisation      : ' + ((total / 1024 / 1024) / 5 * 100).toFixed(1) + '%');
+    } catch(e) {
+      out.push('localStorage     : erreur ' + e.message);
+    }
+    document.getElementById('diagOutput').textContent = out.join('\n');
+  };
+
+  window.runPerfTest = function() {
+    if (typeof renderStock !== 'function') {
+      document.getElementById('diagOutput').textContent = '❌ renderStock non disponible';
+      return;
+    }
+    var out = [];
+    out.push('═══════════════════════════════');
+    out.push('  PERFORMANCE — renderStock');
+    out.push('═══════════════════════════════');
+    out.push('');
+    try { renderStock(); } catch(e) {}
+    var times = [];
+    for (var i = 1; i <= 3; i++) {
+      var t = performance.now();
+      try { renderStock(); } catch(e) { out.push('Erreur test ' + i + ' : ' + e.message); }
+      var d = performance.now() - t;
+      times.push(d);
+      out.push('Test ' + i + ' : ' + fmt(d));
+    }
+    var avg = (times[0] + times[1] + times[2]) / 3;
+    out.push('');
+    out.push('MOYENNE : ' + fmt(avg));
+    out.push('');
+    if (avg < 100) out.push('✅ EXCELLENT (< 100 ms)');
+    else if (avg < 300) out.push('🟢 BON (< 300 ms)');
+    else if (avg < 800) out.push('🟡 MOYEN (300-800 ms)');
+    else if (avg < 2000) out.push('🟠 LENT (800-2000 ms)');
+    else out.push('🔴 TRÈS LENT (> 2 s)');
+    document.getElementById('diagOutput').textContent = out.join('\n');
+  };
+
+  window.runPerfAlerts = function() {
+    if (typeof computeClientAlerts !== 'function') {
+      document.getElementById('diagOutput').textContent = '❌ computeClientAlerts non disponible';
+      return;
+    }
+    var out = [];
+    out.push('═══════════════════════════════');
+    out.push('  PERFORMANCE — computeClientAlerts');
+    out.push('═══════════════════════════════');
+    out.push('');
+    try { computeClientAlerts(); } catch(e) {}
+    var times = [];
+    for (var i = 1; i <= 3; i++) {
+      var t = performance.now();
+      try { computeClientAlerts(); } catch(e) { out.push('Erreur ' + i + ' : ' + e.message); }
+      var d = performance.now() - t;
+      times.push(d);
+      out.push('Test ' + i + ' : ' + fmt(d));
+    }
+    var avg = (times[0] + times[1] + times[2]) / 3;
+    out.push('');
+    out.push('MOYENNE : ' + fmt(avg));
+    out.push('');
+    if (avg < 50) out.push('✅ EXCELLENT (< 50 ms)');
+    else if (avg < 200) out.push('🟢 BON (< 200 ms)');
+    else if (avg < 800) out.push('🟡 MOYEN (200-800 ms)');
+    else out.push('🔴 LENT (> 800 ms)');
+    document.getElementById('diagOutput').textContent = out.join('\n');
+  };
+
+  var btn = document.getElementById('diagBtn');
+  if (btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById('diagPanel').style.display = 'block';
+      runDiag();
+    });
+  }
+})();
+</script>
+<!-- ═══ FIN DIAGNOSTIC ═══ -->
+
+</body>
+</html>
