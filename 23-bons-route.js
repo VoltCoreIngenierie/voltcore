@@ -1542,22 +1542,40 @@ function printBonRoute(bonId) {
       return;
     }
 
-    var html = _buildBonRouteHTML(bon);
-    var w = window.open('', '_blank');
-    if (!w) {
-      if (typeof showToast === 'function') {
-        showToast('Autorise les pop-ups pour imprimer le bon route.', 'warning', 4000);
-      }
-      return;
-    }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 400);
+    /* v6.9.6 — charge signature + cachet par défaut avant génération */
+    var imagesPromise = (typeof _loadDefaultSignatureCachetImages === 'function')
+      ? _loadDefaultSignatureCachetImages()
+      : Promise.resolve({ signatureDataUrl: null, cachetDataUrl: null });
 
-    if (typeof logAction === 'function') {
-      try { logAction('bonroute.print', bon.numero || bonId); } catch (e) {}
-    }
+    imagesPromise.then(function (images) {
+      try {
+        var html = _buildBonRouteHTML(bon, images);
+        var w = window.open('', '_blank');
+        if (!w) {
+          if (typeof showToast === 'function') {
+            showToast('Autorise les pop-ups pour imprimer le bon route.', 'warning', 4000);
+          }
+          return;
+        }
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 400);
+        if (typeof logAction === 'function') {
+          try { logAction('bonroute.print', bon.numero || bonId); } catch (e) {}
+        }
+      } catch (e) { console.warn('printBonRoute (inner) :', e); }
+    }).catch(function (e) {
+      console.warn('printBonRoute (images load) :', e);
+      try {
+        var html = _buildBonRouteHTML(bon, {});
+        var w = window.open('', '_blank');
+        if (w) {
+          w.document.open(); w.document.write(html); w.document.close();
+          setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 400);
+        }
+      } catch (e2) {}
+    });
   } catch (e) {
     console.warn('printBonRoute :', e);
     if (typeof showToast === 'function') showToast('Erreur lors de l\'impression.', 'error');
@@ -1571,7 +1589,9 @@ function printBonRoute(bonId) {
      • Bloc trajet dédié (véhicule + chauffeur + km + dates)
      • Zone signature chauffeur (justificatif papier)
    Retourne une chaîne HTML autonome. */
-function _buildBonRouteHTML(bon) {
+function _buildBonRouteHTML(bon, opts) {
+  /* v6.9.6 — opts (optionnel) : { signatureDataUrl, cachetDataUrl } */
+  var _images = opts || {};
   var t = BON_ROUTE_TYPES[bon.type] || BON_ROUTE_TYPES.sortie;
   var destLabel = BON_ROUTE_DESTINATIONS[bon.destination] || 'Autre';
   var statutLabel = _bonRouteStatutLabel(bon.statut);
@@ -1784,10 +1804,26 @@ function _buildBonRouteHTML(bon) {
   html += '<div class="bank"><strong>Coordonnées bancaires :</strong> ' + escapeHtml(banqueVal) + ' – RIB : ' + escapeHtml(ribVal) + '</div>';
   html += '</div>';
 
-  /* Signatures */
+  /* Signatures — v6.9.6 : images par défaut si configurées */
   html += '<div class="signature-area">';
-  html += '<div>Cachet & Signature VOLTCORE</div>';
-  html += '<div>Signature chauffeur</div>';
+  if (_images.cachetDataUrl) {
+    html += '<div>';
+    html += '<img src="' + escapeAttr(_images.cachetDataUrl) + '" ' +
+      'style="max-height:60px;max-width:180px;display:block;margin:0 auto 4px;mix-blend-mode:multiply" alt="Cachet">';
+    html += '<span style="font-size:8px;color:#666">Cachet VOLTCORE</span>';
+    html += '</div>';
+  } else {
+    html += '<div>Cachet & Signature VOLTCORE</div>';
+  }
+  if (_images.signatureDataUrl) {
+    html += '<div>';
+    html += '<img src="' + escapeAttr(_images.signatureDataUrl) + '" ' +
+      'style="max-height:60px;max-width:180px;display:block;margin:0 auto 4px;mix-blend-mode:multiply" alt="Signature">';
+    html += '<span style="font-size:8px;color:#666">Signature chauffeur</span>';
+    html += '</div>';
+  } else {
+    html += '<div>Signature chauffeur</div>';
+  }
   html += '</div>';
 
   html += '</div>';
@@ -2209,4 +2245,4 @@ function _printBonsRouteList() {
   }
 }
 
-console.log('✅ 23-bons-route.js chargé — v6.9.0 (BR6 — export JSON/CSV + import + events + PDF liste)');
+console.log('✅ 23-bons-route.js chargé — v6.9.6 (signature + cachet dans PDF)');

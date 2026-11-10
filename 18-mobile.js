@@ -47,7 +47,8 @@ var FAB_FUNCS = {
   'achats':       function () { if (typeof openPurchaseModal === 'function') openPurchaseModal(null); },
   'frais':        function () { if (typeof openFraisModal === 'function') openFraisModal(null); },
   'bonsRoute':    function () { if (typeof openBonRouteModal === 'function') openBonRouteModal(null); },
-  'rh':           function () { if (typeof openHREmployeeModal === 'function') openHREmployeeModal(null); }
+  'rh':           function () { if (typeof openHREmployeeModal === 'function') openHREmployeeModal(null); },
+  'documents':    function () { if (typeof openDocumentUploadModal === 'function') openDocumentUploadModal(); }
 };
 
 var FAB_LABELS = {
@@ -59,7 +60,8 @@ var FAB_LABELS = {
   'achats':       '🛒 Nouvel achat',
   'frais':        '💰 Nouveau frais',
   'bonsRoute':    '🚐 Nouveau bon route',
-  'rh':           '👥 Nouvel employé'
+  'rh':           '👥 Nouvel employé',
+  'documents':    '📁 Nouveau document'
 };
 
 /* ═══════════ SECTION 2 — DÉTECTION VIEWPORT / DEVICE ═══════════ */
@@ -398,4 +400,4 @@ function initMobile() {
   } catch (e) { console.warn('initMobile :', e); }
 }
 
-console.log('✅ 18-mobile.js chargé — v6.7 (mobile UI + garde double-binding)');
+console.log('✅ 18-mobile.js chargé — v6.9.8 (mobile UI + FAB documents)');

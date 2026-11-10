@@ -740,16 +740,38 @@ function printInvoicePDF(docId) {
     var doc = getDocById(docId);
     if (!doc) return;
 
-    var html = _buildInvoiceHTML(doc);
-    var w = window.open('', '_blank');
-    if (!w) {
-      if (typeof showToast === 'function') showToast('Autorise les pop-ups pour imprimer.', 'warning', 4000);
-      return;
-    }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 400);
+    /* v6.9.6 — charge signature + cachet par défaut avant génération */
+    var imagesPromise = (typeof _loadDefaultSignatureCachetImages === 'function')
+      ? _loadDefaultSignatureCachetImages()
+      : Promise.resolve({ signatureDataUrl: null, cachetDataUrl: null });
+
+    imagesPromise.then(function (images) {
+      try {
+        var html = _buildInvoiceHTML(doc, images);
+        var w = window.open('', '_blank');
+        if (!w) {
+          if (typeof showToast === 'function') {
+            showToast('Autorise les pop-ups pour imprimer.', 'warning', 4000);
+          }
+          return;
+        }
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 400);
+      } catch (e) { console.warn('printInvoicePDF (inner) :', e); }
+    }).catch(function (e) {
+      console.warn('printInvoicePDF (images load) :', e);
+      /* Fallback : print sans images plutôt que rien */
+      try {
+        var html = _buildInvoiceHTML(doc, {});
+        var w = window.open('', '_blank');
+        if (w) {
+          w.document.open(); w.document.write(html); w.document.close();
+          setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 400);
+        }
+      } catch (e2) {}
+    });
   } catch (e) { console.warn('printInvoicePDF :', e); }
 }
 
@@ -764,7 +786,10 @@ function printInvoicePDF(docId) {
    · Mention activité client (codeCategorie → type)
    · Date d'échéance calculée depuis client.delaiPaiement
 */
-function _buildInvoiceHTML(doc) {
+function _buildInvoiceHTML(doc, opts) {
+  /* v6.9.6 — opts (optionnel) : { signatureDataUrl, cachetDataUrl }
+     Si fournis, insère les images dans la zone signature. */
+  var _images = opts || {};
   var clientInfo = _docClientNom(doc);
   var client = (doc.clientId && typeof getClientById === 'function') ? getClientById(doc.clientId) : null;
   var t = doc.totals || {};
@@ -1047,10 +1072,26 @@ function _buildInvoiceHTML(doc) {
   html += '<div class="bank"><strong>Coordonnées bancaires :</strong> ' + escapeHtml(banqueVal) + ' – RIB : ' + escapeHtml(ribVal) + '</div>';
   html += '</div>';
 
-  /* Signatures */
+  /* Signatures — v6.9.6 : images par défaut si configurées */
   html += '<div class="signature-area">';
-  html += '<div>Cachet & Signature VOLTCORE</div>';
-  html += '<div>Signature client</div>';
+  if (_images.cachetDataUrl) {
+    html += '<div>';
+    html += '<img src="' + escapeAttr(_images.cachetDataUrl) + '" ' +
+      'style="max-height:60px;max-width:180px;display:block;margin:0 auto 4px;mix-blend-mode:multiply" alt="Cachet">';
+    html += '<span style="font-size:8px;color:#666">Cachet VOLTCORE</span>';
+    html += '</div>';
+  } else {
+    html += '<div>Cachet & Signature VOLTCORE</div>';
+  }
+  if (_images.signatureDataUrl) {
+    html += '<div>';
+    html += '<img src="' + escapeAttr(_images.signatureDataUrl) + '" ' +
+      'style="max-height:60px;max-width:180px;display:block;margin:0 auto 4px;mix-blend-mode:multiply" alt="Signature">';
+    html += '<span style="font-size:8px;color:#666">Signature client</span>';
+    html += '</div>';
+  } else {
+    html += '<div>Signature client</div>';
+  }
   html += '</div>';
 
   html += '</div>'; /* /invoice-wrapper */
@@ -1538,4 +1579,4 @@ try {
     window.confirmLiberationGarantie = confirmLiberationGarantie;
   }
 } catch (e) {}
-console.log('✅ 12-invoices-view.js chargé — v6.7.2 (Session #3 — PDF aligné facture.html)');
+console.log('✅ 12-invoices-view.js chargé — v6.9.6 (signature + cachet dans PDF)');

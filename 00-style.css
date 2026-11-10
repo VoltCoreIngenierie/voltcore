@@ -537,15 +537,7 @@ code {
 .btn-icon-mini:hover { background: var(--bg-alt); color: var(--text); }
 .btn-icon-mini.btn-danger:hover { color: var(--danger); }
 
-/* ═══ BOUTONS BONS A/B/C/D (couleurs distinctes) ═══ */
-.btn-bon-a { background: var(--vc-navy);   color: #fff; border-color: var(--vc-navy); }
-.btn-bon-a:hover { background: var(--vc-navy-dark); }
-.btn-bon-b { background: var(--success);    color: #fff; border-color: var(--success); }
-.btn-bon-b:hover { filter: brightness(0.9); }
-.btn-bon-c { background: var(--warning);    color: #fff; border-color: var(--warning); }
-.btn-bon-c:hover { filter: brightness(0.9); }
-.btn-bon-d { background: #7B1FA2;           color: #fff; border-color: #7B1FA2; }
-.btn-bon-d:hover { filter: brightness(0.9); }
+/* v6.10.2 — Boutons .btn-bon-a/b/c/d supprimés (bons redondants) */
 
 /* ════════ §8 — INPUTS & FORMULAIRES ════════ */
 
@@ -1470,28 +1462,7 @@ textarea.input { resize: vertical; min-height: 60px; }
   text-align: center;
 }
 
-/* ════════ §20 — BONS A/B/C/D ════════ */
-
-.bon-line-row td { padding: 4px 8px; }
-.bon-line-num {
-  width: 40px;
-  text-align: center;
-  color: var(--text-light);
-  font-weight: 700;
-}
-.bon-input {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 8px;
-  font-size: 13px;
-  background: var(--card);
-}
-.bon-input:focus {
-  outline: none;
-  border-color: var(--vc-gold);
-  box-shadow: 0 0 0 2px rgba(201,168,76,0.2);
-}
+/* v6.10.2 — §20 Bons A/B/C/D supprimée */
 
 /* ════════ §21 — SIGNATURE TACTILE ════════ */
 
@@ -2297,21 +2268,406 @@ body.dark-mode .bottom-tab.active { color: var(--vc-gold); }
   font-weight: 800;
 }
 
-/* Boutons Bon A/B/C/D dans la section Frais */
-.bons-actions {
+/* v6.10.2 — .bons-actions supprimée */
+
+/* ═══════════════════════════════════════════════════════════════
+   §34 — BONS ROUTE (v6.9.4 — fix I4 : classes .bon-route-* manquantes)
+   ═══════════════════════════════════════════════════════════════ */
+
+.bon-route-row {
   display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: box-shadow 0.15s, border-left-color 0.15s;
+}
+.bon-route-row:hover {
+  box-shadow: var(--shadow-md);
+  border-left-color: var(--vc-gold);
+}
+
+.bon-route-row-main { flex: 1; min-width: 0; }
+
+.bon-route-row-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vc-navy);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+}
+
+.bon-route-row-meta {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.bon-route-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bon-route-km {
+  color: var(--text-light);
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.bon-route-chantier {
+  color: var(--text-light);
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+/* Mobile : empile verticalement */
+@media (max-width: 767px) {
+  .bon-route-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bon-route-row-actions {
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   FIN DE 00-style.css — v6.7.2 (Session #3)
+   §35 — ALERTES (v6.9.4 — fix I5 : classes .alerts-* et .alert-* manquantes)
+   ═══════════════════════════════════════════════════════════════ */
+
+.alerts-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg-alt);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.alerts-tab {
+  flex: 1;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-light);
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.alerts-tab:hover { color: var(--vc-navy); }
+.alerts-tab.active {
+  background: var(--card);
+  color: var(--vc-navy);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+.alerts-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--vc-red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.alerts-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--vc-gold);
+  border-radius: var(--radius-sm);
+}
+.alert-item.alert-level-info    { border-left-color: var(--info); }
+.alert-item.alert-level-warning { border-left-color: var(--warning); }
+.alert-item.alert-level-error   { border-left-color: var(--danger); }
+
+.alert-item-body { flex: 1; min-width: 0; }
+
+.alert-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vc-navy);
+  margin-bottom: 2px;
+}
+
+.alert-item-msg {
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+
+.alert-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+/* ═══════════════════════════════════════════════════════════════
+   §36 — BIBLIOTHÈQUE DE DOCUMENTS (v6.9.8)
+   ═══════════════════════════════════════════════════════════════ */
+
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.document-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.document-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--vc-gold);
+}
+
+.document-card-thumb {
+  width: 100%;
+  height: 140px;
+  background: linear-gradient(135deg, var(--bg-soft) 0%, var(--bg-alt) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.document-card-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.document-card-thumb .doc-icon {
+  font-size: 42px;
+  opacity: 0.5;
+}
+.document-card-thumb .doc-type-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--vc-navy);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.document-card-body {
+  padding: 10px 12px 6px;
+  flex: 1;
+}
+.document-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vc-navy);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.document-card-meta {
+  font-size: 11px;
+  color: var(--text-light);
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.document-card-actions {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px 8px;
+  justify-content: flex-end;
+}
+
+/* Détail document — aperçu dans la modale */
+.doc-detail-preview {
+  width: 100%;
+  max-height: 500px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  margin-bottom: 16px;
+}
+.doc-detail-preview img {
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+}
+.doc-detail-preview iframe {
+  width: 100%;
+  height: 500px;
+  border: none;
+}
+
+/* Champ fichier stylisé */
+input[type="file"].input {
+  padding: 8px 12px;
+  font-size: 12px;
+  background: var(--bg-soft);
+}
+input[type="file"].input::file-selector-button {
+  background: var(--vc-navy);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-right: 10px;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+input[type="file"].input::file-selector-button:hover {
+  background: var(--vc-navy-dark);
+}
+
+@media (max-width: 767px) {
+  .documents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .document-card-thumb { height: 110px; }
+}
+/* ═══════════════════════════════════════════════════════════════
+   §37 — CAMSCANNER (v6.10.0) — corner handles + spinner
+   ═══════════════════════════════════════════════════════════════ */
+
+#scanPreviewWrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  touch-action: none;
+  user-select: none;
+}
+
+#scanPreviewWrapper img {
+  display: block;
+  max-width: 100%;
+  max-height: 400px;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+#scanCornersContainer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scan-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: rgba(201,168,76,0.85);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  cursor: move;
+  touch-action: none;
+  z-index: 10;
+  pointer-events: auto;
+  transition: transform 0.1s, background 0.1s;
+}
+.scan-corner:active,
+.scan-corner.dragging {
+  transform: scale(1.35);
+  background: rgba(231,0,19,0.95);
+}
+
+#scanProcessingSpinner {
+  position: absolute;
+  inset: 0;
+  background: rgba(26,43,76,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  z-index: 20;
+  color: #fff;
+}
+
+#scanImproveBar {
+  margin-top: 8px;
+}
+
+#scanImproveBar .btn.active {
+  background: var(--vc-navy);
+  color: #fff;
+  border-color: var(--vc-navy);
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  #scanPreviewWrapper img { max-height: 280px; }
+  .scan-corner { width: 26px; height: 26px; margin-left: -13px; margin-top: -13px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FIN DE 00-style.css — v6.9.4 (Session #6 — fix I4 + I5)
    Palette : navy #1A2B4C + or #C9A84C + rouge #E70013
-   Extraits de facture.html — identité unifiée sur 3 supports :
-     · facture.html (référence)
-     · PDF (_buildInvoiceHTML dans 12-invoices-view.js)
-     · Interface (00-style.css ← ce fichier)
-   Rétrocompatibilité v6.1 : toutes les classes et alias
-   (--primary, --success, --danger...) sont conservés.
+   Nouvelles sections :
+     §34 : Bons Route (fix I4)
+     §35 : Alertes (fix I5)
    ═══════════════════════════════════════════════════════════════ */

@@ -11,11 +11,9 @@
             saveFraisFromForm, deleteFrais,
             setFraisSearch, setFraisFilter, getFilteredFrais,
             exportFraisJSON, exportFraisCSV, importFraisJSON, printFraisList,
-            openBonEditor, closeBonEditor, renderBonEditor,
-            updateBonField, updateBonLigne,
-            addBonLigne, removeBonLigne,
-            saveBonDraft, clearBonDraft, printBon,
             attachExpensesBonsEvents
+   NOTE v6.10.2 : sections Bons A/B/C/D supprimées (redondantes avec
+                  module Bons Route 23-bons-route.js).
    SECTION 1  : CONSTANTES
    SECTION 2  : HELPERS FRAIS
    SECTION 3  : CALCULS FRAIS
@@ -44,12 +42,7 @@ var FRAIS_CATEGORIES = [
   { id: 'autres',      label: 'Autres',      icon: '📝' }
 ];
 
-var BON_TYPES = {
-  A: { label: 'Bon A', color: '#0b3d91' },
-  B: { label: 'Bon B', color: '#2e7d32' },
-  C: { label: 'Bon C', color: '#d97706' },
-  D: { label: 'Bon D', color: '#7b1fa2' }
-};
+/* v6.10.2 — BON_TYPES supprimé (bons A/B/C/D redondants avec Bons Route) */
 
 var __fraisSearchTerm = '';
 var __fraisFilter = 'all';
@@ -413,281 +406,11 @@ function getFilteredFrais() {
   } catch (e) { return []; }
 }
 
-/* ═══════════ SECTION 8 — HELPERS BONS ═══════════ */
-
-function _emptyBonDraft(type) {
-  return {
-    type: type,
-    numero: '',
-    date: todayISO(),
-    destinataire: '',
-    emetteur: '',
-    observations: '',
-    lignes: [
-      { designation: '', quantite: 1, observations: '' },
-      { designation: '', quantite: 1, observations: '' },
-      { designation: '', quantite: 1, observations: '' }
-    ]
-  };
-}
-
-function _getBonStorageKey(type) {
-  var map = { A: 'bonDraftA', B: 'bonDraftB', C: 'bonDraftC', D: 'bonDraftD' };
-  var field = map[type] || 'bonDraftA';
-  return (window.STORAGE_KEYS && STORAGE_KEYS[field]) ? STORAGE_KEYS[field] : ('voltcore_bon_draft_' + type);
-}
-
-function getBonDraft(type) {
-  try {
-    var raw = localStorage.getItem(_getBonStorageKey(type));
-    if (!raw) return _emptyBonDraft(type);
-    var d = JSON.parse(raw);
-    if (!d || typeof d !== 'object') return _emptyBonDraft(type);
-    if (!Array.isArray(d.lignes) || d.lignes.length === 0) d.lignes = _emptyBonDraft(type).lignes;
-    return d;
-  } catch (e) { return _emptyBonDraft(type); }
-}
-
-function saveBonDraft() {
-  try {
-    if (!currentBonType || !currentBonData) return;
-    localStorage.setItem(_getBonStorageKey(currentBonType), JSON.stringify(currentBonData));
-  } catch (e) { console.warn('saveBonDraft :', e); }
-}
-
-function clearBonDraft(type) {
-  try {
-    var t = type || currentBonType;
-    if (!t) return;
-    localStorage.removeItem(_getBonStorageKey(t));
-    if (currentBonType === t) currentBonData = _emptyBonDraft(t);
-    if (typeof showToast === 'function') showToast('Brouillon effacé', 'info', 2000);
-  } catch (e) { console.warn('clearBonDraft :', e); }
-}
-
-/* ═══════════ SECTION 9 — ÉDITEUR BON ═══════════ */
-
-function openBonEditor(type) {
-  try {
-    var t = String(type || 'A').toUpperCase();
-    if (!BON_TYPES[t]) t = 'A';
-    currentBonType = t;
-    currentBonData = getBonDraft(t);
-    renderBonEditor();
-    var modal = document.getElementById('bonModal');
-    if (modal) modal.style.display = 'flex';
-  } catch (e) { console.warn('openBonEditor :', e); }
-}
-
-function closeBonEditor() {
-  try {
-    saveBonDraft();
-    var m = document.getElementById('bonModal');
-    if (m) m.style.display = 'none';
-    currentBonType = null;
-    currentBonData = null;
-  } catch (e) {}
-}
-
-function renderBonEditor() {
-  try {
-    if (!currentBonData) return;
-    var bt = BON_TYPES[currentBonType] || BON_TYPES.A;
-
-    var title = document.getElementById('bonModalTitle');
-    if (title) title.textContent = bt.label + ' — Éditeur';
-
-    var badge = document.getElementById('bonTypeBadge');
-    if (badge) {
-      badge.textContent = bt.label;
-      badge.style.background = bt.color;
-      badge.style.color = '#fff';
-    }
-
-    _fraisSet('bonNumero', currentBonData.numero || '(auto)');
-    _fraisSet('bonDate', currentBonData.date || todayISO());
-    _fraisSet('bonDestinataire', currentBonData.destinataire || '');
-    _fraisSet('bonEmetteur', currentBonData.emetteur || '');
-    _fraisSet('bonObservations', currentBonData.observations || '');
-
-    _renderBonLines();
-  } catch (e) { console.warn('renderBonEditor :', e); }
-}
-
-function _renderBonLines() {
-  try {
-    var tbody = document.getElementById('bonLinesBody');
-    if (!tbody || !currentBonData || !Array.isArray(currentBonData.lignes)) return;
-    var html = '';
-    for (var i = 0; i < currentBonData.lignes.length; i++) {
-      var l = currentBonData.lignes[i];
-      html += '<tr class="bon-line-row">' +
-        '<td class="bon-line-num">' + (i + 1) + '</td>' +
-        '<td><input type="text" class="bon-input" ' +
-          'value="' + escapeAttr(l.designation || '') + '" ' +
-          'oninput="updateBonLigne(' + i + ', \'designation\', this.value)" ' +
-          'placeholder="Désignation"></td>' +
-        '<td class="col-qte"><input type="number" min="0" step="0.01" class="bon-input" ' +
-          'value="' + escapeAttr(l.quantite != null ? l.quantite : 1) + '" ' +
-          'oninput="updateBonLigne(' + i + ', \'quantite\', this.value)"></td>' +
-        '<td><input type="text" class="bon-input" ' +
-          'value="' + escapeAttr(l.observations || '') + '" ' +
-          'oninput="updateBonLigne(' + i + ', \'observations\', this.value)" ' +
-          'placeholder="Observations"></td>' +
-        '<td><button type="button" class="btn-icon btn-danger" ' +
-          'onclick="removeBonLigne(' + i + ')" title="Supprimer">🗑️</button></td>' +
-        '</tr>';
-    }
-    tbody.innerHTML = html;
-  } catch (e) { console.warn('_renderBonLines :', e); }
-}
-
-function updateBonField(field, value) {
-  try {
-    if (!currentBonData) return;
-    currentBonData[field] = String(value || '');
-    saveBonDraft();
-  } catch (e) {}
-}
-
-function updateBonLigne(index, field, value) {
-  try {
-    if (!currentBonData || !Array.isArray(currentBonData.lignes)) return;
-    var l = currentBonData.lignes[index];
-    if (!l) return;
-    if (field === 'quantite') l[field] = parseNumber(value);
-    else l[field] = String(value || '');
-    saveBonDraft();
-  } catch (e) {}
-}
-
-function addBonLigne() {
-  try {
-    if (!currentBonData) return;
-    currentBonData.lignes.push({ designation: '', quantite: 1, observations: '' });
-    saveBonDraft();
-    _renderBonLines();
-  } catch (e) {}
-}
-
-function removeBonLigne(index) {
-  try {
-    if (!currentBonData || !Array.isArray(currentBonData.lignes)) return;
-    if (index < 0 || index >= currentBonData.lignes.length) return;
-    currentBonData.lignes.splice(index, 1);
-    if (currentBonData.lignes.length === 0) {
-      currentBonData.lignes.push({ designation: '', quantite: 1, observations: '' });
-    }
-    saveBonDraft();
-    _renderBonLines();
-  } catch (e) {}
-}
-
-/* ═══════════ SECTION 10 — IMPRESSION BON ═══════════ */
-
-function printBon() {
-  try {
-    if (!currentBonType || !currentBonData) return;
-
-    /* Assigne un numéro si absent (compteur incrémenté une seule fois) */
-    if (!currentBonData.numero) {
-      var seq = incrementerNumeroBon(currentBonType);
-      var year = new Date().getFullYear();
-      currentBonData.numero = 'BON-' + currentBonType + '-' + year + '-' + String(seq).padStart(4, '0');
-      _fraisSet('bonNumero', currentBonData.numero);
-      saveBonDraft();
-    }
-
-    var bt = BON_TYPES[currentBonType] || BON_TYPES.A;
-    var d = currentBonData;
-
-    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
-      '<title>' + escapeHtml(bt.label) + ' ' + escapeHtml(d.numero) + '</title><style>' +
-      '@page{size:A4;margin:15mm}body{font-family:Arial;font-size:12px;color:#333}' +
-      '.header{display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:2px solid ' + bt.color + ';margin-bottom:15px}' +
-      '.company{font-weight:bold;color:' + bt.color + ';font-size:15px}' +
-      '.bon-title{text-align:center;font-size:22px;font-weight:bold;color:' + bt.color + ';margin:15px 0}' +
-      '.meta{display:flex;justify-content:space-between;margin-bottom:15px;font-size:11px}' +
-      '.meta .box{padding:8px;background:#f5f7fb;border-left:3px solid ' + bt.color + ';width:45%}' +
-      '.meta .label{font-size:9px;text-transform:uppercase;color:#666;margin-bottom:2px}' +
-      'table{width:100%;border-collapse:collapse;margin:15px 0}' +
-      'th{background:' + bt.color + ';color:#fff;padding:6px;text-align:left;font-size:10px}' +
-      'td{padding:6px;border-bottom:1px solid #ddd;font-size:10px}' +
-      '.right{text-align:right}.center{text-align:center}' +
-      '.obs{padding:10px;background:#f9f9f9;font-size:10px;margin-top:10px;min-height:30px}' +
-      '.signature{margin-top:40px;display:flex;justify-content:space-between}' +
-      '.sig-box{width:45%;height:100px;border:1px dashed #999;padding:10px;font-size:10px;color:#666}' +
-      '</style></head><body>';
-
-    html += '<div class="header"><div class="company">VOLTCORE INGENIERIE</div>' +
-      '<div style="text-align:right;font-size:10px">MF : ' + escapeHtml(bankMF || '') +
-      '<br>' + escapeHtml(formatDate(d.date)) + '</div></div>';
-
-    html += '<div class="bon-title">' + escapeHtml(bt.label.toUpperCase()) +
-      ' N° ' + escapeHtml(d.numero) + '</div>';
-
-    html += '<div class="meta">' +
-      '<div class="box"><div class="label">Destinataire</div>' +
-      escapeHtml(d.destinataire || '—') + '</div>' +
-      '<div class="box"><div class="label">Émetteur</div>' +
-      escapeHtml(d.emetteur || '—') + '</div>' +
-      '</div>';
-
-    html += '<table><thead><tr>' +
-      '<th style="width:40px" class="center">#</th>' +
-      '<th>Désignation</th>' +
-      '<th style="width:70px" class="right">Qté</th>' +
-      '<th style="width:200px">Observations</th>' +
-      '</tr></thead><tbody>';
-
-    var count = 0;
-    if (Array.isArray(d.lignes)) {
-      for (var i = 0; i < d.lignes.length; i++) {
-        var l = d.lignes[i];
-        if (!l) continue;
-        if (!String(l.designation || '').trim()) continue;
-        count++;
-        html += '<tr><td class="center">' + count + '</td>' +
-          '<td>' + escapeHtml(l.designation || '') + '</td>' +
-          '<td class="right">' + parseNumber(l.quantite) + '</td>' +
-          '<td>' + escapeHtml(l.observations || '') + '</td></tr>';
-      }
-    }
-    if (count === 0) {
-      html += '<tr><td colspan="4" class="center" style="color:#999">(Aucune ligne)</td></tr>';
-    }
-    html += '</tbody></table>';
-
-    if (d.observations) {
-      html += '<div class="obs"><strong>Observations :</strong><br>' +
-        escapeHtml(d.observations).replace(/\n/g, '<br>') + '</div>';
-    }
-
-    html += '<div class="signature">' +
-      '<div class="sig-box">Signature destinataire</div>' +
-      '<div class="sig-box">Cachet & signature VOLTCORE</div>' +
-      '</div>';
-
-    html += '</body></html>';
-
-    var w = window.open('', '_blank');
-    if (!w) {
-      if (typeof showToast === 'function') showToast('Autorise les pop-ups pour imprimer.', 'warning', 4000);
-      return;
-    }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 400);
-
-    if (typeof logAction === 'function') {
-      logAction('bon.print', bt.label + ' ' + d.numero);
-    }
-  } catch (e) { console.warn('printBon :', e); }
-}
+/* v6.10.2 — Sections 8, 9, 10 (Bons A/B/C/D) supprimées.
+   Remplacement fonctionnel : module Bons Route (23-bons-route.js)
+   qui gère sortie/commande/déplacement avec workflow complet. */
 
 /* ═══════════ SECTION 11 — IMPORT / EXPORT FRAIS ═══════════ */
-
 function exportFraisJSON() {
   try {
     var data = {
@@ -889,63 +612,8 @@ function attachExpensesBonsEvents() {
       printFraisBtn.addEventListener('click', printFraisList);
     }
 
-    /* ── BONS ── */
-    var bonTypes = ['A', 'B', 'C', 'D'];
-    for (var bi = 0; bi < bonTypes.length; bi++) {
-      var t = bonTypes[bi];
-      var btn = document.getElementById('btnOpenBon' + t);
-      if (btn && !btn.__bound) {
-        btn.__bound = true;
-        (function (tt) {
-          btn.addEventListener('click', function () { openBonEditor(tt); });
-        })(t);
-      }
-    }
-
-    var addBonLineBtn = document.getElementById('btnAddBonLine');
-    if (addBonLineBtn && !addBonLineBtn.__bound) {
-      addBonLineBtn.__bound = true;
-      addBonLineBtn.addEventListener('click', addBonLigne);
-    }
-
-    var saveDraftBtn = document.getElementById('btnSaveBonDraft');
-    if (saveDraftBtn && !saveDraftBtn.__bound) {
-      saveDraftBtn.__bound = true;
-      saveDraftBtn.addEventListener('click', function () {
-        saveBonDraft();
-        if (typeof showToast === 'function') showToast('Brouillon sauvegardé', 'success', 1500);
-      });
-    }
-
-    var clearDraftBtn = document.getElementById('btnClearBonDraft');
-    if (clearDraftBtn && !clearDraftBtn.__bound) {
-      clearDraftBtn.__bound = true;
-      clearDraftBtn.addEventListener('click', function () {
-        clearBonDraft(currentBonType);
-        renderBonEditor();
-      });
-    }
-
-    var printBonBtn = document.getElementById('btnPrintBon');
-    if (printBonBtn && !printBonBtn.__bound) {
-      printBonBtn.__bound = true;
-      printBonBtn.addEventListener('click', printBon);
-    }
-
-    /* Fields bon → dirty (déjà auto via oninput inline, ceci est un filet) */
-    var bonFields = ['bonDate', 'bonDestinataire', 'bonEmetteur', 'bonObservations'];
-    for (var fi = 0; fi < bonFields.length; fi++) {
-      var el = document.getElementById(bonFields[fi]);
-      if (el && !el.__bound) {
-        el.__bound = true;
-        (function (field) {
-          el.addEventListener('change', function (ev) {
-            updateBonField(field, ev.target.value);
-          });
-        })(bonFields[fi].replace('bon', '').toLowerCase().replace('date', 'date'));
-      }
-    }
+    /* v6.10.2 — Binds Bons A/B/C/D supprimés (voir module Bons Route) */
   } catch (e) { console.warn('attachExpensesBonsEvents :', e); }
 }
 
-console.log('✅ 14-expenses-bons.js chargé — v6.7 (Session #3 — frais + bons A/B/C/D, _csvCellFrais)');
+console.log('✅ 14-expenses-bons.js chargé — v6.10.2 (frais seuls, bons A/B/C/D supprimés)');

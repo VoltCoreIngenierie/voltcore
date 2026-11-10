@@ -67,14 +67,19 @@ function computeInvoiceTotals() {
   try {
     var items = Array.isArray(currentInvoiceItems) ? currentInvoiceItems : [];
 
-    /* 1. Total HT */
+    /* 1. Total HT — v6.9.4 fix C3 : utilise computeLineTotal
+       pour respecter la remise par ligne (sinon PDF ≠ réalité) */
     var totalHT = 0;
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
       if (!it) continue;
-      var q = parseNumber(it.quantite);
-      var p = parseNumber(it.prix);
-      if (q > 0 && p >= 0) totalHT += q * p;
+      var lineTotal;
+      if (typeof computeLineTotal === 'function') {
+        lineTotal = computeLineTotal(it);
+      } else {
+        lineTotal = parseNumber(it.quantite) * parseNumber(it.prix);
+      }
+      totalHT += lineTotal;
     }
 
     /* 2. Paramètres */
@@ -1102,6 +1107,20 @@ function openEditInvoice(docId) {
     /* Attachments */
     currentAttachments = Array.isArray(doc.attachments) ? doc.attachments.slice() : [];
 
+    /* v6.9.5 — Recharge les blobs manquants depuis IndexedDB.
+       Certains attachments migrés ont ref mais data=null.
+       On restaure data en dataURL temporaire pour le formulaire.
+       Le formulaire affiche name+size, mais on veut pouvoir
+       re-sauvegarder sans perdre les données binaires. */
+    if (typeof _loadMissingAttachmentBlobs === 'function' &&
+        currentAttachments.length > 0) {
+      _loadMissingAttachmentBlobs(currentAttachments).then(function () {
+        try { renderInvoiceAttachments(); } catch (e) {}
+      }).catch(function (e) {
+        console.warn('Chargement attachments IDB :', e);
+      });
+    }
+
     renderInvoiceItems();
     renderInvoiceAttachments();
     updateInvoiceTotalsDisplay();
@@ -1339,4 +1358,4 @@ try {
   });
 } catch (e) {}
 
-console.log('✅ 11-invoices.js chargé — v6.7 (remise + colonne + picker + garantie BTP + préremplissage TVA)');
+console.log('✅ 11-invoices.js chargé — v6.9.5 (recharge blobs IDB à l\'édition)');

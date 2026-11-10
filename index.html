@@ -91,6 +91,9 @@
       <button class="nav-item" data-nav-section="rh">
         <span class="nav-icon">👤</span><span class="nav-label">RH</span>
       </button>
+      <button class="nav-item" data-nav-section="documents">
+        <span class="nav-icon">📁</span><span class="nav-label">Documents</span>
+      </button>
       <button class="nav-item" data-nav-section="outils">
         <span class="nav-icon">⚙️</span><span class="nav-label">Outils</span>
       </button>
@@ -353,16 +356,6 @@
         </select>
       </div>
       <div id="fraisList" class="list-container"></div>
-
-      <div class="section-subsection">
-        <h2>Bons de sortie</h2>
-        <div class="bons-actions">
-          <button id="btnOpenBonA" class="btn btn-bon-a">Bon A</button>
-          <button id="btnOpenBonB" class="btn btn-bon-b">Bon B</button>
-          <button id="btnOpenBonC" class="btn btn-bon-c">Bon C</button>
-          <button id="btnOpenBonD" class="btn btn-bon-d">Bon D</button>
-        </div>
-      </div>
     </section>
 
     <!-- ─────────── SECTION : BONS ROUTE (v6.9.0) ─────────── -->
@@ -424,6 +417,47 @@
         </select>
       </div>
       <div id="hrList" class="list-container"></div>
+    </section>
+
+    <!-- ─────────── SECTION : DOCUMENTS (v6.9.8) ─────────── -->
+    <section id="documentsSection" class="app-section" style="display:none">
+      <div class="section-header">
+        <h1>Documents <span id="documentsCount" class="count-badge">0</span></h1>
+        <div class="section-actions">
+          <button id="btnAddDocument" class="btn btn-primary">+ Nouveau document</button>
+          <button id="btnExportDocumentsJSON" class="btn">JSON</button>
+          <button id="btnImportDocuments" class="btn">Importer</button>
+        </div>
+      </div>
+      <!-- v6.9.9 — Bandeau dossier local (masqué si non supporté) -->
+      <div id="documentsFsBanner" class="purchases-summary" style="display:none">
+        <div style="flex:1;min-width:200px">
+          <strong>📂 Dossier local :</strong>
+          <span id="documentsFsName" class="muted">Aucun dossier sélectionné</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" id="btnChooseDocumentsFolder" class="btn btn-sm btn-primary">📂 Choisir un dossier</button>
+          <button type="button" id="btnSyncDocumentsFolder" class="btn btn-sm" style="display:none">📥 Synchroniser</button>
+          <button type="button" id="btnForgetDocumentsFolder" class="btn btn-sm btn-danger" style="display:none">🗙 Oublier</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="documentsSearchInput" placeholder="Rechercher un document (nom, tags)…" class="input-search">
+        <select id="documentsFilterCat" class="input-select">
+          <option value="all">Toutes catégories</option>
+        </select>
+        <select id="documentsFilterLinked" class="input-select">
+          <option value="all">Tous</option>
+          <option value="linked">Liés à un document</option>
+          <option value="unlinked">Non liés</option>
+        </select>
+      </div>
+      <div id="documentsList" class="documents-grid"></div>
+      <div class="pagination" id="documentsPagination" style="display:none">
+        <button id="documentsPrevBtn" class="btn btn-sm">◀ Précédent</button>
+        <span id="documentsPageInfo" class="muted">0 document</span>
+        <button id="documentsNextBtn" class="btn btn-sm">Suivant ▶</button>
+      </div>
     </section>
 
     <!-- ─────────── SECTION : OUTILS ─────────── -->
@@ -489,6 +523,40 @@
           <div class="tools-actions">
             <button id="btnSaveSettings" class="btn btn-primary">Enregistrer</button>
             <button id="btnResetCompteurs" class="btn btn-danger">Reset compteurs</button>
+          </div>
+        </div>
+
+        <!-- v6.9.6 — Signature & cachet par défaut -->
+        <div class="tools-card">
+          <h2>✍️ Signature & cachet par défaut</h2>
+          <p class="muted" style="margin-bottom:12px;font-size:12px;line-height:1.5">
+            Ces images seront automatiquement insérées dans les PDF de facture
+            et de bon route. PNG transparent recommandé (fond transparent pour
+            un rendu réaliste). Taille max 500 Ko (compression auto).
+          </p>
+
+          <div class="form-grid">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Signature</label>
+              <div id="signatureDefaultPreview" class="logo-preview-container" style="min-height:100px;margin-bottom:8px">
+                <span class="muted" style="font-size:12px">Aucune signature configurée</span>
+              </div>
+              <div class="tools-actions">
+                <button type="button" id="btnUploadSignatureDefault" class="btn btn-primary btn-sm">📤 Importer</button>
+                <button type="button" id="btnRemoveSignatureDefault" class="btn btn-danger btn-sm" style="display:none">🗑️ Supprimer</button>
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Cachet</label>
+              <div id="cachetDefaultPreview" class="logo-preview-container" style="min-height:100px;margin-bottom:8px">
+                <span class="muted" style="font-size:12px">Aucun cachet configuré</span>
+              </div>
+              <div class="tools-actions">
+                <button type="button" id="btnUploadCachetDefault" class="btn btn-primary btn-sm">📤 Importer</button>
+                <button type="button" id="btnRemoveCachetDefault" class="btn btn-danger btn-sm" style="display:none">🗑️ Supprimer</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1108,30 +1176,7 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : BON ═══════════ -->
-<div id="bonModal" class="modal" style="display:none">
-  <div class="modal-content modal-large">
-    <h2 id="bonModalTitle">Bon <span id="bonTypeBadge" class="badge">A</span></h2>
-    <div class="form-grid">
-      <label>N°<input type="text" id="bonNumero" class="input" placeholder="(auto)"></label>
-      <label>Date<input type="date" id="bonDate" class="input"></label>
-      <label>Destinataire<input type="text" id="bonDestinataire" class="input"></label>
-      <label>Émetteur<input type="text" id="bonEmetteur" class="input"></label>
-    </div>
-    <table class="invoice-items-table">
-      <thead><tr><th>#</th><th>Désignation</th><th class="col-qte">Qté</th><th>Observations</th><th></th></tr></thead>
-      <tbody id="bonLinesBody"></tbody>
-    </table>
-    <button type="button" id="btnAddBonLine" class="btn btn-sm">+ Ajouter ligne</button>
-    <label>Observations<textarea id="bonObservations" rows="2" class="input"></textarea></label>
-    <div class="modal-actions">
-      <button type="button" class="btn" onclick="if(typeof closeBonEditor==='function')closeBonEditor()">Fermer</button>
-      <button type="button" id="btnSaveBonDraft" class="btn">💾 Brouillon</button>
-      <button type="button" id="btnClearBonDraft" class="btn">🗑️ Vider</button>
-      <button type="button" id="btnPrintBon" class="btn btn-primary">🖨️ Imprimer</button>
-    </div>
-  </div>
-</div>
+<!-- v6.10.2 — Modale Bon A/B/C/D supprimée -->
 
 <!-- ═══════════ MODALE : SCANNER ═══════════ -->
 <div id="scanModal" class="modal" style="display:none">
@@ -1142,8 +1187,30 @@
     <div id="scanVideoContainer" style="display:none">
       <video id="scanVideo" autoplay playsinline></video>
     </div>
-    <div id="scanPreviewContainer" style="display:none">
-      <img id="scanPreview" alt="Aperçu">
+    <div id="scanPreviewContainer" style="display:none;text-align:center">
+      <div id="scanPreviewWrapper">
+        <img id="scanPreview" alt="Aperçu">
+        <div id="scanCornersContainer" style="display:none">
+          <div class="scan-corner" data-corner="0"></div>
+          <div class="scan-corner" data-corner="1"></div>
+          <div class="scan-corner" data-corner="2"></div>
+          <div class="scan-corner" data-corner="3"></div>
+        </div>
+        <div id="scanProcessingSpinner" style="display:none">
+          <div class="skeleton-spinner"></div>
+          <div id="scanProcessingMsg" style="font-size:13px;margin-top:8px;color:#fff">Traitement…</div>
+        </div>
+      </div>
+    </div>
+    <!-- v6.10.0 — Barre d'amélioration -->
+    <div id="scanImproveBar" style="display:none">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 0;border-top:1px solid var(--border);margin-top:10px">
+        <span style="font-size:12px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px">Mode :</span>
+        <button type="button" id="btnScanModeFast" class="btn btn-sm active" data-scan-mode="fast">⚡ Rapide</button>
+        <button type="button" id="btnScanModePrecise" class="btn btn-sm" data-scan-mode="precise">🎯 Précis</button>
+        <button type="button" id="btnResetScanCorners" class="btn btn-sm" title="Réinitialise les 4 coins">↺ Reset coins</button>
+        <button type="button" id="btnApplyScanImprove" class="btn btn-primary btn-sm">✨ Améliorer</button>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="if(typeof closeScanner==='function')closeScanner()">Fermer</button>
@@ -1151,7 +1218,9 @@
       <button id="btnStopCamera" class="btn" style="display:none">⏹️ Arrêter</button>
       <button id="btnCapturePhoto" class="btn btn-primary" style="display:none">📸 Capturer</button>
       <button id="btnImportScanGallery" class="btn">🖼️ Galerie</button>
+      <button id="btnSaveScanToDocs" class="btn btn-primary" style="display:none">📁 Documents</button>
       <button id="btnSaveScan" class="btn btn-primary" style="display:none">💾 Sauvegarder</button>
+      <button id="btnUndoScanImprove" class="btn" style="display:none">↺ Annuler l'amélioration</button>
     </div>
   </div>
 </div>
@@ -1341,6 +1410,49 @@
   </div>
 </div>
 
+<!-- ═══════════ MODALE : DOCUMENT UPLOAD (v6.9.8) ═══════════ -->
+<div id="documentUploadModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>📁 Nouveau document</h2>
+    <div class="form-grid">
+      <label>Fichier * (image ou PDF, max 5 Mo)
+        <input type="file" id="documentUploadFile" class="input" accept="image/jpeg,image/png,image/webp,application/pdf">
+      </label>
+      <label>Nom
+        <input type="text" id="documentUploadNom" class="input" placeholder="(auto depuis le fichier)" maxlength="200">
+      </label>
+      <label>Catégorie
+        <select id="documentUploadCategorie" class="input"></select>
+      </label>
+      <label>Date du document
+        <input type="date" id="documentUploadDate" class="input">
+      </label>
+    </div>
+    <label>Tags (séparés par virgules)
+      <input type="text" id="documentUploadTags" class="input" placeholder="ex: steg, octobre, 2026">
+    </label>
+    <label>Notes (optionnel)
+      <textarea id="documentUploadNotes" rows="2" class="input"></textarea>
+    </label>
+    <div id="documentUploadError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="closeDocumentUploadModal()">Annuler</button>
+      <button type="button" class="btn btn-primary" id="documentUploadSaveBtn">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODALE : DOCUMENT DÉTAIL (v6.9.8) ═══════════ -->
+<div id="documentDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="documentDetailTitle">Document</h2>
+    <div id="documentDetailBody"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="closeDocumentDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ MODALE : BON ROUTE DÉTAIL (v6.9.0) ═══════════ -->
 <div id="bonRouteDetailModal" class="modal" style="display:none">
   <div class="modal-content modal-xlarge">
@@ -1374,6 +1486,7 @@
 <script src="./19-tools-save.js"></script>
 <script src="./20-init-infra.js"></script>
 <script src="./23-bons-route.js"></script>
+<script src="./24-documents.js"></script>
 <script src="./21-init-app.js"></script>
 
 <!-- ═══════════ BRANCHEMENT TRI CLIENTS (UI) ═══════════ -->

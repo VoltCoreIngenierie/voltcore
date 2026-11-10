@@ -68,6 +68,8 @@ function renderTrash() {
       { key: 'chantiers', label: '🏗️ Chantiers' },
       { key: 'frais', label: '💰 Frais' },
       { key: 'purchases', label: '🛒 Achats' },
+      /* v6.9.4 — fix C2 : bons route dans la corbeille */
+      { key: 'bonsRoute', label: '🚐 Bons Route' },
       { key: 'hrEmployees', label: '👤 Employés' },
       { key: 'hrWorkEntries', label: '📅 Journées' },
       { key: 'hrTransactions', label: '💵 Paiements' }
@@ -125,6 +127,12 @@ function _trashItemLabel(kind, item) {
   if (kind === 'clients' || kind === 'suppliers') return String(item.nom || '(sans nom)');
   if (kind === 'articles') return String(item.nom || item.designation || '(sans nom)');
   if (kind === 'documents' || kind === 'purchases') return String(item.numero || '(sans N°)');
+  /* v6.9.4 — fix C2 : bons route */
+  if (kind === 'bonsRoute') {
+    var typeLabels = { sortie: '📤 Sortie', commande: '📥 Commande', deplacement: '🚐 Déplacement' };
+    return String(item.numero || '(sans N°)') +
+      ' — ' + (typeLabels[item.type] || item.type || '');
+  }
   if (kind === 'chantiers') return String(item.nom || '(sans nom)');
   if (kind === 'frais') return (item.categorie || 'Frais') + ' — ' + formatMoney(item.montant);
   if (kind === 'hrEmployees') return String(item.nom || '(sans nom)');
@@ -144,6 +152,8 @@ function _trashItemExists(kind, item) {
     else if (kind === 'chantiers') arr = savedChantiers;
     else if (kind === 'frais') arr = frais;
     else if (kind === 'purchases') arr = purchaseInvoices;
+    /* v6.9.4 — fix C2 : bons route */
+    else if (kind === 'bonsRoute') arr = (typeof bonsRoute !== 'undefined' && Array.isArray(bonsRoute)) ? bonsRoute : [];
     else if (kind === 'hrEmployees') arr = hrEmployees;
     else if (kind === 'hrWorkEntries') arr = hrWorkEntries;
     else if (kind === 'hrTransactions') arr = hrTransactions;
@@ -174,6 +184,11 @@ function restoreTrashItem(kind, index) {
     else if (kind === 'chantiers') savedChantiers.push(entry.item);
     else if (kind === 'frais') frais.push(entry.item);
     else if (kind === 'purchases') purchaseInvoices.push(entry.item);
+    /* v6.9.4 — fix C2 : bons route restaurés */
+    else if (kind === 'bonsRoute') {
+      if (typeof bonsRoute === 'undefined' || !Array.isArray(bonsRoute)) bonsRoute = [];
+      bonsRoute.push(entry.item);
+    }
     else if (kind === 'hrEmployees') hrEmployees.push(entry.item);
     else if (kind === 'hrWorkEntries') hrWorkEntries.push(entry.item);
     else if (kind === 'hrTransactions') hrTransactions.push(entry.item);
@@ -193,6 +208,8 @@ function restoreTrashItem(kind, index) {
       if (typeof renderChantiers === 'function') renderChantiers();
       if (typeof renderFrais === 'function') renderFrais();
       if (typeof renderPurchases === 'function') renderPurchases();
+      /* v6.9.4 — fix C2 : refresh bons route */
+      if (typeof renderBonsRoute === 'function') renderBonsRoute();
       if (typeof renderHR === 'function') renderHR();
     } catch (e) {}
 
@@ -220,6 +237,15 @@ function purgeOldTrash() {
     if (purged > 0) {
       if (typeof saveAll === 'function') saveAll();
       if (typeof logAction === 'function') logAction('trash.purge', purged + ' éléments > ' + VOLTCORE_TRASH_MAX_DAYS + 'j');
+
+      /* v6.9.7 — Cleanup des blobs orphelins après purge */
+      if (typeof _cleanOrphanBlobs === 'function') {
+        _cleanOrphanBlobs().then(function (res) {
+          if (res && res.cleaned > 0) {
+            try { console.log('[Purge] ' + res.cleaned + ' blob(s) supprimé(s)'); } catch (e) {}
+          }
+        }).catch(function () {});
+      }
     }
     renderTrash();
     return purged;
@@ -242,6 +268,16 @@ function emptyTrashAll() {
     if (typeof saveAll === 'function') saveAll();
     if (typeof logAction === 'function') logAction('trash.empty', count + ' supprimés définitivement');
     renderTrash();
+
+    /* v6.9.7 — Cleanup des blobs orphelins après suppression définitive */
+    if (typeof _cleanOrphanBlobs === 'function') {
+      _cleanOrphanBlobs().then(function (res) {
+        if (res && res.cleaned > 0) {
+          try { console.log('[Trash] ' + res.cleaned + ' blob(s) supprimé(s)'); } catch (e) {}
+        }
+      }).catch(function () {});
+    }
+
     if (typeof showToast === 'function') showToast('Corbeille vidée (' + count + ' éléments)', 'success', 2500);
   } catch (e) { console.warn('emptyTrashAll :', e); }
 }
@@ -303,8 +339,8 @@ function buildCompleteBackupData() {
   try {
     return {
       _voltcore_backup: true,
-      /* v6.7 — version backup alignée sur la version app */
-      _version: '6.7',
+      /* v6.9.4 — version backup alignée sur version app */
+      _version: '6.9.4',
       _createdAt: new Date().toISOString(),
       clients: clients || [],
       articles: savedArticles || [],
@@ -314,6 +350,8 @@ function buildCompleteBackupData() {
       chantiers: savedChantiers || [],
       frais: frais || [],
       purchaseInvoices: purchaseInvoices || [],
+      /* v6.9.4 — bons route inclus (fix C1 : étaient absents du backup) */
+      bonsRoute: (typeof bonsRoute !== 'undefined' && Array.isArray(bonsRoute)) ? bonsRoute : [],
       hrEmployees: hrEmployees || [],
       hrWorkEntries: hrWorkEntries || [],
       hrTransactions: hrTransactions || [],
@@ -323,6 +361,8 @@ function buildCompleteBackupData() {
         rib: bankRib || '',
         banque: bankName || '',
         mf: bankMF || '',
+        /* v6.9.4 — RNE inclus (était absent) */
+        rne: (typeof bankRNE !== 'undefined') ? bankRNE : '',
         logo: (typeof getLogo === 'function') ? getLogo() : ''
       },
       trash: trash || { clients: [], articles: [], documents: [] },
@@ -422,6 +462,8 @@ function _applyImportData(data, mode) {
     if (mode === 'replace') {
       clients = []; savedArticles = []; savedDocuments = []; suppliers = [];
       savedChantiers = []; frais = []; purchaseInvoices = [];
+      /* v6.9.4 — fix C1 : bons route aussi remplacés */
+      if (typeof bonsRoute !== 'undefined') bonsRoute = [];
       hrEmployees = []; hrWorkEntries = []; hrTransactions = [];
       familles = [];
     }
@@ -492,10 +534,12 @@ function _applyImportData(data, mode) {
          frais, hrWorkEntries, hrTransactions.
        Signalement : un warning console est émis si le backup contient
        des items sans ID (signe d'un backup externe ou corrompu). */
-    var additive = ['documents', 'purchaseInvoices', 'frais', 'chantiers', 'hrEmployees', 'hrWorkEntries', 'hrTransactions'];
+    /* v6.9.4 — fix C1 : bons route dans l'import */
+    var additive = ['documents', 'purchaseInvoices', 'frais', 'chantiers', 'bonsRoute', 'hrEmployees', 'hrWorkEntries', 'hrTransactions'];
     var targets = {
       documents: savedDocuments, purchaseInvoices: purchaseInvoices,
       frais: frais, chantiers: savedChantiers,
+      bonsRoute: (typeof bonsRoute !== 'undefined' && Array.isArray(bonsRoute)) ? bonsRoute : [],
       hrEmployees: hrEmployees, hrWorkEntries: hrWorkEntries,
       hrTransactions: hrTransactions
     };
@@ -536,6 +580,14 @@ function _applyImportData(data, mode) {
                 return x && normalizeText(x.nom || '') === nm;
               });
             }
+          } else if (key === 'bonsRoute') {
+            /* v6.9.4 — bons route : doublon par numéro (BR-YYYY-NNNN) */
+            var numBr = String(item.numero || '').trim();
+            if (numBr) {
+              dupContent = target.some(function (x) {
+                return x && String(x.numero || '').trim() === numBr;
+              });
+            }
           }
           /* frais, hrWorkEntries, hrTransactions :
              pas de clé naturelle fiable → ID uniquement */
@@ -557,10 +609,13 @@ function _applyImportData(data, mode) {
       if (data.config.rib) bankRib = String(data.config.rib);
       if (data.config.banque) bankName = String(data.config.banque);
       if (data.config.mf) bankMF = String(data.config.mf);
+      /* v6.9.4 — RNE */
+      if (data.config.rne && typeof bankRNE !== 'undefined') bankRNE = String(data.config.rne);
       try {
         if (data.config.rib) localStorage.setItem(STORAGE_KEYS.rib, data.config.rib);
         if (data.config.banque) localStorage.setItem(STORAGE_KEYS.banque, data.config.banque);
         if (data.config.mf) localStorage.setItem(STORAGE_KEYS.mf, data.config.mf);
+        if (data.config.rne && STORAGE_KEYS.rne) localStorage.setItem(STORAGE_KEYS.rne, data.config.rne);
         if (data.config.logo && typeof saveLogo === 'function') saveLogo(data.config.logo);
       } catch (e) {}
     }
@@ -1026,6 +1081,121 @@ function renderHelp() {
 }
 
 /* ═══════════ SECTION 9 — PARAMÈTRES ═══════════ */
+/* ═══════════ v6.9.6 — UI Signature & Cachet par défaut ═══════════ */
+
+function _renderSignatureDefaultPreview() {
+  try {
+    var preview = document.getElementById('signatureDefaultPreview');
+    var removeBtn = document.getElementById('btnRemoveSignatureDefault');
+    if (!preview) return;
+
+    var meta = (typeof getSignatureDefault === 'function') ? getSignatureDefault() : null;
+    if (!meta) {
+      preview.innerHTML = '<span class="muted" style="font-size:12px">Aucune signature configurée</span>';
+      if (removeBtn) removeBtn.style.display = 'none';
+      return;
+    }
+
+    /* Charge le blob et affiche */
+    if (typeof _idbBlobsGet === 'function' && typeof _blobToDataURL === 'function') {
+      _idbBlobsGet(meta.ref).then(function (row) {
+        if (!row || !row.data) {
+          preview.innerHTML = '<span class="muted" style="font-size:12px">Fichier introuvable</span>';
+          return;
+        }
+        _blobToDataURL(row.data).then(function (d) {
+          preview.innerHTML =
+            '<img src="' + d + '" alt="Signature" ' +
+            'style="max-height:80px;max-width:200px;background:#fff;padding:4px;border:1px solid var(--border);border-radius:4px">' +
+            '<div class="muted" style="font-size:11px;margin-top:4px">' +
+              escapeHtml(meta.name || 'Signature') + ' · ' +
+              formatBytes(meta.size || 0) +
+            '</div>';
+        }).catch(function () {
+          preview.innerHTML = '<span class="muted" style="font-size:12px">Erreur d\'affichage</span>';
+        });
+      }).catch(function () {
+        preview.innerHTML = '<span class="muted" style="font-size:12px">Erreur d\'accès IDB</span>';
+      });
+    }
+
+    if (removeBtn) removeBtn.style.display = '';
+  } catch (e) { console.warn('_renderSignatureDefaultPreview :', e); }
+}
+
+function _renderCachetDefaultPreview() {
+  try {
+    var preview = document.getElementById('cachetDefaultPreview');
+    var removeBtn = document.getElementById('btnRemoveCachetDefault');
+    if (!preview) return;
+
+    var meta = (typeof getCachetDefault === 'function') ? getCachetDefault() : null;
+    if (!meta) {
+      preview.innerHTML = '<span class="muted" style="font-size:12px">Aucun cachet configuré</span>';
+      if (removeBtn) removeBtn.style.display = 'none';
+      return;
+    }
+
+    if (typeof _idbBlobsGet === 'function' && typeof _blobToDataURL === 'function') {
+      _idbBlobsGet(meta.ref).then(function (row) {
+        if (!row || !row.data) {
+          preview.innerHTML = '<span class="muted" style="font-size:12px">Fichier introuvable</span>';
+          return;
+        }
+        _blobToDataURL(row.data).then(function (d) {
+          preview.innerHTML =
+            '<img src="' + d + '" alt="Cachet" ' +
+            'style="max-height:80px;max-width:200px;background:#fff;padding:4px;border:1px solid var(--border);border-radius:4px">' +
+            '<div class="muted" style="font-size:11px;margin-top:4px">' +
+              escapeHtml(meta.name || 'Cachet') + ' · ' +
+              formatBytes(meta.size || 0) +
+            '</div>';
+        }).catch(function () {
+          preview.innerHTML = '<span class="muted" style="font-size:12px">Erreur d\'affichage</span>';
+        });
+      }).catch(function () {
+        preview.innerHTML = '<span class="muted" style="font-size:12px">Erreur d\'accès IDB</span>';
+      });
+    }
+
+    if (removeBtn) removeBtn.style.display = '';
+  } catch (e) { console.warn('_renderCachetDefaultPreview :', e); }
+}
+
+/* Upload signature/cachet : lit le fichier, compresse si > 300 Ko,
+   convertit en Blob, puis stocke en IDB. */
+function _uploadDefaultImage(kind, file) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!file) return reject(new Error('Fichier requis'));
+      if (!/^image\//.test(file.type || '')) {
+        return reject(new Error('Format image requis (PNG, JPG)'));
+      }
+
+      var maxBytes = 400 * 1024;
+      var doUpload = function (blob, name) {
+        if (kind === 'signature' && typeof setSignatureDefault === 'function') {
+          setSignatureDefault(blob, name).then(resolve).catch(reject);
+        } else if (kind === 'cachet' && typeof setCachetDefault === 'function') {
+          setCachetDefault(blob, name).then(resolve).catch(reject);
+        } else {
+          reject(new Error('Fonction de stockage indisponible'));
+        }
+      };
+
+      /* Compression si nécessaire */
+      if (typeof compressImageWithFeedback === 'function' && file.size > maxBytes) {
+        compressImageWithFeedback(file, maxBytes).then(function (dataUrl) {
+          _dataURLToBlob(dataUrl).then(function (blob) {
+            doUpload(blob, file.name || kind);
+          }).catch(reject);
+        }).catch(reject);
+      } else {
+        doUpload(file, file.name || kind);
+      }
+    } catch (e) { reject(e); }
+  });
+}
 
 function loadSettings() {
   try {
@@ -1046,6 +1216,9 @@ function loadSettings() {
       if (logo) { logoImg.src = logo; logoImg.style.display = ''; }
       else { logoImg.removeAttribute('src'); logoImg.style.display = 'none'; }
     }
+    /* v6.9.6 — previews signature & cachet par défaut */
+    try { _renderSignatureDefaultPreview(); } catch (e) {}
+    try { _renderCachetDefaultPreview(); } catch (e) {}
   } catch (e) { console.warn('loadSettings :', e); }
 }
 
@@ -1271,7 +1444,96 @@ function attachToolsEvents() {
       btnResetCompteurs.__bound = true;
       btnResetCompteurs.addEventListener('click', resetCompteurs);
     }
+
+    /* v6.9.6 — binds signature & cachet */
+    _attachSignatureDefaultBindings();
+    _attachCachetDefaultBindings();
   } catch (e) { console.warn('attachToolsEvents :', e); }
+}
+
+/* v6.9.6 — Bind boutons signature */
+function _attachSignatureDefaultBindings() {
+  try {
+    var upBtn = document.getElementById('btnUploadSignatureDefault');
+    if (upBtn && !upBtn.__bound) {
+      upBtn.__bound = true;
+      upBtn.addEventListener('click', function () {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/png,image/jpeg,image/webp';
+        input.onchange = function (ev) {
+          var f = ev.target.files && ev.target.files[0];
+          if (!f) return;
+          _uploadDefaultImage('signature', f).then(function () {
+            if (typeof showToast === 'function') showToast('Signature enregistrée', 'success', 2000);
+            _renderSignatureDefaultPreview();
+          }).catch(function (err) {
+            if (typeof showToast === 'function') {
+              showToast('Échec signature : ' + (err.message || err), 'error', 4000);
+            }
+          });
+        };
+        input.click();
+      });
+    }
+
+    var rmBtn = document.getElementById('btnRemoveSignatureDefault');
+    if (rmBtn && !rmBtn.__bound) {
+      rmBtn.__bound = true;
+      rmBtn.addEventListener('click', function () {
+        var ok = (typeof confirmDialog === 'function')
+          ? confirmDialog('Supprimer la signature par défaut ?')
+          : window.confirm('Supprimer la signature par défaut ?');
+        if (!ok) return;
+        deleteSignatureDefault().then(function () {
+          if (typeof showToast === 'function') showToast('Signature supprimée', 'info', 2000);
+          _renderSignatureDefaultPreview();
+        });
+      });
+    }
+  } catch (e) { console.warn('_attachSignatureDefaultBindings :', e); }
+}
+
+function _attachCachetDefaultBindings() {
+  try {
+    var upBtn = document.getElementById('btnUploadCachetDefault');
+    if (upBtn && !upBtn.__bound) {
+      upBtn.__bound = true;
+      upBtn.addEventListener('click', function () {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/png,image/jpeg,image/webp';
+        input.onchange = function (ev) {
+          var f = ev.target.files && ev.target.files[0];
+          if (!f) return;
+          _uploadDefaultImage('cachet', f).then(function () {
+            if (typeof showToast === 'function') showToast('Cachet enregistré', 'success', 2000);
+            _renderCachetDefaultPreview();
+          }).catch(function (err) {
+            if (typeof showToast === 'function') {
+              showToast('Échec cachet : ' + (err.message || err), 'error', 4000);
+            }
+          });
+        };
+        input.click();
+      });
+    }
+
+    var rmBtn = document.getElementById('btnRemoveCachetDefault');
+    if (rmBtn && !rmBtn.__bound) {
+      rmBtn.__bound = true;
+      rmBtn.addEventListener('click', function () {
+        var ok = (typeof confirmDialog === 'function')
+          ? confirmDialog('Supprimer le cachet par défaut ?')
+          : window.confirm('Supprimer le cachet par défaut ?');
+        if (!ok) return;
+        deleteCachetDefault().then(function () {
+          if (typeof showToast === 'function') showToast('Cachet supprimé', 'info', 2000);
+          _renderCachetDefaultPreview();
+        });
+      });
+    }
+  } catch (e) { console.warn('_attachCachetDefaultBindings :', e); }
 }
 
 /* ═══════════ SECTION 11 — INIT ═══════════ */
@@ -1294,4 +1556,4 @@ function initTools() {
   } catch (e) { console.warn('initTools :', e); }
 }
 
-console.log('✅ 19-tools-save.js chargé — v6.7 (merge refs + UX import sécurisée)');
+console.log('✅ 19-tools-save.js chargé — v6.9.7 (cleanup blobs corbeille + purge)');

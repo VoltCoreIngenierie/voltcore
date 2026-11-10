@@ -70,9 +70,15 @@ function _readFileAsDataURL(file) {
 function openScanner() {
   try {
     __scanCapturedImage = null;
+    __scanRawImage = null;
+    __scanIsImproved = false;
+    __scanCurrentMode = 'fast';
+    __scanCornerPositions = null;
     _scanShow('scanPreviewContainer', false);
     _scanShow('scanVideoContainer', false);
     _scanShow('scanEmptyHint', true);
+    if (typeof _scanShowImproveBar === 'function') _scanShowImproveBar(false);
+    if (typeof _scanShowCorners === 'function') _scanShowCorners(false);
 
     var camBtn = document.getElementById('btnStartCamera');
     if (camBtn) camBtn.disabled = false;
@@ -86,6 +92,16 @@ function openScanner() {
 
     var prev = document.getElementById('scanPreview');
     if (prev) prev.removeAttribute('src');
+
+    /* v6.10.0 — masque les boutons avancés */
+    var undoBtn = document.getElementById('btnUndoScanImprove');
+    if (undoBtn) undoBtn.style.display = 'none';
+    var saveDocs = document.getElementById('btnSaveScanToDocs');
+    if (saveDocs) saveDocs.style.display = 'none';
+    var saveBtn = document.getElementById('btnSaveScan');
+    if (saveBtn) saveBtn.style.display = 'none';
+    var spin = document.getElementById('scanProcessingSpinner');
+    if (spin) spin.style.display = 'none';
 
     var errEl = document.getElementById('scanError');
     if (errEl) errEl.textContent = '';
@@ -206,11 +222,33 @@ async function capturePhoto() {
     /* Qualité jpeg 0.9 — la compression H affinera si nécessaire */
     var dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     __scanCapturedImage = dataUrl;
+    /* v6.10.0 — stocke aussi le raw pour annulation */
+    __scanRawImage = dataUrl;
+    __scanIsImproved = false;
+    __scanCornerPositions = null;
 
     var img = document.getElementById('scanPreview');
     if (img) img.src = dataUrl;
     _scanShow('scanPreviewContainer', true);
     _scanShow('scanEmptyHint', false);
+
+    /* v6.10.0 — affiche les handles + barre d'amélioration */
+    if (typeof _scanShowCorners === 'function') {
+      _scanShowCorners(true);
+      setTimeout(function () {
+        _scanResetCornerPositions();
+        _scanRenderCornerHandles();
+        _scanAttachCornerEvents();
+        _scanSetMode(__scanCurrentMode || 'fast');
+      }, 100);
+    }
+    if (typeof _scanShowImproveBar === 'function') _scanShowImproveBar(true);
+
+    /* v6.10.0 — boutons basiques visibles (avant amélioration) */
+    var saveBtn0 = document.getElementById('btnSaveScan');
+    if (saveBtn0) saveBtn0.style.display = '';
+    var saveDocs0 = document.getElementById('btnSaveScanToDocs');
+    if (saveDocs0) saveDocs0.style.display = '';
 
     stopCamera();
   } catch (e) { console.warn('capturePhoto :', e); }
@@ -248,6 +286,10 @@ async function _processScannedFile(file) {
       dataUrl = await _readFileAsDataURL(file);
     }
     __scanCapturedImage = dataUrl;
+    /* v6.10.0 — raw + improved reset */
+    __scanRawImage = dataUrl;
+    __scanIsImproved = false;
+    __scanCornerPositions = null;
 
     var img = document.getElementById('scanPreview');
     if (img) img.src = dataUrl;
@@ -255,6 +297,22 @@ async function _processScannedFile(file) {
     _scanShow('scanActions', true);
     _scanShow('scanEmptyHint', false);
     _scanShow('scanVideoContainer', false);
+
+    /* v6.10.0 — handles + barre */
+    if (typeof _scanShowCorners === 'function') {
+      _scanShowCorners(true);
+      setTimeout(function () {
+        _scanResetCornerPositions();
+        _scanRenderCornerHandles();
+        _scanAttachCornerEvents();
+        _scanSetMode(__scanCurrentMode || 'fast');
+      }, 100);
+    }
+    if (typeof _scanShowImproveBar === 'function') _scanShowImproveBar(true);
+    var saveBtn0 = document.getElementById('btnSaveScan');
+    if (saveBtn0) saveBtn0.style.display = '';
+    var saveDocs0 = document.getElementById('btnSaveScanToDocs');
+    if (saveDocs0) saveDocs0.style.display = '';
   } catch (e) {
     console.warn('_processScannedFile :', e);
     var errEl2 = document.getElementById('scanError');
@@ -813,6 +871,60 @@ function attachScanSignEvents() {
         attachSignatureToInvoice(null);
       });
     }
+
+    /* v6.10.0 — binds CamScanner */
+    var modeFast = document.getElementById('btnScanModeFast');
+    if (modeFast && !modeFast.__bound) {
+      modeFast.__bound = true;
+      modeFast.addEventListener('click', function (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        _scanSetMode('fast');
+      });
+    }
+    var modePrecise = document.getElementById('btnScanModePrecise');
+    if (modePrecise && !modePrecise.__bound) {
+      modePrecise.__bound = true;
+      modePrecise.addEventListener('click', function (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        _scanSetMode('precise');
+      });
+    }
+    var applyBtn = document.getElementById('btnApplyScanImprove');
+    if (applyBtn && !applyBtn.__bound) {
+      applyBtn.__bound = true;
+      applyBtn.addEventListener('click', function (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        handleApplyScanImprovement();
+      });
+    }
+    var resetBtn = document.getElementById('btnResetScanCorners');
+    if (resetBtn && !resetBtn.__bound) {
+      resetBtn.__bound = true;
+      resetBtn.addEventListener('click', function (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        _scanResetCornerPositions();
+        _scanRenderCornerHandles();
+      });
+    }
+    var undoBtn = document.getElementById('btnUndoScanImprove');
+    if (undoBtn && !undoBtn.__bound) {
+      undoBtn.__bound = true;
+      undoBtn.addEventListener('click', function (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        undoScanImprovement();
+      });
+    }
+    var saveDocsBtn = document.getElementById('btnSaveScanToDocs');
+    if (saveDocsBtn && !saveDocsBtn.__bound) {
+      saveDocsBtn.__bound = true;
+      saveDocsBtn.addEventListener('click', function (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        saveScanToDocuments();
+      });
+    }
+
+    /* Initialise les binds des corners (idempotent) */
+    _scanAttachCornerEvents();
   } catch (e) { console.warn('attachScanSignEvents :', e); }
 }
 
@@ -820,5 +932,581 @@ function attachScanSignEvents() {
 try {
   window.addEventListener('beforeunload', function () { try { stopCamera(); } catch (e) {} });
 } catch (e) {}
+/* ═══════════ v6.10.0 — CAMSCANNER OFFLINE ═══════════
+   Redressement perspective + binarisation adaptative.
+   Zéro dépendance externe. ES5 strict (async/await autorisé). */
 
-console.log('✅ 15-scan-sign.js chargé — v6.7 (Session #3 — version unifiée, fix resize inclus)');
+/* État scan "brut" (jamais écrasé par l'amélioration) */
+var __scanRawImage = null;
+var __scanIsImproved = false;
+var __scanCurrentMode = 'fast';  /* 'fast' | 'precise' */
+var __scanCornerPositions = null; /* [{x%, y%} × 4] ou null = défaut */
+var __scanCornerDragState = null;
+var SCAN_CORNER_DEFAULT_INSET_PCT = 3;
+
+/* ─── Utilitaires géométrie ─── */
+function _scanDist(a, b) {
+  var dx = a.x - b.x, dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/* Calcule l'affine qui mappe un triangle source vers un triangle dest.
+   Retourne {a,b,c,d,e,f} ou null si dégénéré. */
+function _scanComputeAffine(s1, s2, s3, d1, d2, d3) {
+  var det = (s2.x - s1.x) * (s3.y - s1.y) - (s3.x - s1.x) * (s2.y - s1.y);
+  if (Math.abs(det) < 1e-10) return null;
+  var a = ((d2.x - d1.x) * (s3.y - s1.y) - (d3.x - d1.x) * (s2.y - s1.y)) / det;
+  var c = ((d3.x - d1.x) * (s2.x - s1.x) - (d2.x - d1.x) * (s3.x - s1.x)) / det;
+  var b = ((d2.y - d1.y) * (s3.y - s1.y) - (d3.y - d1.y) * (s2.y - s1.y)) / det;
+  var d = ((d3.y - d1.y) * (s2.x - s1.x) - (d2.y - d1.y) * (s3.x - s1.x)) / det;
+  var e = d1.x - a * s1.x - c * s1.y;
+  var f = d1.y - b * s1.x - d * s1.y;
+  return { a: a, b: b, c: c, d: d, e: e, f: f };
+}
+
+function _scanDrawTriangle(ctx, srcImage, src1, src2, src3, dst1, dst2, dst3) {
+  var m = _scanComputeAffine(src1, src2, src3, dst1, dst2, dst3);
+  if (!m) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(dst1.x, dst1.y);
+  ctx.lineTo(dst2.x, dst2.y);
+  ctx.lineTo(dst3.x, dst3.y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
+  ctx.drawImage(srcImage, 0, 0);
+  ctx.restore();
+}
+
+/* Applique une correction de perspective.
+   sourceImg : Image (HTMLImageElement) ou Canvas
+   sw, sh    : dimensions source (utile si canvas, sinon ignorer)
+   corners   : [{x,y} × 4] dans les coords source (TL, TR, BR, BL)
+   Retourne un Canvas redressé (dimensions auto selon les bords). */
+function _scanApplyPerspectiveWarp(sourceImg, corners) {
+  try {
+    if (!corners || corners.length !== 4) return null;
+
+    /* Dimensions destination = max des largeurs/huteurs source */
+    var topW    = _scanDist(corners[0], corners[1]);
+    var bottomW = _scanDist(corners[3], corners[2]);
+    var leftH   = _scanDist(corners[0], corners[3]);
+    var rightH  = _scanDist(corners[1], corners[2]);
+
+    var dw = Math.round(Math.max(topW, bottomW));
+    var dh = Math.round(Math.max(leftH, rightH));
+    if (dw < 1 || dh < 1) return null;
+
+    /* Cap à 2000 px pour éviter l'explosion mémoire */
+    var MAX_DIM = 2000;
+    if (dw > MAX_DIM || dh > MAX_DIM) {
+      var ratio = Math.min(MAX_DIM / dw, MAX_DIM / dh);
+      dw = Math.round(dw * ratio);
+      dh = Math.round(dh * ratio);
+    }
+
+    var dst = document.createElement('canvas');
+    dst.width = dw;
+    dst.height = dh;
+    var ctx = dst.getContext('2d');
+
+    /* 4 coins destination = rectangle */
+    var dTL = { x: 0, y: 0 };
+    var dTR = { x: dw, y: 0 };
+    var dBR = { x: dw, y: dh };
+    var dBL = { x: 0, y: dh };
+
+    /* Triangle 1 : TL → TR → BL */
+    _scanDrawTriangle(ctx, sourceImg,
+      corners[0], corners[1], corners[3],
+      dTL, dTR, dBL);
+
+    /* Triangle 2 : TR → BR → BL */
+    _scanDrawTriangle(ctx, sourceImg,
+      corners[1], corners[2], corners[3],
+      dTR, dBR, dBL);
+
+    return dst;
+  } catch (e) {
+    console.warn('_scanApplyPerspectiveWarp :', e);
+    return null;
+  }
+}
+
+/* ─── Binarisation ─── */
+
+/* Otsu : seuil global optimal. Retourne un entier 0-255. */
+function _scanOtsuThreshold(gray) {
+  var hist = new Array(256);
+  var i;
+  for (i = 0; i < 256; i++) hist[i] = 0;
+  var total = gray.length;
+  for (i = 0; i < total; i++) hist[gray[i]]++;
+
+  var sum = 0;
+  for (i = 0; i < 256; i++) sum += i * hist[i];
+
+  var sumB = 0, wB = 0, maxVar = 0, bestT = 0;
+  for (var t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    var wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    var mB = sumB / wB;
+    var mF = (sum - sumB) / wF;
+    var between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxVar) { maxVar = between; bestT = t; }
+  }
+  /* v6.10.4 — Clamp [1, 254] : évite un seuil dégénéré (0 ou 255) quand
+     un des deux modes est collé au bord. Ex : image [0×N, 255×M] retournait
+     t=0, ce qui binarisait en TOUT BLANC (0 < 0 = false → 255). */
+  if (bestT < 1) bestT = 1;
+  if (bestT > 254) bestT = 254;
+  return bestT;
+}
+
+/* Sauvola adaptatif (fenêtre 15×15).
+   Utilise une image intégrale pour O(1) par pixel.
+   Modifie `data` en place. */
+function _scanSauvolaBinarize(gray, data, w, h) {
+  var W = w + 1;
+  var integral = new Float64Array(W * (h + 1));
+  var integralSq = new Float64Array(W * (h + 1));
+
+  /* 1. Remplissage image intégrale (2 passes fusionnées) */
+  for (var y = 1; y <= h; y++) {
+    var rowBase = y * W;
+    var rowPrev = (y - 1) * W;
+    var gRowBase = (y - 1) * w;
+    var sumRow = 0, sumSqRow = 0;
+    for (var x = 1; x <= w; x++) {
+      var g = gray[gRowBase + (x - 1)];
+      sumRow += g;
+      sumSqRow += g * g;
+      integral[rowBase + x] = integral[rowPrev + x] + sumRow;
+      integralSq[rowBase + x] = integralSq[rowPrev + x] + sumSqRow;
+    }
+  }
+
+  /* 2. Application pixel par pixel */
+  var win = 15;
+  var halfWin = 7;
+  var k = 0.5;
+  var R = 128.0;
+
+  for (var yy = 0; yy < h; yy++) {
+    var y1 = yy - halfWin; if (y1 < 0) y1 = 0;
+    var y2 = yy + halfWin; if (y2 >= h) y2 = h - 1;
+    var hWin = y2 - y1 + 1;
+
+    var rowBase2 = yy * w;
+    for (var xx = 0; xx < w; xx++) {
+      var x1 = xx - halfWin; if (x1 < 0) x1 = 0;
+      var x2 = xx + halfWin; if (x2 >= w) x2 = w - 1;
+      var wWin = x2 - x1 + 1;
+      var count = hWin * wWin;
+
+      var sum = integral[(y2+1)*W + (x2+1)] - integral[y1*W + (x2+1)]
+              - integral[(y2+1)*W + x1] + integral[y1*W + x1];
+      var sumSq = integralSq[(y2+1)*W + (x2+1)] - integralSq[y1*W + (x2+1)]
+                - integralSq[(y2+1)*W + x1] + integralSq[y1*W + x1];
+
+      var mean = sum / count;
+      var variance = (sumSq / count) - (mean * mean);
+      if (variance < 0) variance = 0;
+      var std = Math.sqrt(variance);
+
+      var threshold = mean * (1 + k * (std / R - 1));
+      var gv = gray[rowBase2 + xx];
+      var out = (gv < threshold) ? 0 : 255;
+
+      var idx = (rowBase2 + xx) * 4;
+      data[idx] = out;
+      data[idx+1] = out;
+      data[idx+2] = out;
+    }
+  }
+}
+
+/* Binarise un canvas en place selon le mode choisi. Retourne le canvas. */
+function _scanBinarizeCanvas(canvas, mode) {
+  try {
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width, h = canvas.height;
+    var imageData = ctx.getImageData(0, 0, w, h);
+    var data = imageData.data;
+
+    /* Conversion en niveaux de gris (une seule allocation) */
+    var gray = new Uint8Array(w * h);
+    for (var i = 0; i < w * h; i++) {
+      var idx = i * 4;
+      gray[i] = Math.round(0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2]);
+    }
+
+    if (mode === 'fast') {
+      /* Otsu : 1 seul seuil global, très rapide */
+      var t = _scanOtsuThreshold(gray);
+      for (var j = 0; j < w * h; j++) {
+        var out = (gray[j] < t) ? 0 : 255;
+        var idx2 = j * 4;
+        data[idx2] = out;
+        data[idx2+1] = out;
+        data[idx2+2] = out;
+      }
+    } else {
+      /* Sauvola : adaptatif local, ~10× plus lent mais meilleur
+         sur les photos avec ombres inégales */
+      _scanSauvolaBinarize(gray, data, w, h);
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+  } catch (e) {
+    console.warn('_scanBinarizeCanvas :', e);
+    return canvas;
+  }
+}
+
+/* Redimensionne un canvas si > maxDim. Retourne le canvas (même ou nouveau). */
+function _scanResizeCanvasIfNeeded(canvas, maxDim) {
+  try {
+    if (!canvas) return canvas;
+    if (canvas.width <= maxDim && canvas.height <= maxDim) return canvas;
+
+    var ratio = Math.min(maxDim / canvas.width, maxDim / canvas.height);
+    var w = Math.round(canvas.width * ratio);
+    var h = Math.round(canvas.height * ratio);
+
+    var dst = document.createElement('canvas');
+    dst.width = w;
+    dst.height = h;
+    var ctx = dst.getContext('2d');
+    ctx.drawImage(canvas, 0, 0, w, h);
+    return dst;
+  } catch (e) {
+    console.warn('_scanResizeCanvasIfNeeded :', e);
+    return canvas;
+  }
+}
+
+/* Convertit des positions % (0-100) en pixels selon les dimensions img. */
+function _scanGetCornersInPixels(imgW, imgH) {
+  var pos = __scanCornerPositions;
+  if (!pos || pos.length !== 4) {
+    var inset = SCAN_CORNER_DEFAULT_INSET_PCT;
+    pos = [
+      { x: inset, y: inset },
+      { x: 100 - inset, y: inset },
+      { x: 100 - inset, y: 100 - inset },
+      { x: inset, y: 100 - inset }
+    ];
+  }
+  var corners = [];
+  for (var i = 0; i < 4; i++) {
+    corners.push({
+      x: Math.round(pos[i].x / 100 * imgW),
+      y: Math.round(pos[i].y / 100 * imgH)
+    });
+  }
+  return corners;
+}
+
+/* Charge une dataURL dans un HTMLImageElement (Promise). */
+function _scanLoadImage(dataUrl) {
+  return new Promise(function (resolve, reject) {
+    try {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { reject(new Error('Image illisible')); };
+      img.src = dataUrl;
+    } catch (e) { reject(e); }
+  });
+}
+
+/* Fonction principale : applique le traitement complet. */
+function applyScanImprovement(mode) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!__scanRawImage) return reject(new Error('Aucune image brute disponible'));
+
+      var effectiveMode = (mode === 'precise') ? 'precise' : 'fast';
+      __scanCurrentMode = effectiveMode;
+
+      _scanLoadImage(__scanRawImage).then(function (img) {
+        try {
+          var corners = _scanGetCornersInPixels(img.naturalWidth, img.naturalHeight);
+
+          /* 1. Warp */
+          var warped = _scanApplyPerspectiveWarp(img, corners);
+          if (!warped) {
+            return reject(new Error('Échec du redressement (coins invalides ?)'));
+          }
+
+          /* 2. Resize à 1600 px max (avant binarisation pour perf) */
+          var resized = _scanResizeCanvasIfNeeded(warped, 1600);
+
+          /* 3. Binarize */
+          var final = _scanBinarizeCanvas(resized, effectiveMode);
+
+          /* 4. Encode JPEG q=0.85 (bimodal → très efficace) */
+          var dataUrl = final.toDataURL('image/jpeg', 0.85);
+          __scanCapturedImage = dataUrl;
+          __scanIsImproved = true;
+
+          var preview = document.getElementById('scanPreview');
+          if (preview) preview.src = dataUrl;
+
+          /* UI : masque handles, propose annuler */
+          _scanShowCorners(false);
+          _scanShowImproveBar(false);
+          var undoBtn = document.getElementById('btnUndoScanImprove');
+          if (undoBtn) undoBtn.style.display = '';
+          var saveDocs = document.getElementById('btnSaveScanToDocs');
+          if (saveDocs) saveDocs.style.display = '';
+          var saveBtn = document.getElementById('btnSaveScan');
+          if (saveBtn) saveBtn.style.display = '';
+
+          resolve(dataUrl);
+        } catch (e) { reject(e); }
+      }).catch(reject);
+    } catch (e) { reject(e); }
+  });
+}
+
+/* Annule l'amélioration, revient à la photo brute. */
+function undoScanImprovement() {
+  try {
+    if (!__scanRawImage) return;
+    __scanCapturedImage = __scanRawImage;
+    __scanIsImproved = false;
+
+    var preview = document.getElementById('scanPreview');
+    if (preview) preview.src = __scanRawImage;
+
+    _scanShowCorners(true);
+    _scanShowImproveBar(true);
+    var undoBtn = document.getElementById('btnUndoScanImprove');
+    if (undoBtn) undoBtn.style.display = 'none';
+
+    /* Réapplique les handles après un petit délai (img peut être en cours de chargement) */
+    setTimeout(function () { _scanRenderCornerHandles(); }, 80);
+  } catch (e) { console.warn('undoScanImprovement :', e); }
+}
+/* ═══════════ v6.10.0 — CORNER HANDLES UI ═══════════ */
+
+function _scanShowCorners(show) {
+  try {
+    var c = document.getElementById('scanCornersContainer');
+    if (c) c.style.display = show ? '' : 'none';
+  } catch (e) {}
+}
+
+function _scanShowImproveBar(show) {
+  try {
+    var b = document.getElementById('scanImproveBar');
+    if (b) b.style.display = show ? '' : 'none';
+  } catch (e) {}
+}
+
+/* Initialise les positions par défaut au % (appelé après chargement img). */
+function _scanResetCornerPositions() {
+  var inset = SCAN_CORNER_DEFAULT_INSET_PCT;
+  __scanCornerPositions = [
+    { x: inset, y: inset },
+    { x: 100 - inset, y: inset },
+    { x: 100 - inset, y: 100 - inset },
+    { x: inset, y: 100 - inset }
+  ];
+}
+
+/* Positionne les 4 handles selon __scanCornerPositions. */
+function _scanRenderCornerHandles() {
+  try {
+    if (!__scanCornerPositions) _scanResetCornerPositions();
+    var handles = document.querySelectorAll('.scan-corner');
+    for (var i = 0; i < handles.length; i++) {
+      var idx = parseInt(handles[i].getAttribute('data-corner'), 10);
+      if (isNaN(idx) || !__scanCornerPositions[idx]) continue;
+      var p = __scanCornerPositions[idx];
+      handles[i].style.left = p.x + '%';
+      handles[i].style.top = p.y + '%';
+    }
+  } catch (e) { console.warn('_scanRenderCornerHandles :', e); }
+}
+
+function _scanCornerFromEvent(ev, wrapperRect) {
+  var clientX = ev.clientX, clientY = ev.clientY;
+  if (ev.touches && ev.touches[0]) {
+    clientX = ev.touches[0].clientX;
+    clientY = ev.touches[0].clientY;
+  }
+  var px = (clientX - wrapperRect.left) / wrapperRect.width * 100;
+  var py = (clientY - wrapperRect.top) / wrapperRect.height * 100;
+  if (px < 0) px = 0; if (px > 100) px = 100;
+  if (py < 0) py = 0; if (py > 100) py = 100;
+  return { x: px, y: py };
+}
+
+function _scanStartCornerDrag(ev, idx, handle) {
+  try {
+    ev.preventDefault();
+    if (!__scanCornerPositions) _scanResetCornerPositions();
+    __scanCornerDragState = { idx: idx, handle: handle };
+    handle.classList.add('dragging');
+  } catch (e) { console.warn('_scanStartCornerDrag :', e); }
+}
+
+function _scanMoveCornerDrag(ev) {
+  try {
+    if (!__scanCornerDragState) return;
+    ev.preventDefault();
+    var wrapper = document.getElementById('scanPreviewWrapper');
+    if (!wrapper) return;
+    var wrapperRect = wrapper.getBoundingClientRect();
+    var pos = _scanCornerFromEvent(ev, wrapperRect);
+    __scanCornerPositions[__scanCornerDragState.idx] = pos;
+    var h = __scanCornerDragState.handle;
+    h.style.left = pos.x + '%';
+    h.style.top = pos.y + '%';
+  } catch (e) { /* silencieux */ }
+}
+
+function _scanEndCornerDrag() {
+  try {
+    if (__scanCornerDragState && __scanCornerDragState.handle) {
+      __scanCornerDragState.handle.classList.remove('dragging');
+    }
+    __scanCornerDragState = null;
+  } catch (e) {}
+}
+
+function _scanAttachCornerEvents() {
+  try {
+    var handles = document.querySelectorAll('.scan-corner');
+    for (var i = 0; i < handles.length; i++) {
+      (function (handle) {
+        if (handle.__bound) return;
+        handle.__bound = true;
+        var idx = parseInt(handle.getAttribute('data-corner'), 10);
+
+        handle.addEventListener('mousedown', function (ev) {
+          _scanStartCornerDrag(ev, idx, handle);
+        });
+        handle.addEventListener('touchstart', function (ev) {
+          _scanStartCornerDrag(ev, idx, handle);
+        }, { passive: false });
+      })(handles[i]);
+    }
+
+    /* Listeners globaux (une seule fois) */
+    if (!window.__scanCornerGlobalBound) {
+      window.__scanCornerGlobalBound = true;
+      document.addEventListener('mousemove', _scanMoveCornerDrag);
+      document.addEventListener('touchmove', _scanMoveCornerDrag, { passive: false });
+      document.addEventListener('mouseup', _scanEndCornerDrag);
+      document.addEventListener('touchend', _scanEndCornerDrag);
+      document.addEventListener('touchcancel', _scanEndCornerDrag);
+    }
+  } catch (e) { console.warn('_scanAttachCornerEvents :', e); }
+}
+
+function _scanSetMode(mode) {
+  try {
+    __scanCurrentMode = (mode === 'precise') ? 'precise' : 'fast';
+    var btnFast = document.getElementById('btnScanModeFast');
+    var btnPrecise = document.getElementById('btnScanModePrecise');
+    if (btnFast) btnFast.classList.toggle('active', __scanCurrentMode === 'fast');
+    if (btnPrecise) btnPrecise.classList.toggle('active', __scanCurrentMode === 'precise');
+  } catch (e) {}
+}
+
+/* Affiche le spinner + désactive les boutons pendant le calcul. */
+function _scanSetProcessing(active, message) {
+  try {
+    var wrap = document.getElementById('scanPreviewWrapper');
+    var spin = document.getElementById('scanProcessingSpinner');
+    if (spin) {
+      spin.style.display = active ? 'flex' : 'none';
+      var txt = document.getElementById('scanProcessingMsg');
+      if (txt && message) txt.textContent = message;
+    }
+    var applyBtn = document.getElementById('btnApplyScanImprove');
+    if (applyBtn) applyBtn.disabled = !!active;
+    var fastBtn = document.getElementById('btnScanModeFast');
+    if (fastBtn) fastBtn.disabled = !!active;
+    var precBtn = document.getElementById('btnScanModePrecise');
+    if (precBtn) precBtn.disabled = !!active;
+  } catch (e) {}
+}
+
+/* Handler du bouton "Améliorer". */
+function handleApplyScanImprovement() {
+  var mode = __scanCurrentMode || 'fast';
+  var msg = (mode === 'precise') ? 'Traitement précis (1-2 s)…' : 'Traitement rapide…';
+  _scanSetProcessing(true, msg);
+  setTimeout(function () {
+    applyScanImprovement(mode).then(function () {
+      _scanSetProcessing(false, '');
+      if (typeof showToast === 'function') {
+        showToast('Document amélioré (' + (mode === 'precise' ? 'précis' : 'rapide') + ')', 'success', 2500);
+      }
+    }).catch(function (err) {
+      _scanSetProcessing(false, '');
+      if (typeof showToast === 'function') {
+        showToast('Échec : ' + (err.message || err), 'error', 4000);
+      }
+    });
+  }, 30); /* laisse le spinner s'afficher */
+}
+
+/* Enregistre le scan dans la bibliothèque Documents. */
+function saveScanToDocuments() {
+  try {
+    if (!__scanCapturedImage) {
+      if (typeof showToast === 'function') showToast('Aucune image à enregistrer.', 'warning');
+      return;
+    }
+    if (typeof _docLibCreateEntry !== 'function' || typeof _dataURLToBlob !== 'function') {
+      if (typeof showToast === 'function') showToast('Module Documents indisponible.', 'error');
+      return;
+    }
+
+    var filename = 'scan_' + new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-') + '.jpg';
+
+    _dataURLToBlob(__scanCapturedImage).then(function (blob) {
+      /* Crée un File pour profiter du .name */
+      var file;
+      try {
+        file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+      } catch (e) {
+        /* Fallback : Enrichit le Blob manuellement (anciens navigateurs) */
+        blob.name = filename;
+        file = blob;
+      }
+      return _docLibCreateEntry(file, {
+        nom: 'Scan ' + new Date().toLocaleString('fr-FR'),
+        categorie: 'facture',
+        date: (typeof todayISO === 'function') ? todayISO() : '',
+        tags: ['scan'],
+        notes: 'Créé via scanner'
+      });
+    }).then(function (entry) {
+      if (typeof showToast === 'function') {
+        showToast('Scan enregistré dans Documents : ' + (entry.nom || ''), 'success', 3000);
+      }
+      closeScanner();
+      /* Si la section Documents est ouverte, refresh */
+      if (typeof renderDocuments === 'function') {
+        try { renderDocuments(); } catch (e) {}
+      }
+    }).catch(function (err) {
+      if (typeof showToast === 'function') {
+        showToast('Échec enregistrement : ' + (err.message || err), 'error', 4000);
+      }
+    });
+  } catch (e) { console.warn('saveScanToDocuments :', e); }
+}
+
+console.log('✅ 15-scan-sign.js chargé — v6.10.0 (CamScanner offline + perspective + Sauvola)');

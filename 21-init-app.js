@@ -67,12 +67,13 @@ var VOLTCORE_SECTION_MAP = {
   frais:        'fraisSection',
   bonsRoute:    'bonsRouteSection',
   rh:           'hrSection',
+  documents:    'documentsSection',
   outils:       'toolsSection'
 };
 
 var SIDEBAR_SECTIONS = ['dashboard', 'clients', 'fournisseurs', 'stock',
                         'chantiers', 'facturation', 'achats', 'frais',
-                        'bonsRoute', 'rh', 'outils'];
+                        'bonsRoute', 'rh', 'documents', 'outils'];
 
 function _getInitialSection() {
   try {
@@ -196,6 +197,9 @@ function _renderSectionContent(sec) {
       case 'rh':
         if (typeof renderHR === 'function') renderHR();
         break;
+      case 'documents':
+        if (typeof renderDocuments === 'function') renderDocuments();
+        break;
       case 'outils':
         if (typeof loadSettings === 'function') loadSettings();
         break;
@@ -242,6 +246,10 @@ function refreshAllUI() {
     if (typeof renderInvoices === 'function') renderInvoices();
     if (typeof renderPurchases === 'function') renderPurchases();
     if (typeof renderFrais === 'function') renderFrais();
+    /* v6.9.4 — fix I1 : bons route rafraîchis aussi (étaient oubliés) */
+    if (typeof renderBonsRoute === 'function') renderBonsRoute();
+    /* v6.9.8 — documents rafraîchis aussi */
+    if (typeof renderDocuments === 'function') renderDocuments();
     if (typeof renderHR === 'function') renderHR();
     if (typeof renderTrash === 'function') renderTrash();
     if (typeof renderHistory === 'function') renderHistory();
@@ -439,6 +447,7 @@ function attachAllEvents() {
     if (typeof attachPurchasesEvents === 'function') attachPurchasesEvents();
     if (typeof attachExpensesBonsEvents === 'function') attachExpensesBonsEvents();
     if (typeof attachBonsRouteEvents === 'function') attachBonsRouteEvents();
+    if (typeof attachDocumentsEvents === 'function') attachDocumentsEvents();
     if (typeof attachScanSignEvents === 'function') attachScanSignEvents();
     if (typeof attachAssistantIAEvents === 'function') attachAssistantIAEvents();
     if (typeof attachDashboardEvents === 'function') attachDashboardEvents();
@@ -583,7 +592,7 @@ async function bootSequence() {
   }
 })();
 
-console.log('✅ 21-init-app.js chargé — v6.7 (boot + Échap sécurisé + guard boot)');
+console.log('✅ 21-init-app.js chargé — v6.9.8 (boot + guard + documents + fix I1)');
 
 
 /* ═══════════════════════════════════════════════════════════════════

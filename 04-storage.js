@@ -44,10 +44,7 @@ var STORAGE_KEYS = {
   dark:             'voltcore_dark',
   compteurs:        'voltcore_compteurs',
   bonCounter:       'voltcore_bon_counter',
-  bonDraftA:        'voltcore_bon_draft_A',
-  bonDraftB:        'voltcore_bon_draft_B',
-  bonDraftC:        'voltcore_bon_draft_C',
-  bonDraftD:        'voltcore_bon_draft_D',
+  /* v6.10.2 — bonDraftA/B/C/D supprimés (bons A/B/C/D redondants) */
   brouillonCourant: 'voltcore_brouillon_courant',
   savePrefs:        'voltcore_save_prefs',
   backupsRegistry:  'voltcore_backups_registry',
@@ -59,7 +56,13 @@ var STORAGE_KEYS = {
   lastAutoBackup:   'voltcore_last_auto_backup',
   lastManualSave:   'voltcore_last_manual_save',
   lastCloudSave:    'voltcore_last_cloud_save',
-  idbLastBackup:    'voltcore_idb_last_backup'
+  idbLastBackup:    'voltcore_idb_last_backup',
+  /* v6.9.6 — signature & cachet par défaut (métadonnées) */
+  signatureDefault: 'voltcore_signature_default',
+  cachetDefault:    'voltcore_cachet_default',
+  /* v6.9.8 — bibliothèque de documents (métadonnées ; blobs en IDB) */
+  documentsLib:         'voltcore_documents_lib',
+  documentsCategories:  'voltcore_documents_categories'
 };
 
 var compteurs = {};
@@ -362,6 +365,35 @@ function loadAll() {
       _invalidateSupplierInvoicesCache();
     }
 
+    /* v6.9.5 — Migration des pièces jointes vers IndexedDB (non-bloquante).
+       Sort les dataURL du localStorage (gain ~80 % du quota).
+       Idempotente : ne fait rien si tout est déjà migré.
+       Robuste : un échec (mode privé, IDB bloqué) ne bloque pas le boot. */
+    if (_hasAttachmentsToMigrate()) {
+      _migrateAttachmentsToIDB().then(function (res) {
+        if (res && res.migrated > 0 && typeof showToast === 'function') {
+          try {
+            showToast(res.migrated + ' pièce(s) jointe(s) migrée(s) — localStorage libéré',
+              'info', 4000);
+          } catch (e) {}
+        }
+      }).catch(function (e) {
+        console.warn('Migration attachments échouée (non bloquant) :', e);
+      });
+    }
+
+    /* v6.9.7 — Nettoyage des blobs orphelins (non-bloquant, idempotent).
+       Supprime les blobs IDB qui ne sont référencés par AUCUN document
+       actif, aucune corbeille, aucun brouillon. Protection absolue de
+       sig_default et cachet_default. */
+    try {
+      _cleanOrphanBlobs().then(function (res) {
+        if (res && res.cleaned > 0) {
+          console.log('[Boot] ' + res.cleaned + ' blob(s) orphelin(s) nettoyé(s)');
+        }
+      }).catch(function () {});
+    } catch (e) {}
+
     return true;
   } catch (e) {
     console.error('loadAll :', e);
@@ -480,18 +512,7 @@ function incrementerCompteur(type) {
   }
 }
 
-function incrementerNumeroBon(letter) {
-  try {
-    var l = String(letter || 'A').toUpperCase();
-    var key = 'bon_' + l;
-    compteurs[key] = (parseInt(compteurs[key], 10) || 0) + 1;
-    saveCompteurs();
-    return compteurs[key];
-  } catch (e) {
-    console.warn('incrementerNumeroBon :', e);
-    return 0;
-  }
-}
+/* v6.10.2 — incrementerNumeroBon supprimé (bons A/B/C/D redondants) */
 
 /* LOT 2 — Détection de doublon de numéro */
 function numeroDocExiste(numero, excludeId) {
@@ -880,10 +901,16 @@ function dismissAlert(alertId) {
 /* ═══════════ SECTION 14 — INDEXEDDB BACKUP ═══════════ */
 
 var VOLTCORE_IDB_NAME = 'voltcore_backups';
-var VOLTCORE_IDB_VERSION = 1;
+/* v6.9.5 — v2 ajoute le store 'blobs' (pièces jointes, scans) */
+/* v6.9.9 — v3 ajoute le store 'fsHandles' (dossier local) */
+var VOLTCORE_IDB_VERSION = 3;
 var VOLTCORE_IDB_STORE = 'backups';
+var VOLTCORE_IDB_BLOBS_STORE = 'blobs';
 var VOLTCORE_IDB_KEEP = 7;
 var VOLTCORE_IDB_MAX_SIZE = 20 * 1024 * 1024;
+
+/* v6.9.5 — Flag mémoire anti-boucle de migration (pas persisté) */
+var __attachmentMigrationAttempted = false;
 
 function _idbOpen() {
   return new Promise(function (resolve, reject) {
@@ -899,6 +926,15 @@ function _idbOpen() {
       if (!db.objectStoreNames.contains(VOLTCORE_IDB_STORE)) {
         var store = db.createObjectStore(VOLTCORE_IDB_STORE, { keyPath: 'id', autoIncrement: true });
         store.createIndex('date', 'date', { unique: false });
+      }
+      /* v6.9.5 — store blobs (pièces jointes, scans, signatures) */
+      if (!db.objectStoreNames.contains(VOLTCORE_IDB_BLOBS_STORE)) {
+        var blobsStore = db.createObjectStore(VOLTCORE_IDB_BLOBS_STORE, { keyPath: 'id' });
+        blobsStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+      /* v6.9.9 — store fsHandles (FileSystemDirectoryHandle sérialisé) */
+      if (!db.objectStoreNames.contains('fsHandles')) {
+        db.createObjectStore('fsHandles', { keyPath: 'id' });
       }
     };
     req.onsuccess = function () { resolve(req.result); };
@@ -919,6 +955,365 @@ function _serializeAllStorage() {
     } catch (e) {}
   }
   return out;
+}
+/* ═══════════ v6.9.5 — CRUD BLOBS (pièces jointes) ═══════════
+   Stockage binaire dans IndexedDB (store 'blobs').
+   Chaque blob : { id: 'blob_xxx', data: Blob, mime: 'image/jpeg', createdAt: ISO }
+   Objectif : sortir les dataURL des pièces jointes du localStorage
+   (quota 5 Mo) et les stocker dans IDB (illimité en pratique). */
+
+function _idbBlobsPut(id, blob, mime) {
+  return new Promise(function (resolve, reject) {
+    if (!id || !blob) return reject(new Error('id et blob requis'));
+    _idbOpen().then(function (db) {
+      var tx, store, req;
+      try {
+        tx = db.transaction(VOLTCORE_IDB_BLOBS_STORE, 'readwrite');
+        store = tx.objectStore(VOLTCORE_IDB_BLOBS_STORE);
+        req = store.put({
+          id: String(id),
+          data: blob,
+          mime: String(mime || blob.type || 'application/octet-stream'),
+          createdAt: new Date().toISOString()
+        });
+      } catch (e) {
+        db.close();
+        return reject(e);
+      }
+      req.onsuccess = function () { db.close(); resolve(req.result); };
+      req.onerror = function () { db.close(); reject(req.error || new Error('idbBlobsPut échoué')); };
+    }).catch(reject);
+  });
+}
+
+function _idbBlobsGet(id) {
+  return new Promise(function (resolve, reject) {
+    if (!id) return resolve(null);
+    _idbOpen().then(function (db) {
+      var tx, store, req;
+      try {
+        tx = db.transaction(VOLTCORE_IDB_BLOBS_STORE, 'readonly');
+        store = tx.objectStore(VOLTCORE_IDB_BLOBS_STORE);
+        req = store.get(String(id));
+      } catch (e) {
+        db.close();
+        return reject(e);
+      }
+      req.onsuccess = function () {
+        db.close();
+        resolve(req.result || null);
+      };
+      req.onerror = function () { db.close(); reject(req.error || new Error('idbBlobsGet échoué')); };
+    }).catch(reject);
+  });
+}
+
+function _idbBlobsDelete(id) {
+  return new Promise(function (resolve, reject) {
+    if (!id) return resolve(false);
+    _idbOpen().then(function (db) {
+      var tx, store, req;
+      try {
+        tx = db.transaction(VOLTCORE_IDB_BLOBS_STORE, 'readwrite');
+        store = tx.objectStore(VOLTCORE_IDB_BLOBS_STORE);
+        req = store.delete(String(id));
+      } catch (e) {
+        db.close();
+        return reject(e);
+      }
+      req.onsuccess = function () { db.close(); resolve(true); };
+      req.onerror = function () { db.close(); reject(req.error || new Error('idbBlobsDelete échoué')); };
+    }).catch(reject);
+  });
+}
+
+/* Conversion dataURL → Blob (Promise). Corrige l'absence de Blob natif
+   dans les anciens navigateurs en repassant par Uint8Array. */
+function _dataURLToBlob(dataUrl) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!dataUrl || typeof dataUrl !== 'string') return reject(new Error('dataUrl vide'));
+      var parts = dataUrl.split(',');
+      if (parts.length !== 2) return reject(new Error('format dataUrl invalide'));
+      var mimeMatch = parts[0].match(/:(.*?);/);
+      var mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+      var binary = atob(parts[1]);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      var blob = new Blob([bytes], { type: mime });
+      resolve(blob);
+    } catch (e) { reject(e); }
+  });
+}
+
+/* Conversion Blob → dataURL (Promise) via FileReader. */
+function _blobToDataURL(blob) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!blob) return reject(new Error('blob vide'));
+      var reader = new FileReader();
+      reader.onload = function (e) { resolve(e.target.result); };
+      reader.onerror = function () { reject(reader.error || new Error('FileReader échoué')); };
+      reader.readAsDataURL(blob);
+    } catch (e) { reject(e); }
+  });
+}
+
+/* Vérifie s'il reste des attachments avec data (pas encore migrés). */
+function _hasAttachmentsToMigrate() {
+  try {
+    if (!Array.isArray(savedDocuments)) return false;
+    for (var i = 0; i < savedDocuments.length; i++) {
+      var d = savedDocuments[i];
+      if (!d || !Array.isArray(d.attachments)) continue;
+      for (var j = 0; j < d.attachments.length; j++) {
+        if (d.attachments[j] && d.attachments[j].data) return true;
+      }
+    }
+    return false;
+  } catch (e) { return false; }
+}
+
+/* ═══════════ v6.9.5 — MIGRATION ATTACHMENTS → IDB ═══════════
+   Parcourt tous les savedDocuments[].attachments[].
+   Pour chaque attachment avec `data` (dataURL) :
+     1. Génère un `ref` unique si absent
+     2. Pousse le blob dans IDB
+     3. Met `data = null` (libère localStorage)
+   Idempotent : les attachments déjà migrés (data=null) sont ignorés.
+   Robuste : un échec sur un item n'arrête pas la boucle.
+   Résultat : Promise<{ migrated, failed, total }> */
+function _migrateAttachmentsToIDB() {
+  return new Promise(function (resolve) {
+    try {
+      if (__attachmentMigrationAttempted) {
+        return resolve({ migrated: 0, failed: 0, total: 0, alreadyAttempted: true });
+      }
+      __attachmentMigrationAttempted = true;
+
+      if (!Array.isArray(savedDocuments) || savedDocuments.length === 0) {
+        return resolve({ migrated: 0, failed: 0, total: 0 });
+      }
+
+      /* Collecte */
+      var toMigrate = [];
+      for (var i = 0; i < savedDocuments.length; i++) {
+        var doc = savedDocuments[i];
+        if (!doc || !Array.isArray(doc.attachments)) continue;
+        for (var j = 0; j < doc.attachments.length; j++) {
+          var att = doc.attachments[j];
+          if (!att) continue;
+          if (!att.data) continue;
+          if (!att.ref) {
+            att.ref = 'blob_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+          }
+          toMigrate.push({ doc: doc, att: att, ref: att.ref });
+        }
+      }
+
+      if (toMigrate.length === 0) {
+        return resolve({ migrated: 0, failed: 0, total: 0 });
+      }
+
+      console.log('[Migration] ' + toMigrate.length +
+        ' pièce(s) jointe(s) à migrer vers IndexedDB…');
+
+      var idx = 0, ok = 0, ko = 0;
+      function next() {
+        if (idx >= toMigrate.length) {
+          if (ok > 0) {
+            try { saveAll(); } catch (e) { console.warn('saveAll post-migration :', e); }
+            console.log('[Migration] ' + ok +
+              ' pièce(s) jointe(s) migrée(s) — localStorage libéré' +
+              (ko > 0 ? ' · ' + ko + ' échec(s)' : ''));
+          }
+          return resolve({ migrated: ok, failed: ko, total: toMigrate.length });
+        }
+        var item = toMigrate[idx++];
+        _dataURLToBlob(item.att.data).then(function (blob) {
+          return _idbBlobsPut(item.ref, blob, blob.type);
+        }).then(function () {
+          item.att.data = null;
+          if (!item.att.mime) item.att.mime = '';
+          ok++;
+          next();
+        }).catch(function (e) {
+          console.warn('[Migration] Échec pour ' + item.ref + ' :', e);
+          ko++;
+          next();
+        });
+      }
+      next();
+    } catch (e) {
+      console.warn('_migrateAttachmentsToIDB :', e);
+      resolve({ migrated: 0, failed: 0, total: 0, error: String(e.message || e) });
+    }
+  });
+}
+
+/* Charge les blobs manquants (attachments avec ref mais sans data).
+   Utilisé par openEditInvoice pour reconstruire les dataURL temporaires
+   nécessaires au formulaire. Mutate les objets att en place. */
+   /* ═══════════ v6.9.7 — NETTOYAGE BLOBS ORPHELINS ═══════════
+   Parcourt tous les blobs de l'IDB, compare aux refs utilisés :
+     • savedDocuments[].attachments[].ref       (docs actifs)
+     • trash.documents[].item.attachments[].ref (docs en corbeille)
+     • brouillonCourant.attachments[].ref       (facture en cours)
+     • sig_default / cachet_default             (TOUJOURS protégés)
+   Supprime tout blob dont l'id n'est référencé nulle part.
+
+   Idempotent, non-bloquant, robuste aux erreurs IDB. */
+function _cleanOrphanBlobs() {
+  return new Promise(function (resolve) {
+    try {
+      if (typeof indexedDB === 'undefined') {
+        return resolve({ cleaned: 0, reason: 'no-idb' });
+      }
+
+      /* 1. Collecte des refs utilisés */
+      var usedRefs = {};
+
+      /* a) Attachments des documents actifs */
+      if (Array.isArray(savedDocuments)) {
+        for (var i = 0; i < savedDocuments.length; i++) {
+          var doc = savedDocuments[i];
+          if (!doc || !Array.isArray(doc.attachments)) continue;
+          for (var j = 0; j < doc.attachments.length; j++) {
+            var att = doc.attachments[j];
+            if (att && att.ref) usedRefs[String(att.ref)] = true;
+          }
+        }
+      }
+
+      /* b) Attachments des documents en CORBEILLE (à protéger pour undo) */
+      try {
+        if (trash && typeof trash === 'object' && Array.isArray(trash.documents)) {
+          for (var t = 0; t < trash.documents.length; t++) {
+            var tEntry = trash.documents[t];
+            if (!tEntry || !tEntry.item) continue;
+            var tDoc = tEntry.item;
+            if (!Array.isArray(tDoc.attachments)) continue;
+            for (var ta = 0; ta < tDoc.attachments.length; ta++) {
+              var tAtt = tDoc.attachments[ta];
+              if (tAtt && tAtt.ref) usedRefs[String(tAtt.ref)] = true;
+            }
+          }
+        }
+      } catch (e) { /* silencieux */ }
+
+      /* c) Attachments du brouillon courant */
+      try {
+        if (typeof STORAGE_KEYS !== 'undefined' && STORAGE_KEYS.brouillonCourant) {
+          var raw = localStorage.getItem(STORAGE_KEYS.brouillonCourant);
+          if (raw) {
+            var draft = JSON.parse(raw);
+            if (draft && Array.isArray(draft.attachments)) {
+              for (var k = 0; k < draft.attachments.length; k++) {
+                var dAtt = draft.attachments[k];
+                if (dAtt && dAtt.ref) usedRefs[String(dAtt.ref)] = true;
+              }
+            }
+          }
+        }
+      } catch (e) { /* silencieux */ }
+
+      /* d) Signature & cachet par défaut — PROTECTION ABSOLUE */
+      usedRefs[VOLTCORE_SIG_DEFAULT_REF] = true;
+      usedRefs[VOLTCORE_CACHET_DEFAULT_REF] = true;
+
+      /* 2. Scan des blobs IDB */
+      _idbOpen().then(function (db) {
+        var tx, store, req;
+        try {
+          tx = db.transaction(VOLTCORE_IDB_BLOBS_STORE, 'readonly');
+          store = tx.objectStore(VOLTCORE_IDB_BLOBS_STORE);
+          req = store.openCursor();
+        } catch (e) {
+          db.close();
+          return resolve({ cleaned: 0, error: String(e.message || e) });
+        }
+
+        var toDelete = [];
+        req.onsuccess = function (ev) {
+          var cur = ev.target.result;
+          if (cur) {
+            var id = String(cur.value.id || '');
+            if (id && !usedRefs[id]) toDelete.push(id);
+            cur.continue();
+          } else {
+            db.close();
+            if (toDelete.length === 0) {
+              return resolve({ cleaned: 0 });
+            }
+            /* 3. Suppression séquentielle (évite les races) */
+            var deleted = 0;
+            var idx = 0;
+            function nextDelete() {
+              if (idx >= toDelete.length) {
+                try {
+                  console.log('[Cleanup] ' + deleted + ' blob(s) orphelin(s) supprimé(s)');
+                } catch (e) {}
+                return resolve({ cleaned: deleted });
+              }
+              var deleteId = toDelete[idx++];
+              _idbBlobsDelete(deleteId).then(function () {
+                deleted++;
+                nextDelete();
+              }).catch(function () {
+                nextDelete();
+              });
+            }
+            nextDelete();
+          }
+        };
+        req.onerror = function () {
+          db.close();
+          resolve({ cleaned: 0, error: 'cursor error' });
+        };
+      }).catch(function (e) {
+        resolve({ cleaned: 0, error: String(e.message || e) });
+      });
+    } catch (e) {
+      console.warn('_cleanOrphanBlobs :', e);
+      resolve({ cleaned: 0, error: String(e.message || e) });
+    }
+  });
+}
+
+function _loadMissingAttachmentBlobs(atts) {
+  return new Promise(function (resolve) {
+    try {
+      if (!Array.isArray(atts) || atts.length === 0) return resolve();
+      if (typeof indexedDB === 'undefined') return resolve();
+
+      var pending = 0;
+      for (var i = 0; i < atts.length; i++) {
+        if (atts[i] && atts[i].ref && !atts[i].data) pending++;
+      }
+      if (pending === 0) return resolve();
+
+      var done = 0;
+      function checkDone() { if (done >= pending) resolve(); }
+
+      for (var j = 0; j < atts.length; j++) {
+        (function (att) {
+          if (!att || !att.ref || att.data) return;
+          _idbBlobsGet(att.ref).then(function (row) {
+            if (!row || !row.data) { done++; return checkDone(); }
+            return _blobToDataURL(row.data).then(function (dataUrl) {
+              att.data = dataUrl;
+              if (!att.mime && row.mime) att.mime = row.mime;
+              done++;
+              checkDone();
+            }).catch(function () { done++; checkDone(); });
+          }).catch(function () { done++; checkDone(); });
+        })(atts[j]);
+      }
+    } catch (e) {
+      console.warn('_loadMissingAttachmentBlobs :', e);
+      resolve();
+    }
+  });
 }
 
 function _idbSaveBackup(payload) {
@@ -1224,4 +1619,360 @@ function libererGarantie(docId, options) {
     return { ok: false, error: 'Erreur : ' + (e.message || '') };
   }
 }
-console.log('✅ 04-storage.js chargé — v6.7 (retenue garantie BTP intégrée, getGarantieEnAttente ajouté)');
+/* ═══════════ v6.9.6 — SIGNATURE & CACHET PAR DÉFAUT ═══════════
+   Une seule signature + un seul cachet, stockés en IDB (pas de quota).
+   Métadonnées en localStorage (léger), blob binaire en IndexedDB. */
+
+var VOLTCORE_SIG_DEFAULT_REF = 'sig_default';
+var VOLTCORE_CACHET_DEFAULT_REF = 'cachet_default';
+
+/* Lit les métadonnées de la signature par défaut.
+   Retourne { ref, name, mime, size, uploadedAt } ou null. */
+function getSignatureDefault() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEYS.signatureDefault);
+    if (!raw) return null;
+    var meta = JSON.parse(raw);
+    if (!meta || typeof meta !== 'object' || !meta.ref) return null;
+    return meta;
+  } catch (e) { return null; }
+}
+
+function getCachetDefault() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEYS.cachetDefault);
+    if (!raw) return null;
+    var meta = JSON.parse(raw);
+    if (!meta || typeof meta !== 'object' || !meta.ref) return null;
+    return meta;
+  } catch (e) { return null; }
+}
+
+/* Enregistre une nouvelle signature par défaut (écrase l'ancienne).
+   - blob : Blob image
+   - name : nom affiché
+   Retourne Promise<{ ok, ref, name, size }>. */
+function setSignatureDefault(blob, name) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!blob) return reject(new Error('Image requise'));
+      if (blob.size > 500 * 1024) return reject(new Error('Image trop lourde (> 500 Ko après compression)'));
+      _idbBlobsPut(VOLTCORE_SIG_DEFAULT_REF, blob, blob.type || 'image/png').then(function () {
+        var meta = {
+          ref: VOLTCORE_SIG_DEFAULT_REF,
+          name: String(name || 'Signature'),
+          mime: blob.type || 'image/png',
+          size: blob.size,
+          uploadedAt: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEYS.signatureDefault, JSON.stringify(meta));
+        if (typeof logAction === 'function') {
+          try { logAction('settings.signature', meta.name); } catch (e) {}
+        }
+        resolve({ ok: true, ref: meta.ref, name: meta.name, size: meta.size });
+      }).catch(reject);
+    } catch (e) { reject(e); }
+  });
+}
+
+function setCachetDefault(blob, name) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!blob) return reject(new Error('Image requise'));
+      if (blob.size > 500 * 1024) return reject(new Error('Image trop lourde (> 500 Ko après compression)'));
+      _idbBlobsPut(VOLTCORE_CACHET_DEFAULT_REF, blob, blob.type || 'image/png').then(function () {
+        var meta = {
+          ref: VOLTCORE_CACHET_DEFAULT_REF,
+          name: String(name || 'Cachet'),
+          mime: blob.type || 'image/png',
+          size: blob.size,
+          uploadedAt: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEYS.cachetDefault, JSON.stringify(meta));
+        if (typeof logAction === 'function') {
+          try { logAction('settings.cachet', meta.name); } catch (e) {}
+        }
+        resolve({ ok: true, ref: meta.ref, name: meta.name, size: meta.size });
+      }).catch(reject);
+    } catch (e) { reject(e); }
+  });
+}
+
+function deleteSignatureDefault() {
+  return new Promise(function (resolve) {
+    try { localStorage.removeItem(STORAGE_KEYS.signatureDefault); } catch (e) {}
+    if (typeof _idbBlobsDelete === 'function') {
+      _idbBlobsDelete(VOLTCORE_SIG_DEFAULT_REF).catch(function () {}).then(function () {
+        resolve(true);
+      });
+    } else {
+      resolve(true);
+    }
+  });
+}
+
+function deleteCachetDefault() {
+  return new Promise(function (resolve) {
+    try { localStorage.removeItem(STORAGE_KEYS.cachetDefault); } catch (e) {}
+    if (typeof _idbBlobsDelete === 'function') {
+      _idbBlobsDelete(VOLTCORE_CACHET_DEFAULT_REF).catch(function () {}).then(function () {
+        resolve(true);
+      });
+    } else {
+      resolve(true);
+    }
+  });
+}
+
+/* Charge les dataURL de la signature et du cachet par défaut.
+   Retourne Promise<{ signatureDataUrl, cachetDataUrl }>.
+   Valeurs null si non configurés ou si IDB échoue (jamais throw). */
+function _loadDefaultSignatureCachetImages() {
+  return new Promise(function (resolve) {
+    var out = { signatureDataUrl: null, cachetDataUrl: null };
+    try {
+      var sigMeta = getSignatureDefault();
+      var cacMeta = getCachetDefault();
+      var pending = 0;
+
+      function checkDone() {
+        if (pending <= 0) resolve(out);
+      }
+
+      if (sigMeta && sigMeta.ref) {
+        pending++;
+        _idbBlobsGet(sigMeta.ref).then(function (row) {
+          if (row && row.data) {
+            return _blobToDataURL(row.data).then(function (d) {
+              out.signatureDataUrl = d;
+              pending--;
+              checkDone();
+            }).catch(function () { pending--; checkDone(); });
+          }
+          pending--; checkDone();
+        }).catch(function () { pending--; checkDone(); });
+      }
+
+      if (cacMeta && cacMeta.ref) {
+        pending++;
+        _idbBlobsGet(cacMeta.ref).then(function (row) {
+          if (row && row.data) {
+            return _blobToDataURL(row.data).then(function (d) {
+              out.cachetDataUrl = d;
+              pending--;
+              checkDone();
+            }).catch(function () { pending--; checkDone(); });
+          }
+          pending--; checkDone();
+        }).catch(function () { pending--; checkDone(); });
+      }
+
+      if (pending === 0) resolve(out);
+    } catch (e) {
+      console.warn('_loadDefaultSignatureCachetImages :', e);
+      resolve(out);
+    }
+  });
+}
+/* ═══════════ v6.9.9 — FILE SYSTEM ACCESS API (dossier local) ═══════════
+   Permet à l'utilisateur de choisir un dossier local (Chrome/Edge PC).
+   Les nouveaux documents y sont copiés en plus d'IDB (copie miroir).
+   Le handle est stocké dans IndexedDB (structured clone, pas localStorage).
+   API dispo : Chrome 86+, Edge 86+. Non dispo : Firefox, Safari, mobile. */
+
+var VOLTCORE_FS_HANDLE_ID = 'documents_dir';
+
+function isFileSystemSupported() {
+  try {
+    return typeof window !== 'undefined' &&
+           typeof window.showDirectoryPicker === 'function';
+  } catch (e) { return false; }
+}
+
+/* Sauvegarde le handle du dossier dans IDB (structured clone). */
+function _fsSaveHandle(handle) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!handle) return reject(new Error('handle requis'));
+      _idbOpen().then(function (db) {
+        var tx, store, req;
+        try {
+          tx = db.transaction('fsHandles', 'readwrite');
+          store = tx.objectStore('fsHandles');
+          req = store.put({
+            id: VOLTCORE_FS_HANDLE_ID,
+            handle: handle,
+            name: String(handle.name || 'documents'),
+            savedAt: new Date().toISOString()
+          });
+        } catch (e) {
+          db.close();
+          return reject(e);
+        }
+        req.onsuccess = function () { db.close(); resolve(true); };
+        req.onerror = function () { db.close(); reject(req.error || new Error('saveHandle échoué')); };
+      }).catch(reject);
+    } catch (e) { reject(e); }
+  });
+}
+
+/* Récupère le handle sauvegardé (null si absent). */
+function _fsGetHandle() {
+  return new Promise(function (resolve) {
+    try {
+      if (!isFileSystemSupported()) return resolve(null);
+      _idbOpen().then(function (db) {
+        var tx, store, req;
+        try {
+          tx = db.transaction('fsHandles', 'readonly');
+          store = tx.objectStore('fsHandles');
+          req = store.get(VOLTCORE_FS_HANDLE_ID);
+        } catch (e) {
+          db.close();
+          return resolve(null);
+        }
+        req.onsuccess = function () {
+          db.close();
+          resolve(req.result ? req.result.handle : null);
+        };
+        req.onerror = function () { db.close(); resolve(null); };
+      }).catch(function () { resolve(null); });
+    } catch (e) { resolve(null); }
+  });
+}
+
+/* Supprime le handle sauvegardé (déconnexion du dossier). */
+function _fsClearHandle() {
+  return new Promise(function (resolve) {
+    try {
+      _idbOpen().then(function (db) {
+        var tx, store, req;
+        try {
+          tx = db.transaction('fsHandles', 'readwrite');
+          store = tx.objectStore('fsHandles');
+          req = store.delete(VOLTCORE_FS_HANDLE_ID);
+        } catch (e) {
+          db.close();
+          return resolve(false);
+        }
+        req.onsuccess = function () { db.close(); resolve(true); };
+        req.onerror = function () { db.close(); resolve(false); };
+      }).catch(function () { resolve(false); });
+    } catch (e) { resolve(false); }
+  });
+}
+
+/* Vérifie la permission. Si 'prompt', demande à l'utilisateur.
+   Retourne Promise<boolean>. */
+function _fsVerifyPermission(handle, requestIfNeeded) {
+  return new Promise(function (resolve) {
+    try {
+      if (!handle) return resolve(false);
+      var opts = { mode: 'readwrite' };
+      if (typeof handle.queryPermission === 'function') {
+        handle.queryPermission(opts).then(function (perm) {
+          if (perm === 'granted') return resolve(true);
+          if (!requestIfNeeded) return resolve(false);
+          if (typeof handle.requestPermission === 'function') {
+            handle.requestPermission(opts).then(function (p2) {
+              resolve(p2 === 'granted');
+            }).catch(function () { resolve(false); });
+          } else {
+            resolve(false);
+          }
+        }).catch(function () { resolve(false); });
+      } else {
+        /* API ancienne : requestPermission direct */
+        if (requestIfNeeded && typeof handle.requestPermission === 'function') {
+          handle.requestPermission(opts).then(function (p) {
+            resolve(p === 'granted');
+          }).catch(function () { resolve(false); });
+        } else {
+          resolve(false);
+        }
+      }
+    } catch (e) { resolve(false); }
+  });
+}
+
+/* Écrit un fichier dans le dossier sous year/month/filename.
+   Crée les sous-dossiers au besoin.
+   Retourne Promise<{ ok, relativePath }>. */
+function _fsWriteFile(handle, filename, blob) {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!handle || !filename || !blob) return reject(new Error('handle/filename/blob requis'));
+      var now = new Date();
+      var year = String(now.getFullYear());
+      var month = String(now.getMonth() + 1).padStart(2, '0');
+
+      handle.getDirectoryHandle(year, { create: true }).then(function (yearDir) {
+        return yearDir.getDirectoryHandle(month, { create: true });
+      }).then(function (monthDir) {
+        return monthDir.getFileHandle(filename, { create: true });
+      }).then(function (fileHandle) {
+        return fileHandle.createWritable();
+      }).then(function (writable) {
+        return writable.write(blob).then(function () {
+          return writable.close();
+        }).then(function () {
+          resolve({ ok: true, relativePath: year + '/' + month + '/' + filename });
+        });
+      }).catch(reject);
+    } catch (e) { reject(e); }
+  });
+}
+
+/* Scan récursif du dossier (max 2 niveaux year/month).
+   Retourne Promise<Array<{ path, name, size, file }>>.
+   `file` = File object (peut être lu pour import). */
+function _fsScanDir(handle, maxDepth) {
+  return new Promise(function (resolve) {
+    var depth = (typeof maxDepth === 'number') ? maxDepth : 2;
+    var out = [];
+    var extAccepted = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+
+    function isAccepted(name) {
+      var lower = String(name || '').toLowerCase();
+      for (var i = 0; i < extAccepted.length; i++) {
+        if (lower.slice(-extAccepted[i].length) === extAccepted[i]) return true;
+      }
+      return false;
+    }
+
+    function walk(dirHandle, currentDepth, pathPrefix) {
+      return new Promise(function (resolveWalk) {
+        var tasks = [];
+        (async function () {
+          try {
+            for await (const entry of dirHandle.values()) {
+              if (entry.kind === 'file') {
+                if (!isAccepted(entry.name)) continue;
+                tasks.push((function (fileEntry, relPath) {
+                  return fileEntry.getFile().then(function (f) {
+                    out.push({
+                      path: relPath + fileEntry.name,
+                      name: fileEntry.name,
+                      size: f.size,
+                      file: f
+                    });
+                  }).catch(function () {});
+                })(entry, pathPrefix));
+              } else if (entry.kind === 'directory' && currentDepth < depth) {
+                tasks.push(walk(entry, currentDepth + 1, pathPrefix + entry.name + '/'));
+              }
+            }
+            await Promise.all(tasks);
+            resolveWalk();
+          } catch (e) {
+            resolveWalk();
+          }
+        })();
+      });
+    }
+
+    walk(handle, 0, '').then(function () { resolve(out); });
+  });
+}
+
+console.log('✅ 04-storage.js chargé — v6.9.9 (fsHandles + copie miroir dossier local)');

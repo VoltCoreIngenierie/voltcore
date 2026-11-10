@@ -1,8 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    VOLTCORE — 22-pwa.js
-   VERSION : v6.7 (Session #3 — CACHE_VERSION bumpée à v6.7.0,
-                   fichiers fantômes 23/24 retirés, détection
-                   première installation pour le toast SW)
+   VERSION : v6.9.4 (Session #6 — CACHE_VERSION bumpée pour Sprint 1,
+                     fix C1/C2/C3/I1/I4/I5 appliqués)
    RÔLE : Service Worker — app 100 % offline, mise à jour propre
    STRATÉGIE :
      - HTML  : network-first avec timeout 5s → fallback cache
@@ -27,7 +26,7 @@
 
 /* ═══════════ SECTION 1 — CONSTANTES ═══════════ */
 
-var CACHE_VERSION = 'voltcore-v6.9.3';
+var CACHE_VERSION = 'voltcore-v6.10.4';
 var CACHE_PREFIX = 'voltcore-';
 var STATIC_CACHE = CACHE_VERSION + '-static';
 var HTML_CACHE = CACHE_VERSION + '-html';
@@ -73,6 +72,7 @@ var STATIC_ASSETS = [
   './20-init-infra.js',
   './21-init-app.js',
   './23-bons-route.js',
+  './24-documents.js',
 
   /* Icônes PWA (chemin aligné sur index.html + manifest.json) */
   './icons/icon-192.png',

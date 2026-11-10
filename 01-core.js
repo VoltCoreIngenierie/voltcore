@@ -105,9 +105,7 @@ var VOLTCORE_MAX_DOCUMENT_PU = 1000000;
 /* ─── Sauvegarde dossier ─── */
 var savedDirHandle = null;
 
-/* ─── Éditeur de bons ─── */
-var currentBonType = null;
-var currentBonData = null;
+/* v6.10.2 — currentBonType/Data supprimés (bons A/B/C/D redondants) */
 
 /* ─── Pagination RH ─── */
 var __hrWorkPage = 0;

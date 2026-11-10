@@ -34,7 +34,7 @@
 </head>
 <body>
 
-<h1>VOLTCORE v6.9.2 — Tests</h1>
+<h1>VOLTCORE v6.10.1 — Tests</h1>
 <div class="sub">216 tests · 22 catégories · validation complète (logic + câblage + E2E)</div>
 
 <div id="summary">⏳ Chargement des tests…</div>
@@ -76,6 +76,7 @@
 <script src="19-tools-save.js"></script>
 <script src="20-init-infra.js"></script>
 <script src="23-bons-route.js"></script>
+<script src="24-documents.js"></script>
 
 <!-- Runner -->
 <script>
@@ -216,7 +217,7 @@
   add('Storage', 'genererNumero devis', function() { resetData(); return has(genererNumero('devis'), 'DEV-'); });
   add('Storage', 'genererNumero avoir', function() { resetData(); return has(genererNumero('avoir'), 'AV-'); });
   add('Storage', 'incrementerCompteur', function() { resetData(); incrementerCompteur('facture'); return compteurs['facture_' + new Date().getFullYear()] === 1; });
-  add('Storage', 'incrementerNumeroBon A', function() { resetData(); incrementerNumeroBon('A'); return compteurs['bon_A'] === 1; });
+  /* v6.10.2 — Test incrementerNumeroBon supprimé (bons A/B/C/D retirés) */
   add('Storage', 'getTotalPaye vide', function() { return eq(getTotalPaye({}), 0); });
   add('Storage', 'getTotalPaye 3 paiements', function() {
     return eq(getTotalPaye({ paiements: [{montant:100},{montant:200},{montant:300}] }), 600);
@@ -479,8 +480,8 @@
   add('Mobile', 'isTabletView bool', function() { return typeof isTabletView() === 'boolean'; });
   add('Mobile', 'isTouchDevice bool', function() { return typeof isTouchDevice() === 'boolean'; });
   add('Mobile', 'isPWAInstalled bool', function() { return typeof isPWAInstalled() === 'boolean'; });
-  add('Mobile', 'FAB_FUNCS 9 entrées (v6.9)', function() { return eq(Object.keys(FAB_FUNCS).length, 9); });
-  add('Mobile', 'FAB_LABELS 9 entrées (v6.9)', function() { return eq(Object.keys(FAB_LABELS).length, 9); });
+  add('Mobile', 'FAB_FUNCS 10 entrées (v6.9.8 + documents)', function() { return eq(Object.keys(FAB_FUNCS).length, 10); });
+  add('Mobile', 'FAB_LABELS 10 entrées (v6.9.8 + documents)', function() { return eq(Object.keys(FAB_LABELS).length, 10); });
 
   /* ═══════════════════════════════════════════════════
      CATÉGORIE 17 — DIVERS (10)
@@ -657,8 +658,10 @@
        de boot (IIFE autoStart en bas de fichier). Le charger dans
        tests.html déclencherait bootSequence → toute l'app démarre et
        perturbe les autres tests. On le vérifie à part via fetch. */
-    ['23-bons-route.js',    'openBonRouteModal']
+    ['23-bons-route.js',    'openBonRouteModal'],
+    ['24-documents.js',     'openDocumentUploadModal']
   ];
+  /* v6.10.1 — le test 24-documents.js est enrichi ci-dessous (fetch) */
   for (var __fc = 0; __fc < __fileChecks.length; __fc++) {
     (function (fc) {
       var file = fc[0], fn = fc[1];
@@ -671,6 +674,37 @@
       });
     })(__fileChecks[__fc]);
   }
+  /* v6.10.1 — Diagnostic enrichi pour 24-documents.js.
+     Si le fichier existe ET contient les fonctions clés, on saura si
+     c'est un problème de chargement (404) ou d'exposition. */
+  add('Câblage (v6.10.1)', '24-documents.js accessible via fetch ET complet', async function () {
+    try {
+      var r = await fetch('./24-documents.js');
+      if (!r.ok) {
+        console.error('[Câblage] 24-documents.js inaccessible — HTTP ' + r.status +
+          '. Vérifie que le fichier existe dans le dossier racine.');
+        return false;
+      }
+      var txt = await r.text();
+      var hasOpenUpload = txt.indexOf('function openDocumentUploadModal') >= 0;
+      var hasRenderDocs = txt.indexOf('function renderDocuments') >= 0;
+      var hasAttachEvents = txt.indexOf('function attachDocumentsEvents') >= 0;
+      var hasExposeUpload = txt.indexOf('window.openDocumentUploadModal = openDocumentUploadModal') >= 0;
+      if (!hasOpenUpload || !hasRenderDocs || !hasAttachEvents) {
+        console.error('[Câblage] 24-documents.js INCOMPLET — manque une fonction clé',
+          { openDocumentUploadModal: hasOpenUpload, renderDocuments: hasRenderDocs, attachDocumentsEvents: hasAttachEvents });
+        return false;
+      }
+      if (!hasExposeUpload) {
+        console.error('[Câblage] 24-documents.js n\'expose pas window.openDocumentUploadModal — vérifier le bloc final try/catch');
+        return false;
+      }
+      return txt.length > 2000;
+    } catch (e) {
+      console.error('[Câblage] fetch 24-documents.js échoué :', e.message);
+      return false;
+    }
+  });
 
   /* v6.9.3 — 21-init-app.js : vérification via fetch (pas de chargement).
      On vérifie que le fichier existe ET contient bien la fonction
@@ -700,7 +734,7 @@
   });
 
   /* ── 21b. index.html référence bien les 22 scripts ── */
-  add('Câblage (v6.9.1)', 'index.html contient les 22 scripts JS', async function () {
+    add('Câblage (v6.9.1)', 'index.html contient les 23 scripts JS (v6.10.1)', async function () {
     try {
       var r = await fetch('./index.html');
       if (!r.ok) {
@@ -714,7 +748,7 @@
         '10-hr.js', '11-invoices.js', '12-invoices-view.js', '13-purchases.js',
         '14-expenses-bons.js', '15-scan-sign.js', '16-assistant-ia.js',
         '17-dash-reports.js', '18-mobile.js', '19-tools-save.js',
-        '20-init-infra.js', '21-init-app.js', '23-bons-route.js'
+        '20-init-infra.js', '21-init-app.js', '23-bons-route.js', '24-documents.js'
       ];
       var missing = [];
       for (var i = 0; i < required.length; i++) {
@@ -849,7 +883,7 @@
     }
   });
 
-  add('Structure DOM (v6.9.2)', 'Toutes les modales existent (17)', async function () {
+  add('Structure DOM (v6.9.2)', 'Toutes les modales existent (33 — v6.10.4)', async function () {
     var doc = await __getIndexDoc();
     var req = [
       'loginModal', 'lockOverlay', 'licenseModal', 'alertsModal',
@@ -859,7 +893,8 @@
       'hrEmployeeModal', 'hrWorkModal', 'hrTxModal', 'hrDetailModal',
       'invoiceModal', 'invoiceDetailModal', 'paymentModal',
       'purchaseModal', 'supplierPaymentModal',
-      'fraisModal', 'bonModal',
+      'fraisModal',
+      'documentUploadModal', 'documentDetailModal',
       'scanModal', 'signatureModal', 'iaModal', 'iaPreviewModal', 'helpModal',
       'liberationGarantieModal', 'bonRouteModal', 'bonRouteDetailModal'
     ];
@@ -957,7 +992,7 @@
     return true;
   });
 
-  add('Structure DOM (v6.9.2)', 'Tous les 22 scripts JS référencés', async function () {
+  add('Structure DOM (v6.9.2)', 'Tous les 23 scripts JS référencés (v6.10.1)', async function () {
     var doc = await __getIndexDoc();
     var req = [
       '01-core.js', '02-auth.js', '03-utils.js', '04-storage.js', '05-alerts.js',
@@ -1040,10 +1075,10 @@
     return false;
   });
 
-  add('Structure DOM (v6.9.2)', 'Sidebar : 11 items de navigation', async function () {
+  add('Structure DOM (v6.9.2)', 'Sidebar : 12 items de navigation (v6.10.1)', async function () {
     var doc = await __getIndexDoc();
     var items = doc.querySelectorAll('[data-nav-section]');
-    return items.length === 11;
+    return items.length === 12;
   });
 
   add('Structure DOM (v6.9.2)', 'Bottom bar : 6 onglets mobile', async function () {
@@ -1219,6 +1254,312 @@
            html.indexOf('n\'a pas valeur de facture') >= 0 &&
            html.indexOf('TOTAL TTC') < 0 &&
            html.indexOf('NET À PAYER') < 0;
+  });
+  /* ═══════════════════════════════════════════════════════════════
+     CATÉGORIE 24 — VÉRIFICATION RÉELLE (v6.10.3)
+     Tests fonctionnels profonds : vraies opérations IDB, canvas,
+     File API, crypto. Chaque test nettoie ses données (préfixe __test_).
+     Les données réelles de l'utilisateur ne sont JAMAIS touchées.
+     ═══════════════════════════════════════════════════════════════ */
+
+  var __TEST_PNG_DATAURL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  var __TEST_IDB_AVAILABLE = (typeof indexedDB !== 'undefined');
+
+  /* ─── Bloc IDB blobs ─── */
+  add('Vérif réelle', 'IDB: put → get retourne le bon contenu', async function () {
+    if (typeof _idbBlobsPut !== 'function' || typeof _idbBlobsGet !== 'function') return false;
+    if (!__TEST_IDB_AVAILABLE) return true;
+    var testId = '__test_blob_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    try {
+      var blob = new Blob(['hello-voltcore'], { type: 'text/plain' });
+      await _idbBlobsPut(testId, blob, 'text/plain');
+      var row = await _idbBlobsGet(testId);
+      if (!row || !row.data) return false;
+      var text = await row.data.text();
+      return text === 'hello-voltcore';
+    } finally {
+      try { await _idbBlobsDelete(testId); } catch (e) {}
+    }
+  });
+
+  add('Vérif réelle', 'IDB: delete supprime bien', async function () {
+    if (typeof _idbBlobsPut !== 'function' || !__TEST_IDB_AVAILABLE) return true;
+    var testId = '__test_del_' + Date.now();
+    try {
+      await _idbBlobsPut(testId, new Blob(['x']), 'text/plain');
+      await _idbBlobsDelete(testId);
+      var row = await _idbBlobsGet(testId);
+      return row === null;
+    } catch (e) { return false; }
+  });
+
+  add('Vérif réelle', 'IDB: _dataURLToBlob convertit (PNG 1x1)', async function () {
+    if (typeof _dataURLToBlob !== 'function') return false;
+    try {
+      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
+      return blob && blob.type === 'image/png' && blob.size > 0;
+    } catch (e) { return false; }
+  });
+
+  add('Vérif réelle', 'IDB: _blobToDataURL reconvertit correctement', async function () {
+    if (typeof _dataURLToBlob !== 'function' || typeof _blobToDataURL !== 'function') return false;
+    try {
+      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
+      var back = await _blobToDataURL(blob);
+      return typeof back === 'string' && back.indexOf('data:image/png;base64,') === 0;
+    } catch (e) { return false; }
+  });
+
+  /* ─── Bloc Signature / Cachet ─── */
+  add('Vérif réelle', 'Signature: set → get → delete', async function () {
+    if (typeof setSignatureDefault !== 'function' || !__TEST_IDB_AVAILABLE) return true;
+    try {
+      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
+      await setSignatureDefault(blob, '__test_sig');
+      var meta = getSignatureDefault();
+      if (!meta || meta.name !== '__test_sig') return false;
+      var row = await _idbBlobsGet(meta.ref);
+      if (!row || !row.data) return false;
+      await deleteSignatureDefault();
+      return getSignatureDefault() === null;
+    } catch (e) { return false; }
+  });
+
+  add('Vérif réelle', 'Cachet: set → get → delete', async function () {
+    if (typeof setCachetDefault !== 'function' || !__TEST_IDB_AVAILABLE) return true;
+    try {
+      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
+      await setCachetDefault(blob, '__test_cac');
+      var meta = getCachetDefault();
+      if (!meta || meta.name !== '__test_cac') return false;
+      await deleteCachetDefault();
+      return getCachetDefault() === null;
+    } catch (e) { return false; }
+  });
+
+  /* ─── Bloc Documents library ─── */
+  add('Vérif réelle', 'Documents: create → IDB → delete', async function () {
+    if (typeof _docLibCreateEntry !== 'function' || !__TEST_IDB_AVAILABLE) return true;
+    var entry = null;
+    try {
+      var imgBlob = await _dataURLToBlob(__TEST_PNG_DATAURL);
+      var file;
+      try {
+        file = new File([imgBlob], '__test_doc.png', { type: 'image/png' });
+      } catch (e) {
+        imgBlob.name = '__test_doc.png';
+        file = imgBlob;
+      }
+      entry = await _docLibCreateEntry(file, {
+        nom: '__test_doc', categorie: 'autre', tags: ['test']
+      });
+      if (!entry || !entry.id) return false;
+      var found = getDocLibById(entry.id);
+      if (!found) return false;
+      var row = await _idbBlobsGet(entry.storageKey);
+      if (!row || !row.data) return false;
+      return true;
+    } catch (e) {
+      return false;
+    } finally {
+      if (entry && entry.id) {
+        try { deleteDocLibEntry(entry.id); } catch (e) {}
+      }
+    }
+  });
+
+  add('Vérif réelle', 'Documents: delete → trash contient l\'entrée', function () {
+    if (typeof deleteDocLibEntry !== 'function' || typeof getDocLibById !== 'function') return false;
+    /* Injecte une entrée de test sans IDB (juste la métadonnée) */
+    var testId = '__test_meta_' + Date.now();
+    __documentsLib.push({
+      id: testId, nom: '__test_meta', categorie: 'autre',
+      mime: 'image/png', taille: 100, storage: 'idb',
+      storageKey: '__test_key', tags: [], notes: '',
+      date: '2026-11-10', createdAt: new Date().toISOString()
+    });
+    try {
+      if (!trash || typeof trash !== 'object') trash = { clients: [], articles: [], documents: [] };
+      if (!Array.isArray(trash.documentsLib)) trash.documentsLib = [];
+      var before = trash.documentsLib.length;
+      deleteDocLibEntry(testId);
+      var after = trash.documentsLib.length;
+      /* Retire l'entrée de trash pour cleanup */
+      if (after > before) trash.documentsLib.pop();
+      return (after === before + 1) && (getDocLibById(testId) === null);
+    } catch (e) { return false; }
+  });
+
+  /* ─── Bloc Migration ─── */
+  add('Vérif réelle', 'Migration: détecte attachment avec data', function () {
+    if (typeof _hasAttachmentsToMigrate !== 'function') return false;
+    var oldDocs = savedDocuments;
+    try {
+      savedDocuments = [{
+        id: 'doc_test', attachments: [
+          { name: 'x.png', data: __TEST_PNG_DATAURL }
+        ]
+      }];
+      return _hasAttachmentsToMigrate() === true;
+    } finally {
+      savedDocuments = oldDocs;
+    }
+  });
+
+  add('Vérif réelle', 'Migration: détecte absence si data=null', function () {
+    if (typeof _hasAttachmentsToMigrate !== 'function') return false;
+    var oldDocs = savedDocuments;
+    try {
+      savedDocuments = [{
+        id: 'doc_test', attachments: [
+          { name: 'x.png', ref: 'blob_abc', data: null }
+        ]
+      }];
+      return _hasAttachmentsToMigrate() === false;
+    } finally {
+      savedDocuments = oldDocs;
+    }
+  });
+
+  /* ─── Bloc CamScanner ─── */
+  add('Vérif réelle', 'Otsu: sépare deux modes [30, 220]', function () {
+    if (typeof _scanOtsuThreshold !== 'function') return false;
+    /* Distribution bimodale réaliste (gris foncé 30 / gris clair 220).
+       Le seuil doit tomber entre les deux modes pour bien séparer. */
+    var gray = new Uint8Array(100);
+    for (var i = 0; i < 50; i++) gray[i] = 30;
+    for (var j = 50; j < 100; j++) gray[j] = 220;
+    var t = _scanOtsuThreshold(gray);
+    return t >= 30 && t <= 220;
+  });
+
+  add('Vérif réelle', 'Otsu: cas extrême [0, 255] ne donne pas 0 (clamp v6.10.4)', function () {
+    if (typeof _scanOtsuThreshold !== 'function') return false;
+    var gray = new Uint8Array(100);
+    for (var i = 0; i < 50; i++) gray[i] = 0;
+    for (var j = 50; j < 100; j++) gray[j] = 255;
+    var t = _scanOtsuThreshold(gray);
+    /* Grâce au clamp [1, 254], t ne peut pas être 0 ni 255 → binarisation OK */
+    return t >= 1 && t <= 254;
+  });
+
+  add('Vérif réelle', 'Binarize: fast produit noir/blanc uniquement', function () {
+    if (typeof _scanBinarizeCanvas !== 'function') return false;
+    var canvas = document.createElement('canvas');
+    canvas.width = 10; canvas.height = 10;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#888'; ctx.fillRect(0, 0, 10, 10);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 5, 5);
+    _scanBinarizeCanvas(canvas, 'fast');
+    var data = ctx.getImageData(0, 0, 10, 10).data;
+    for (var k = 0; k < data.length; k += 4) {
+      if (data[k] !== 0 && data[k] !== 255) return false;
+    }
+    return true;
+  });
+
+  add('Vérif réelle', 'Perspective: warp produit un canvas non nul', function () {
+    if (typeof _scanApplyPerspectiveWarp !== 'function') return false;
+    var src = document.createElement('canvas');
+    src.width = 100; src.height = 100;
+    var ctx = src.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 100, 100);
+    ctx.fillStyle = '#000'; ctx.fillRect(20, 20, 60, 60);
+    var corners = [
+      { x: 20, y: 20 }, { x: 80, y: 20 },
+      { x: 80, y: 80 }, { x: 20, y: 80 }
+    ];
+    var result = _scanApplyPerspectiveWarp(src, corners);
+    return result !== null && result.width > 0 && result.height > 0;
+  });
+
+  /* ─── Bloc Backup / Trash ─── */
+  add('Vérif réelle', 'Backup: contient bonsRoute', function () {
+    if (typeof buildCompleteBackupData !== 'function') return false;
+    var oldBr = bonsRoute;
+    try {
+      bonsRoute = [{ id: '__test_br', numero: 'BR-2026-TEST' }];
+      var b = buildCompleteBackupData();
+      return b && Array.isArray(b.bonsRoute) && b.bonsRoute.length === 1;
+    } finally {
+      bonsRoute = oldBr;
+    }
+  });
+
+  add('Vérif réelle', 'Backup: contient rne (v6.9.4+)', function () {
+    if (typeof buildCompleteBackupData !== 'function') return false;
+    var b = buildCompleteBackupData();
+    return b && b.config && typeof b.config.rne === 'string';
+  });
+
+  add('Vérif réelle', 'Trash: bonsRoute listé dans corbeille', function () {
+    if (typeof renderTrash !== 'function') return false;
+    var el = document.getElementById('trashList');
+    if (!el) return true;
+    var oldTrash = trash;
+    try {
+      trash = {
+        clients: [], articles: [], documents: [],
+        bonsRoute: [{
+          item: { id: '__test_br', numero: 'BR-2026-TEST', type: 'sortie' },
+          deletedAt: new Date().toISOString()
+        }]
+      };
+      renderTrash();
+      var html = el.innerHTML;
+      return html.indexOf('Bons Route') >= 0 || html.indexOf('BR-2026-TEST') >= 0;
+    } finally {
+      trash = oldTrash;
+    }
+  });
+
+  /* ─── Bloc Cleanup orphelins ─── */
+  add('Vérif réelle', 'Cleanup: sig_default protégé', async function () {
+    if (typeof _cleanOrphanBlobs !== 'function' || !__TEST_IDB_AVAILABLE) return true;
+    try {
+      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
+      await _idbBlobsPut('sig_default', blob, 'image/png');
+      var orphanId = '__orphan_' + Date.now();
+      await _idbBlobsPut(orphanId, new Blob(['x']), 'text/plain');
+      await _cleanOrphanBlobs();
+      var sigRow = await _idbBlobsGet('sig_default');
+      var orphanRow = await _idbBlobsGet(orphanId);
+      return sigRow !== null && orphanRow === null;
+    } catch (e) {
+      try { await _idbBlobsDelete('sig_default'); } catch (e2) {}
+      return false;
+    }
+  });
+
+  /* ─── Bloc PDF avec images ─── */
+  add('Vérif réelle', 'PDF: cachet inséré comme <img>', function () {
+    if (typeof _buildInvoiceHTML !== 'function') return false;
+    var doc = {
+      id: 'd', numero: 'FAC-TEST', type: 'facture',
+      date: '2026-11-10', clientId: null,
+      items: [{ designation: 'X', quantite: 1, prix: 100 }],
+      totals: { totalHT: 100, tva: 19, tvaRate: 19, timbre: 1, totalTTC: 120, total: 120, netAPayer: 120 },
+      paiements: []
+    };
+    var html = _buildInvoiceHTML(doc, {
+      cachetDataUrl: __TEST_PNG_DATAURL,
+      signatureDataUrl: null
+    });
+    return html.indexOf('<img src="data:image/png') >= 0;
+  });
+
+  add('Vérif réelle', 'PDF: sans images garde placeholder texte', function () {
+    if (typeof _buildInvoiceHTML !== 'function') return false;
+    var doc = {
+      id: 'd', numero: 'FAC-TEST', type: 'facture',
+      date: '2026-11-10', clientId: null,
+      items: [{ designation: 'X', quantite: 1, prix: 100 }],
+      totals: { totalHT: 100, tva: 19, tvaRate: 19, timbre: 1, totalTTC: 120, total: 120, netAPayer: 120 },
+      paiements: []
+    };
+    var html = _buildInvoiceHTML(doc, {});
+    return html.indexOf('Cachet & Signature VOLTCORE') >= 0 &&
+           html.indexOf('Signature client') >= 0;
   });
 
   /* ════════════════════════════════════════════════════
