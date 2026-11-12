@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 23-dash.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Tableau de bord (KPIs + graphiques) + Rapports
           (TVA / Mensuel / Relances / Garanties).
           Chart.js lazy-loaded depuis CDN.
@@ -54,6 +54,11 @@
   };
 
   var _currentReportTab = 'tva';
+
+  // FIX R41 : timer debounce pour renderCharts.
+  // Évite de re-render les 4 graphiques Chart.js (~200ms) à chaque
+  // mutation isolée. Déclenché 2s après la dernière mutation.
+  var _chartsDebounceTimer = null;
 
   var REPORT_TAB_IDS = {
     tva:       'tabReportTVA',
@@ -329,6 +334,12 @@
      ═══════════════════════════════════════════════════════════ */
 
   Dash.renderCharts = function () {
+    // FIX R41 : si un timer debounced est en attente, on l'annule
+    // (sinon double render : une fois maintenant + une fois dans 2s)
+    if (_chartsDebounceTimer) {
+      clearTimeout(_chartsDebounceTimer);
+      _chartsDebounceTimer = null;
+    }
     _ensureChartJs().then(function () {
       _renderChartCA();
       _renderChartFamilles();
@@ -973,10 +984,26 @@
      ═══════════════════════════════════════════════════════════ */
 
   /* ═══════════════════════════════════════════════════════════
-     FIX R6 — Re-render auto du dashboard sur changement de données
+     FIX R6 + R41 — Re-render auto du dashboard sur changement
      ═══════════════════════════════════════════════════════════
-     Guard : ne rend que si la section dashboard est visible.
-     Évite les re-renders inutiles (Chart.js coûteux). */
+     - KPIs : rendus immédiatement (coût ~5ms).
+     - Charts : debounce 2s (coût ~200ms, évite N× render en rafale).
+     Guard : ne rend que si la section dashboard est visible. */
+
+  function _scheduleChartsRender() {
+    if (_chartsDebounceTimer) clearTimeout(_chartsDebounceTimer);
+    _chartsDebounceTimer = setTimeout(function () {
+      _chartsDebounceTimer = null;
+      try {
+        var dashEl = document.getElementById('dashboardSection');
+        if (dashEl && dashEl.style.display !== 'none') {
+          Dash.renderCharts();
+        }
+      } catch (e) {
+        VC.logError('23-dash', 'debounced renderCharts échoué', e);
+      }
+    }, 2000);
+  }
 
   (function _watchDashboardSources() {
     var watchList = ['documents', 'purchaseInvoices', 'frais',
@@ -986,11 +1013,8 @@
         try {
           var dashEl = document.getElementById('dashboardSection');
           if (dashEl && dashEl.style.display !== 'none') {
-            /* FIX R6-perf : ne re-render QUE les KPIs (coût ~5ms)
-               au lieu de tout le dashboard (Charts = ~200ms).
-               Les graphiques se rafraîchissent au prochain clic
-               manuel sur "Dashboard" dans la sidebar. */
-            Dash.renderKPIs();
+            Dash.renderKPIs();          // immédiat (léger)
+            _scheduleChartsRender();    // debounce 2s (lourd)
           }
         } catch (e) {
           VC.logError('23-dash', 'subscribe render échoué', e);

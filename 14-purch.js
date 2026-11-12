@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 14-purch.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Achats fournisseurs, TVA déductible, paiements,
           attestation imprimable, alimentation du comparateur
           de prix (externalPrices).

@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 01-utils.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Helpers purs (strings, numbers, dates, money),
           helpers DOM (get/set/show/populate), helpers
           d'interface (toast, dialog), helpers fichiers.

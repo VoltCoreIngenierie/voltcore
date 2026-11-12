@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 03-idb.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : IndexedDB — blobs, backups automatiques, fsHandles.
           API namespacée : IDB.blobs.*, IDB.backups.*, IDB.fs.*
           Cleanup orphelins basé sur Store.getAllBlobRefs() (fix C3).

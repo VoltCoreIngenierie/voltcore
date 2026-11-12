@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 19-scan-cv.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Pipeline OpenCV pour le scanner.
           - Détection auto des coins (4 stratégies + scoring)
           - Warp perspective avec bilinéaire
@@ -760,7 +760,9 @@
          → artefacts blancs sur les zones noires du document. */
       var bgSafe = new cv.Mat();
       mats.push(bgSafe);
-      cv.max(bgFloat, new cv.Mat(bgFloat.rows, bgFloat.cols, cv.CV_32F, new cv.Scalar(1.0)), bgSafe);
+      var oneMat = new cv.Mat(bgFloat.rows, bgFloat.cols, cv.CV_32F, new cv.Scalar(1.0));
+      mats.push(oneMat);
+      cv.max(bgFloat, oneMat, bgSafe);
 
       /* normalized = (gray / bgSafe) * 255 */
       cv.divide(grayFloat, bgSafe, normalized, 255);

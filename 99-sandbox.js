@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 99-sandbox.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Staging de nouvelles fonctions AVANT intégration.
           Mini test-runner console. Aucune interaction avec
           les données de production.

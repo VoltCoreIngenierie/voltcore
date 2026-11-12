@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 09-chant.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : CRUD chantiers, marges temps réel, mode actif,
           devis/facture 1 clic, import/export, impression.
           Normalisation + save + load + trash : gérés par Store.

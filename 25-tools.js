@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 25-tools.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Outils & Paramètres.
           Corbeille, historique, backups IDB, doublons,
           société (RIB/MF/RNE), signature/cachet par défaut,

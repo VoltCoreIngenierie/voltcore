@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 06-clients.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : CRUD clients, recherche/tri, détail, relance WhatsApp,
           import/export JSON+CSV, impression.
           Normalisation + save + load + trash : gérés par Store.
@@ -634,6 +634,32 @@
     for (var i = 0; i < trashEntries.length; i++) {
       if (trashEntries[i].item && String(trashEntries[i].item.id) === String(id)) {
         S.restoreFromTrash('clients', i);
+        // FIX R32-R35 : nettoyer _clientNomOrphelin des enfants restaurés.
+        // Sans ce nettoyage, le flag orphelin reste après chaque cycle
+        // delete → undo, et les enfants affichent "(non enregistré)" à tort.
+        var sid = String(id);
+        var docs = S.getAll('documents');
+        for (var di = 0; di < docs.length; di++) {
+          if (docs[di] && String(docs[di].clientId || '') === sid &&
+              docs[di]._clientNomOrphelin !== undefined) {
+            delete docs[di]._clientNomOrphelin;
+          }
+        }
+        var chantiers = S.getAll('chantiers');
+        for (var ci = 0; ci < chantiers.length; ci++) {
+          if (chantiers[ci] && String(chantiers[ci].clientId || '') === sid &&
+              chantiers[ci]._clientNomOrphelin !== undefined) {
+            delete chantiers[ci]._clientNomOrphelin;
+          }
+        }
+        var frais = S.getAll('frais');
+        for (var fi = 0; fi < frais.length; fi++) {
+          if (frais[fi] && String(frais[fi].clientId || '') === sid &&
+              frais[fi]._clientNomOrphelin !== undefined) {
+            delete frais[fi]._clientNomOrphelin;
+          }
+        }
+        S.saveAll();
         Cli.invalidateStatsCache(id);
         Cli.render();
         U.toast('Client restauré', 'success', 2000);
@@ -915,11 +941,6 @@
     U.on('btnExportClientsCSV', 'click', Cli.exportCSV);
     U.on('btnPrintClients', 'click', Cli.print);
 
-    /* Store subscribe pour re-render automatique */
-    S.subscribe('clients', function () {
-      Cli.invalidateStatsCache();
-      Cli.render();
-    });
 
     _updateSortDirButton();
   };
@@ -928,7 +949,50 @@
     var btn = document.getElementById('clientsSortDirBtn');
     if (btn) btn.textContent = (_sortDir === 'asc') ? '↑' : '↓';
   }
-
+  /* ═══════════════════════════════════════════════════════════
+     FIX R32-R35-TER : nettoyage _clientNomOrphelin sur TOUS les
+     chemins de restore. Subscribe au niveau module (comme
+     04-alerts.js et 23-dash.js), PAS dans attachEvents.
+     Raison : attachEvents n'est pas appelé dans tests.html et
+     peut être appelé trop tard dans l'app. Un subscribe module
+     est actif dès que le fichier est chargé.
+     ═══════════════════════════════════════════════════════════ */
+  (function _watchClientRestores() {
+    S.subscribe('clients', function (ev) {
+      try {
+        if (!ev || ev.action !== 'restore' || !ev.item || !ev.item.id) return;
+        var sid = String(ev.item.id);
+        var docs = S.getAll('documents');
+        var chantiers = S.getAll('chantiers');
+        var frais = S.getAll('frais');
+        var dirty = false;
+        for (var di = 0; di < docs.length; di++) {
+          if (docs[di] && String(docs[di].clientId || '') === sid &&
+              docs[di]._clientNomOrphelin !== undefined) {
+            delete docs[di]._clientNomOrphelin;
+            dirty = true;
+          }
+        }
+        for (var ci = 0; ci < chantiers.length; ci++) {
+          if (chantiers[ci] && String(chantiers[ci].clientId || '') === sid &&
+              chantiers[ci]._clientNomOrphelin !== undefined) {
+            delete chantiers[ci]._clientNomOrphelin;
+            dirty = true;
+          }
+        }
+        for (var fi = 0; fi < frais.length; fi++) {
+          if (frais[fi] && String(frais[fi].clientId || '') === sid &&
+              frais[fi]._clientNomOrphelin !== undefined) {
+            delete frais[fi]._clientNomOrphelin;
+            dirty = true;
+          }
+        }
+        if (dirty) S.saveAll();
+      } catch (e) {
+        VC.logError('06-clients', 'restore cleanup flag échoué', e);
+      }
+    });
+  })();
   /* ═══════════════════════════════════════════════════════════
      SECTION 14 — MARQUEUR
      ═══════════════════════════════════════════════════════════ */

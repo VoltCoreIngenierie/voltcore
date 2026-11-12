@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 24-mobile.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : UI mobile — détection viewport, classes .fact-mobile,
           PWA install prompt, FAB contextuel, bottom bar,
           plein écran, safe-area iOS, classes body.

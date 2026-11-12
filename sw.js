@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — sw.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Service Worker — offline total.
    STRATÉGIE :
      - HTML → network-first (timeout 5s) + fallback cache

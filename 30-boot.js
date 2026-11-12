@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 30-boot.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Séquence de démarrage complète.
           1. Store.loadAll() — charge toutes les collections
           2. Migrate.upgradeIfNeeded() — migrations cross-refs

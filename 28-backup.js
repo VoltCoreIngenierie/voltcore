@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 28-backup.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Backup complet JSON (export + import).
           - Export : TOUTES les collections enregistrées + trash + config
           - Import : détection automatique format (v7 / BASE_BLINDE / article.json)
@@ -279,10 +279,32 @@
         }
 
         if (mode === 'replace') {
+          // FIX R60 : compter les items qui seront poussés en corbeille
+          // et avertir explicitement si > 100 (au lieu de la limite cachée).
+          var _totalCurrent = 0;
+          var _namesForCount = S.listRegistered();
+          for (var _ni = 0; _ni < _namesForCount.length; _ni++) {
+            var _spec = S.getSpec(_namesForCount[_ni]);
+            if (!_spec || _spec.type !== 'array' || !_spec.trash) continue;
+            _totalCurrent += S.getAll(_namesForCount[_ni]).length;
+          }
+
+          var _warningDetail = '';
+          if (_totalCurrent > 0) {
+            _warningDetail = '• ' + _totalCurrent + ' élément(s) actuel(s) ' +
+              'seront poussés dans la corbeille (restaurables pendant ' +
+              VC.TRASH_MAX_DAYS + ' jours).\n\n';
+          }
+          if (_totalCurrent > 1000) {
+            _warningDetail +=
+              '⚠️ IMPORTANT : ' + _totalCurrent + ' éléments, c\'est beaucoup. ' +
+              'Vérifie que tu as un backup récent ET que tu es sûr.\n\n';
+          }
+
           var ok = U.confirm(
             '⚠ Mode REMPLACER : TOUTES les données actuelles seront écrasées.\n\n' +
-            'Les collections actuelles seront poussées dans la corbeille ' +
-            '(sauf si corbeille > 100 éléments).\n\n' +
+            _warningDetail +
+            'Après cette opération, seule la corbeille permet de revenir en arrière.\n\n' +
             'Continuer ?'
           );
           if (!ok) {
@@ -487,8 +509,9 @@
   }
 
   function _pushAllToTrash(collections) {
-    /* Pousse les collections actuelles à la corbeille avant wipe.
-       Limité à 100 éléments par collection pour éviter l'explosion. */
+    /* FIX R60 : plus de limite à 100. Tous les items actuels sont
+       poussés en corbeille, sinon les imports REPLACER massifs perdent
+       les données au-delà de 100 par collection. */
     var names = Object.keys(collections);
     var pushed = 0;
 
@@ -498,7 +521,7 @@
       if (!spec || spec.type !== 'array' || !spec.trash) continue;
 
       var current = S.getAll(name);
-      for (var j = 0; j < current.length && j < 100; j++) {
+      for (var j = 0; j < current.length; j++) {
         if (current[j]) {
           S.moveToTrash(name, current[j]);
           pushed++;

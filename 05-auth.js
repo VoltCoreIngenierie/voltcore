@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 05-auth.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Utilisateurs, hash SHA-256 salé, biométrie WebAuthn,
           login/logout, verrouillage 5 min après inactivité,
           trusted device, gestion UI utilisateurs.

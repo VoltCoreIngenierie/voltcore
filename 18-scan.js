@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 18-scan.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Orchestrateur du scanner.
           - Gestion caméra (start/stop/capture)
           - Import galerie
@@ -577,7 +577,16 @@
     if (_abortCtrl) {
       try { _abortCtrl.abort(); } catch (e) { /* silencieux */ }
     }
-    _abortCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    // FIX R56 : si AbortController absent (Safari 12, vieux Chrome),
+    // _abortCtrl = null → le bouton Annuler ne peut rien faire.
+    // On émet un warning unique au premier usage pour prévenir Anis.
+    var _hasAbort = (typeof AbortController !== 'undefined');
+    if (!_hasAbort && !global.__scanNoAbortWarned) {
+      global.__scanNoAbortWarned = true;
+      U.toast('Navigateur ancien : annulation de scan non supportée. ' +
+        'Le traitement ira au bout.', 'warning', 5000);
+    }
+    _abortCtrl = _hasAbort ? new AbortController() : null;
 
     processor.process(canvas, {
       corners: _corners,
@@ -657,7 +666,9 @@
     if (_abortCtrl) {
       try { _abortCtrl.abort(); } catch (e) { /* silencieux */ }
     }
-    _abortCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    // FIX R56 : idem preview — warning déjà émis dans _updateLivePreview
+    var _hasAbort = (typeof AbortController !== 'undefined');
+    _abortCtrl = _hasAbort ? new AbortController() : null;
 
     setTimeout(function () {
       _setProgress(50, 'Correction perspective…');

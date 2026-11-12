@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 27-migrate.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Migration de schéma inter-versions + compatibilité
           avec les anciens formats (BASE_BLINDE_2026, article.json).
    DÉPENDANCES : 00-core, 01-utils, 02-store

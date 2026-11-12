@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 29-init.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Wiring central.
           - Navigation (showSection, VC.Nav.go, hash)
           - refreshAllUI (re-render global)

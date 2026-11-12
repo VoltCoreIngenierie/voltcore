@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 15-frais.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Notes de frais (9 catégories), import/export, impression.
           Normalisation + save + load + trash : gérés par Store.
    DÉPENDANCES : 00-core, 01-utils, 02-store, 09-chant

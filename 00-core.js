@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 00-core.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Fondations — namespace global, constantes, polyfills,
           détection matérielle, logger minimal.
    DÉPENDANCES : aucune
@@ -40,7 +40,7 @@ VC.Migrate = VC.Migrate || {};   /* rempli par 27-migrate.js */
    SECTION 2 — CONSTANTES GLOBALES
    ═══════════════════════════════════════════════════════════ */
 
-VC.VERSION = '7.0.0';
+VC.VERSION = '7.0.7';
 VC.BUILD_DATE = '2026-11-11';
 
 /* Préfixe localStorage — toutes les clés commencent par ça.

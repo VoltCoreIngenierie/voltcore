@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 02-store.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Registre central de toutes les collections.
           CRUD génériques, trash ouvert, saveAll/loadAll
           pilotés par registre, subscribers, blobs tracking,

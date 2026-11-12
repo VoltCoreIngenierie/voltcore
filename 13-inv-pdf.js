@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 13-inv-pdf.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Génération PDF facture/devis/BL/avoir.
           Montant en lettres, signature + cachet depuis IDB,
           bloc autoliquidation OPT-IN explicite.

@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 07-suppl.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : CRUD fournisseurs, comparateur de prix par article,
           détection fournisseurs plus chers, import/export, impression.
           Normalisation + save + load + trash : gérés par Store.
@@ -575,6 +575,18 @@
     for (var i = 0; i < entries.length; i++) {
       if (entries[i].item && String(entries[i].item.id) === String(id)) {
         S.restoreFromTrash('suppliers', i);
+        // FIX R32-R35 : nettoyer _fournisseurNomOrphelin des achats restaurés.
+        var sid = String(id);
+        var purchases = S.getAll('purchaseInvoices');
+        for (var pi = 0; pi < purchases.length; pi++) {
+          var p = purchases[pi];
+          if (!p) continue;
+          var pid = String(p.supplierId || p.fournisseurId || '');
+          if (pid === sid && p._fournisseurNomOrphelin !== undefined) {
+            delete p._fournisseurNomOrphelin;
+          }
+        }
+        S.saveAll();
         Sup.render();
         U.toast('Fournisseur restauré', 'success', 2000);
         return;
@@ -804,12 +816,38 @@
     S.subscribe('suppliers', function () {
       Sup.render();
     });
+
   };
 
   /* ═══════════════════════════════════════════════════════════
      SECTION 14 — MARQUEUR
      ═══════════════════════════════════════════════════════════ */
-
+  /* ═══════════════════════════════════════════════════════════
+     FIX R32-R35-TER : nettoyage _fournisseurNomOrphelin sur
+     TOUS les chemins de restore. Subscribe au niveau module.
+     ═══════════════════════════════════════════════════════════ */
+  (function _watchSupplierRestores() {
+    S.subscribe('suppliers', function (ev) {
+      try {
+        if (!ev || ev.action !== 'restore' || !ev.item || !ev.item.id) return;
+        var sid = String(ev.item.id);
+        var purchases = S.getAll('purchaseInvoices');
+        var dirty = false;
+        for (var pi = 0; pi < purchases.length; pi++) {
+          var p = purchases[pi];
+          if (!p) continue;
+          var pid = String(p.supplierId || p.fournisseurId || '');
+          if (pid === sid && p._fournisseurNomOrphelin !== undefined) {
+            delete p._fournisseurNomOrphelin;
+            dirty = true;
+          }
+        }
+        if (dirty) S.saveAll();
+      } catch (e) {
+        VC.logError('07-suppl', 'restore cleanup flag échoué', e);
+      }
+    });
+  })();
   VC._supplLoaded = true;
 
   VC.logInfo('07-suppl', 'Module chargé');

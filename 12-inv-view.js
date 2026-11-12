@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 12-inv-view.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Liste documents, détail, paiements, avoirs liés,
           suppression avec undo, partage WhatsApp/Email.
           PDF délégué à 13-inv-pdf.js.
@@ -882,6 +882,30 @@
     if (!S.delete('documents', docId)) {
       U.toast('Erreur suppression.', 'error');
       return;
+    }
+
+    // FIX R-NEW : nettoyer les références croisées après suppression
+    // Sans ce nettoyage :
+    //   - une facture garde des avoirIds[] vers des avoirs supprimés
+    //   - un avoir garde un parentFactureId vers une facture supprimée
+    // Impact : Infra.detectOrphans() signalera des faux orphelins,
+    //          et Doc.getAvoirTotalForFacture() cherchera des IDs fantômes.
+    if (doc.type === 'avoir' && doc.parentFactureId) {
+      var parentDoc = View.getById(doc.parentFactureId);
+      if (parentDoc && Array.isArray(parentDoc.avoirIds)) {
+        parentDoc.avoirIds = parentDoc.avoirIds.filter(function (id) {
+          return String(id) !== String(docId);
+        });
+        S.save('documents', parentDoc);
+      }
+    }
+    if (doc.type === 'facture') {
+      // Récupère les avoirs AVANT qu'ils perdent la référence
+      var linkedAvoirs = View.listAvoirsForFacture(doc.id);
+      for (var la = 0; la < linkedAvoirs.length; la++) {
+        linkedAvoirs[la].parentFactureId = '';
+        S.save('documents', linkedAvoirs[la]);
+      }
     }
 
     if (VC.Clients && typeof VC.Clients.invalidateStatsCache === 'function' && doc.clientId) {

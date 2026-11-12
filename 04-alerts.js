@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 04-alerts.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Analyse métier + alertes.
           • VC.Doc : calculs documents (paiements, avoirs, dû)
           • VC.Alerts : marges, alertes, KPIs, badges UI

@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 26-infra.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Infrastructure invisible.
           - Handler global d'erreurs (sync, async, resources)
           - Log structuré persistant (Store)

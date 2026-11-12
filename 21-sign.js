@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 21-sign.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Signature tactile (canvas) + catalogue de signatures
           sauvegardées en IndexedDB, attachables aux factures.
    DÉPENDANCES : 00-core, 01-utils, 02-store, 03-idb

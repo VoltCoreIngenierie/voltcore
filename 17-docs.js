@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 17-docs.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Bibliothèque de documents transversale.
           Métadonnées en localStorage, fichiers en IndexedDB.
           Catégories, recherche, upload, aperçu, partage natif,

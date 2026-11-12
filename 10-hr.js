@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 10-hr.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : RH complète — employés, journées travaillées,
           paiements, balance automatique, pagination.
           Normalisation + save + load + trash : gérés par Store.

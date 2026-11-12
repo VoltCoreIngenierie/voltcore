@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 16-route.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Bons route (traçabilité Sfax ↔ Tunis).
           HORS COMPTABILITÉ : aucun champ montant/TVA/total.
           3 types (sortie/commande/deplacement) + 5 statuts.

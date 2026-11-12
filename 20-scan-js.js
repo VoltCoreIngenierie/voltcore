@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 20-scan-js.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Pipeline scanner en JS pur (fallback sans OpenCV).
           - Détection simplifiée par gradient (Sobel)
           - Warp perspective bilinéaire (pas seulement 2 triangles)

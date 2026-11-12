@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 22-ia.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Assistant IA (ChatGPT / Claude / DeepSeek).
           Prompts contextuels avec articles + fournisseurs existants.
           Import JSON → facture d'achat. Aperçu avant validation.
@@ -461,6 +461,30 @@
    * Aucun fuzzy matching d'inclusion (n'associe JAMAIS
    * "AFEL" à "AFELEC" ou "STEG" à "STEG INDUSTRIE").
    */
+    /**
+   * FIX R-NEW : trouve les articles similaires (ratio >= SIMILARITY_THRESHOLD).
+   * Purement informatif : sert à afficher une alerte dans l'aperçu.
+   * Ne déclenche AUCUN match automatique.
+   */
+  function _findSimilarArticles(designation, excludeId) {
+    var out = [];
+    if (!designation) return out;
+    var articles = S.getAll('articles');
+
+    for (var i = 0; i < articles.length; i++) {
+      var a = articles[i];
+      if (!a || !a.nom) continue;
+      if (excludeId && String(a.id) === String(excludeId)) continue;
+
+      var ratio = _nameSimilarity(designation, a.nom);
+      if (ratio >= SIMILARITY_THRESHOLD && ratio < 1) {
+        out.push({ id: a.id, nom: a.nom, ratio: ratio });
+      }
+    }
+
+    out.sort(function (a, b) { return b.ratio - a.ratio; });
+    return out;
+  }
   function _matchSupplier(name, mf) {
     var result = {
       id: null,
@@ -517,7 +541,12 @@
    *   3. Sinon → nouveau
    */
   function _matchArticle(designation, aiArticleId) {
-    var result = { id: null, nom: String(designation || ''), isMatch: false };
+    var result = {
+      id: null,
+      nom: String(designation || ''),
+      isMatch: false,
+      similarArticles: []
+    };
 
     if (aiArticleId && VC.Stock && typeof VC.Stock.getById === 'function') {
       var art = VC.Stock.getById(aiArticleId);
@@ -526,7 +555,8 @@
           id: art.id,
           nom: VC.Stock.getNom(art),
           isMatch: true,
-          source: 'ai-id'
+          source: 'ai-id',
+          similarArticles: []
         };
       }
     }
@@ -540,11 +570,14 @@
           id: articles[i].id,
           nom: articles[i].nom,
           isMatch: true,
-          source: 'name'
+          source: 'name',
+          similarArticles: []
         };
       }
     }
 
+    // FIX R-NEW : pas de match exact → chercher les similaires (informatif)
+    result.similarArticles = _findSimilarArticles(designation, null);
     return result;
   }
 
@@ -658,12 +691,25 @@
 
     for (var j = 0; j < d.lignes.length; j++) {
       var l = d.lignes[j];
-      var match = _previewMatches[j] ? _previewMatches[j].article : { isMatch: false };
-      var artCell = match.isMatch
-        ? '<span class="badge badge-success">✓</span> ' +
-          U.escapeHtml(match.nom || '')
-        : '<span class="badge badge-warning">⚠</span> ' +
+      var match = _previewMatches[j]
+        ? _previewMatches[j].article
+        : { isMatch: false, similarArticles: [] };
+      var artCell;
+      if (match.isMatch) {
+        artCell = '<span class="badge badge-success">✓</span> ' +
+          U.escapeHtml(match.nom || '');
+      } else if (match.similarArticles && match.similarArticles.length > 0) {
+        // FIX R-NEW : alerte doublon potentiel sur les articles
+        var sim = match.similarArticles[0];
+        artCell = '<span class="badge badge-warning">⚠</span> ' +
+          '<span class="muted">nouveau</span>' +
+          '<div style="font-size:10px;color:#d97706;margin-top:2px">' +
+          'Similaire à "' + U.escapeHtml(sim.nom) + '" (' +
+          Math.round(sim.ratio * 100) + '%)</div>';
+      } else {
+        artCell = '<span class="badge badge-warning">⚠</span> ' +
           '<span class="muted">nouveau</span>';
+      }
       var lt = U.parseNumber(l.quantite) * U.parseNumber(l.prixUnitaire);
       html += '<tr>' +
         '<td>' + U.escapeHtml(l.designation) + '</td>' +
@@ -680,6 +726,12 @@
         '<label><input type="checkbox" id="iaAutoCreateArticles" checked> ' +
         'Créer automatiquement les ' + newCount + ' article(s) manquant(s)' +
         '</label></div>';
+      // FIX R-NEW : avertir sur le prix de vente par défaut
+      html += '<div style="margin-top:8px;padding:8px 10px;background:#fef3c7;' +
+        'border-left:3px solid #d97706;border-radius:4px;font-size:11px">' +
+        '<strong>⚠ Prix de vente par défaut :</strong> les articles seront ' +
+        'créés avec <strong>prix = prix d\'achat × 1.30</strong> (marge 30%). ' +
+        'Tu pourras ajuster dans Stock après l\'import.</div>';
     }
     html += '</div>';
 
@@ -714,11 +766,17 @@
     var nom = String(designation || '').trim();
     if (!nom) return null;
 
+    // FIX R-NEW : prix de vente par défaut = prixAchat × 1.30 (marge 30%)
+    // Avant : prix = 0 → marge -100% → alerte dashboard + vente à 0 DT
+    // Après : Anis peut ajuster dans Stock, mais l'article est cohérent
+    var pa = U.parseNumber(prixUnitaire);
+    var pv = pa > 0 ? Math.round(pa * 1.30 * 1000) / 1000 : 0;
+
     return S.save('articles', {
       nom: nom,
       designation: nom,
-      prix: 0,
-      prixAchat: U.parseNumber(prixUnitaire),
+      prix: pv,
+      prixAchat: pa,
       stock: 0,
       seuil: 0,
       unite: 'U',
@@ -726,7 +784,7 @@
       codeBarre: '',
       hs: false,
       actif: true,
-      notes: 'Créé automatiquement par import IA'
+      notes: 'Créé automatiquement par import IA (prix vente = +30% par défaut — à vérifier)'
     });
   }
 

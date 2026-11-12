@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 08-stock.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Articles + familles + historique prix + alertes prix
           + pagination + étiquettes + import/export + picker
           pour factures.
@@ -834,6 +834,33 @@
     for (var i = 0; i < entries.length; i++) {
       if (entries[i].item && String(entries[i].item.id) === String(id)) {
         S.restoreFromTrash('articles', i);
+        // FIX R32-R35 : nettoyer _articleNomOrphelin des lignes restaurées.
+        var sid = String(id);
+        var docs = S.getAll('documents');
+        for (var di = 0; di < docs.length; di++) {
+          var doc = docs[di];
+          if (!doc || !Array.isArray(doc.items)) continue;
+          for (var dj = 0; dj < doc.items.length; dj++) {
+            var it = doc.items[dj];
+            if (it && String(it.articleId || '') === sid &&
+                it._articleNomOrphelin !== undefined) {
+              delete it._articleNomOrphelin;
+            }
+          }
+        }
+        var purchases = S.getAll('purchaseInvoices');
+        for (var pi = 0; pi < purchases.length; pi++) {
+          var pur = purchases[pi];
+          if (!pur || !Array.isArray(pur.lines)) continue;
+          for (var pj = 0; pj < pur.lines.length; pj++) {
+            var ln = pur.lines[pj];
+            if (ln && String(ln.articleId || '') === sid &&
+                ln._articleNomOrphelin !== undefined) {
+              delete ln._articleNomOrphelin;
+            }
+          }
+        }
+        S.saveAll();
         St.render();
         U.toast('Article restauré', 'success', 2000);
         return;
@@ -1377,12 +1404,54 @@
     S.subscribe('familles', function () {
       St.renderFamilles();
     });
+
   };
 
   /* ═══════════════════════════════════════════════════════════
      SECTION 19 — MARQUEUR
      ═══════════════════════════════════════════════════════════ */
-
+  /* ═══════════════════════════════════════════════════════════
+     FIX R32-R35-TER : nettoyage _articleNomOrphelin sur TOUS
+     les chemins de restore. Subscribe au niveau module.
+     ═══════════════════════════════════════════════════════════ */
+  (function _watchArticleRestores() {
+    S.subscribe('articles', function (ev) {
+      try {
+        if (!ev || ev.action !== 'restore' || !ev.item || !ev.item.id) return;
+        var sid = String(ev.item.id);
+        var docs = S.getAll('documents');
+        var purchases = S.getAll('purchaseInvoices');
+        var dirty = false;
+        for (var di = 0; di < docs.length; di++) {
+          var doc = docs[di];
+          if (!doc || !Array.isArray(doc.items)) continue;
+          for (var dj = 0; dj < doc.items.length; dj++) {
+            var it = doc.items[dj];
+            if (it && String(it.articleId || '') === sid &&
+                it._articleNomOrphelin !== undefined) {
+              delete it._articleNomOrphelin;
+              dirty = true;
+            }
+          }
+        }
+        for (var pi = 0; pi < purchases.length; pi++) {
+          var pur = purchases[pi];
+          if (!pur || !Array.isArray(pur.lines)) continue;
+          for (var pj = 0; pj < pur.lines.length; pj++) {
+            var ln = pur.lines[pj];
+            if (ln && String(ln.articleId || '') === sid &&
+                ln._articleNomOrphelin !== undefined) {
+              delete ln._articleNomOrphelin;
+              dirty = true;
+            }
+          }
+        }
+        if (dirty) S.saveAll();
+      } catch (e) {
+        VC.logError('08-stock', 'restore cleanup flag échoué', e);
+      }
+    });
+  })();
   VC._stockLoaded = true;
 
   VC.logInfo('08-stock', 'Module chargé');

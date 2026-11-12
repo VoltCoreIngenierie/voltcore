@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    VOLTCORE — 11-inv.js
-   VERSION : v7.0.0
+   VERSION : v7.0.7
    RÔLE : Formulaire facture/devis/BL/attachement/avoir.
           Calcul des totaux (TVA + timbre + retenues + garantie BTP).
           Pièces jointes via IDB. Brouillon auto (refs, pas dataURL).
@@ -1197,7 +1197,26 @@
   /* ═══════════════════════════════════════════════════════════
      SECTION 17 — MARQUEUR
      ═══════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════
+     API DE TEST — Réservée à tests.html
+     ═══════════════════════════════════════════════════════════
+     Permet aux tests de manipuler _items (variable privée de l'IIFE)
+     sans passer par le DOM complet (renderItems, focus, etc.).
+     Ces fonctions NE SONT PAS utilisées en production.
+     ═══════════════════════════════════════════════════════════ */
+  Inv._test_setItems = function (items) {
+    _items = Array.isArray(items) ? items.slice() : [];
+  };
 
+  Inv._test_getItems = function () {
+    return _items.slice();
+  };
+
+  Inv._test_reset = function () {
+    _items = [];
+    _attachments = [];
+    _resetTouched();
+  };
   VC._invLoaded = true;
 
   VC.logInfo('11-inv', 'Module chargé (autoliquidation opt-in)');
