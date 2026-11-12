@@ -999,11 +999,16 @@
     _updateOpenCvBadge();
   });
 
-  /* FIX R13 : exposer attachEvents (binds déjà faits dans Scan.open
-     via _bindOnce). Fonction no-op pour éviter le warning de 29-init. */
+  /* FIX R13-bis : bind le bouton d'ouverture du scanner.
+     Sans ce bind, le bouton "📷 Scanner" dans Outils ne fait rien
+     (mon patch R13 avait rendu cette fonction no-op par erreur). */
   Scan.attachEvents = function () {
-    /* Tous les binds sont faits à la volée dans Scan.open() via _bindOnce.
-       Aucune action requise ici. */
+    U.on('btnOpenScanner', 'click', function (ev) {
+      try { if (ev) ev.preventDefault(); } catch (e) {
+        VC.logError('18-scan', 'btnOpenScanner preventDefault échoué', e);
+      }
+      Scan.open();
+    });
   };
 
   /* ═══════════════════════════════════════════════════════════

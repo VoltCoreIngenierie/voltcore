@@ -801,7 +801,124 @@
   };
 
   /* ═══════════════════════════════════════════════════════════
-     SECTION 10 — MARQUEUR DE CHARGEMENT
+     SECTION 10 — COMPRESSION IMAGES (v7.0.7 — FIX manquant)
+     ═══════════════════════════════════════════════════════════
+     Compresse une image pour ne pas dépasser maxBytes.
+     Retourne une dataURL JPEG (ou PNG si la source est déjà sous la limite).
+
+     Utilisé par :
+       - 18-scan.js _processFile (import galerie)
+       - 25-tools.js _uploadDefaultImage (signature/cachet)
+       - 25-tools.js changeLogo (logo société)
+       - 11-inv.js _compressImage (pièces jointes factures)
+  */
+
+  U.compressImage = function (file, maxBytes) {
+    var MAX = (typeof maxBytes === 'number') ? maxBytes : 500 * 1024;
+
+    return new Promise(function (resolve, reject) {
+      try {
+        if (!file) {
+          reject(new Error('Fichier image requis'));
+          return;
+        }
+        var isImage = /^image\//.test(file.type || '');
+        if (!isImage) {
+          reject(new Error('Fichier non-image'));
+          return;
+        }
+
+        /* Étape 1 : lire le fichier en dataURL */
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var dataUrl = reader.result;
+
+            /* Si déjà sous la limite, retourne tel quel */
+            if (typeof dataUrl === 'string' && dataUrl.length * 0.75 <= MAX) {
+              resolve(dataUrl);
+              return;
+            }
+
+            /* Étape 2 : charger l'image dans un objet Image */
+            var img = new Image();
+            img.onload = function () {
+              try {
+                var MAX_DIM = 1600;
+                var w = img.width;
+                var h = img.height;
+                if (w > MAX_DIM || h > MAX_DIM) {
+                  var ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+                  w = Math.round(w * ratio);
+                  h = Math.round(h * ratio);
+                }
+
+                /* Étape 3 : dessiner sur canvas */
+                var canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+
+                /* Étape 4 : baisser la qualité jusqu'à tenir dans MAX */
+                var qualities = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3];
+                var result = canvas.toDataURL('image/jpeg', 0.9);
+                for (var qi = 0; qi < qualities.length; qi++) {
+                  result = canvas.toDataURL('image/jpeg', qualities[qi]);
+                  if (result.length * 0.75 <= MAX) break;
+                }
+                resolve(result);
+              } catch (e2) {
+                VC.logError('01-utils', 'compressImage canvas échoué', e2);
+                reject(e2);
+              }
+            };
+            img.onerror = function () {
+              reject(new Error('Image illisible'));
+            };
+            img.src = dataUrl;
+          } catch (e3) {
+            VC.logError('01-utils', 'compressImage lecture échouée', e3);
+            reject(e3);
+          }
+        };
+        reader.onerror = function () {
+          reject(reader.error || new Error('Lecture fichier impossible'));
+        };
+        reader.readAsDataURL(file);
+      } catch (e) {
+        VC.logError('01-utils', 'compressImage sync échoué', e);
+        reject(e);
+      }
+    });
+  };
+
+  U.compressImageWithFeedback = function (file, maxBytes) {
+    var before = file ? file.size : 0;
+    return U.compressImage(file, maxBytes).then(function (dataUrl) {
+      var after = Math.round(dataUrl.length * 0.75);
+      if (before > after && typeof U.toast === 'function') {
+        try {
+          U.toast('Image compressée : ' +
+            U.formatBytes(before) + ' → ' + U.formatBytes(after),
+            'info', 2500);
+        } catch (e) {
+          VC.logError('01-utils', 'compressImageWithFeedback toast échoué', e);
+        }
+      }
+      return dataUrl;
+    }).catch(function (e) {
+      VC.logError('01-utils', 'compressImageWithFeedback échoué', e);
+      if (typeof U.toast === 'function') {
+        U.toast('Compression impossible : ' + (e.message || 'erreur'),
+          'error', 4000);
+      }
+      throw e;
+    });
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 11 — MARQUEUR DE CHARGEMENT
      ═══════════════════════════════════════════════════════════ */
 
   VC._utilsLoaded = true;

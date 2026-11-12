@@ -1637,6 +1637,32 @@
   });
 
   /* ═══════════════════════════════════════════════════════════
+     CAT ZZ — COMPRESSION IMAGES (v7.0.7) (4)
+     ═══════════════════════════════════════════════════════════ */
+  add('ZZ. Compression', 'U.compressImage existe', function () {
+    return typeof U.compressImage === 'function';
+  });
+  add('ZZ. Compression', 'U.compressImageWithFeedback existe', function () {
+    return typeof U.compressImageWithFeedback === 'function';
+  });
+  add('ZZ. Compression', 'compressImage rejette fichier vide', function () {
+    return U.compressImage(null, 500 * 1024).then(function () {
+      return false;
+    }, function () {
+      return true;
+    });
+  });
+  add('ZZ. Compression', 'compressImage rejette fichier non-image', function () {
+    var txt = new Blob(['hello'], { type: 'text/plain' });
+    try { txt.name = 'test.txt'; } catch (e) {}
+    return U.compressImage(txt, 500 * 1024).then(function () {
+      return false;
+    }, function () {
+      return true;
+    });
+  });
+
+  /* ═══════════════════════════════════════════════════════════
      CAT Z — RÉSILIENCE (6)
      ═══════════════════════════════════════════════════════════ */
   add('Z. Résilience', 'JSON corrompu → loadAll ne crash pas', function () {
