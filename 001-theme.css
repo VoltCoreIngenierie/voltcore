@@ -1,0 +1,536 @@
+/* ═══════════════════════════════════════════════════════════════
+   VOLTCORE — 001-theme.css
+   VERSION : v7.0.0
+   RÔLE : Thème — Dark mode + Print styles + overrides.
+   DÉPENDANCES : 000-style.css
+   SECTION : dark mode, print, corrections
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ════════ §1 — DARK MODE (marque préservée) ════════ */
+
+body.dark-mode {
+  /* Surfaces */
+  --bg:        #0A1220;
+  --bg-alt:    #131F33;
+  --bg-soft:   #16233A;
+  --card:      #1A2B4C;
+  --border:    #2A3B5C;
+  --border-strong: #C9A84C;
+
+  /* Texte */
+  --text:       #E8ECF4;
+  --text-soft:  #C9D2E0;
+  --text-light: #8B9AB8;
+  --muted:      #8B9AB8;
+
+  /* Marque — INCHANGÉE */
+  --vc-navy:       #1A2B4C;
+  --vc-navy-dark:  #0F1A2E;
+  --vc-navy-light: #2A3B5C;
+  --vc-red:        #E70013;
+  --vc-red-dark:   #C00010;
+  --vc-gold:       #C9A84C;
+  --vc-gold-dark:  #A88A32;
+  --vc-gold-light: #4A3F2A;
+  --vc-gold-bg:    #1E2A45;
+  --vc-gold-bg-alt:#1E2A45;
+
+  /* Sémantiques — adaptées */
+  --success: #4CAF50;
+  --warning: #F59E0B;
+  --danger:  #F44336;
+  --info:    #26C6DA;
+
+  --primary: var(--vc-navy);
+}
+
+/* ─── Header ─── */
+body.dark-mode .app-header {
+  background: var(--vc-navy);
+  border-bottom: 1px solid var(--border);
+}
+body.dark-mode .header-brand { color: #fff; }
+body.dark-mode .header-brand .brand-core { color: var(--vc-red); }
+body.dark-mode .header-subtitle { color: var(--vc-gold); }
+
+/* ─── Sidebar ─── */
+body.dark-mode .app-sidebar {
+  background: var(--bg-alt);
+  border-right: 1px solid var(--border);
+}
+body.dark-mode .nav-item { color: var(--text-soft); }
+body.dark-mode .nav-item:hover {
+  background: rgba(201,168,76,0.10);
+  color: #fff;
+}
+body.dark-mode .nav-item.active {
+  background: rgba(201,168,76,0.18);
+  color: #fff;
+  border-left-color: var(--vc-gold);
+}
+
+/* ─── Tables ─── */
+body.dark-mode .invoice-items-table th,
+body.dark-mode .invoice-detail-table th,
+body.dark-mode .report-table th,
+body.dark-mode .hr-table th,
+body.dark-mode .history-table th,
+body.dark-mode .ia-preview-table th {
+  background: var(--vc-navy);
+  color: #fff;
+}
+
+body.dark-mode .invoice-items-table tr:nth-child(even) td { background: var(--bg-soft); }
+body.dark-mode .invoice-detail-table tr:hover { background: rgba(201,168,76,0.06); }
+body.dark-mode .hr-table tr:nth-child(even) { background: var(--bg-soft); }
+body.dark-mode .report-table tr:nth-child(even) td { background: var(--bg-soft); }
+body.dark-mode .history-table tr:nth-child(even) td { background: var(--bg-soft); }
+
+/* ─── Totaux facture ─── */
+body.dark-mode .totals-display,
+body.dark-mode .invoice-detail-totals {
+  background: var(--vc-gold-bg);
+  border-color: var(--vc-gold-light);
+}
+body.dark-mode .invoice-detail-totals td {
+  border-bottom-color: var(--vc-gold-light);
+  color: #fff;
+}
+
+/* ─── Détails ─── */
+body.dark-mode .detail-notes { background: var(--bg-soft); }
+body.dark-mode #signatureCanvas { background: #1A2B4C; }
+body.dark-mode .signature-canvas-container { background: #1A2B4C; }
+
+/* ─── Comparateur ─── */
+body.dark-mode .comparateur-price.best { background: rgba(76,175,80,0.15); }
+body.dark-mode .comparateur-price.mine {
+  background: rgba(201,168,76,0.10);
+  border-color: var(--vc-gold);
+}
+
+/* ─── Modales ─── */
+body.dark-mode .modal-content { background: var(--card); }
+body.dark-mode .modal-content::before {
+  background: linear-gradient(
+    90deg,
+    var(--vc-gold) 0%,
+    var(--vc-gold) 65%,
+    var(--vc-red)  65%,
+    var(--vc-red)  100%
+  );
+}
+
+/* ─── Toasts ─── */
+body.dark-mode .toast {
+  background: var(--card);
+  color: var(--text);
+}
+body.dark-mode .toast-undo {
+  background: var(--vc-navy);
+  color: #fff;
+}
+
+/* ─── Cards ─── */
+body.dark-mode .kpi-card,
+body.dark-mode .chart-card,
+body.dark-mode .tools-card,
+body.dark-mode .report-block,
+body.dark-mode .stat-item {
+  background: var(--card);
+  border-color: var(--border);
+}
+
+/* ─── Inputs ─── */
+body.dark-mode .input,
+body.dark-mode .input-search,
+body.dark-mode .input-select,
+body.dark-mode textarea.input {
+  background: var(--bg-alt);
+  color: var(--text);
+  border-color: var(--border);
+}
+body.dark-mode .input:focus,
+body.dark-mode .input-search:focus,
+body.dark-mode .input-select:focus {
+  border-color: var(--vc-gold);
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.25);
+}
+
+/* ─── Empty state ─── */
+body.dark-mode .empty-state {
+  background: var(--card);
+  border-color: var(--border);
+}
+
+/* ─── Band. résumé ─── */
+body.dark-mode .purchases-summary {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+body.dark-mode .purchases-summary span {
+  color: var(--vc-gold);
+}
+
+body.dark-mode .bottom-bar {
+  background: var(--vc-navy);
+  border-top: 2px solid var(--vc-gold);
+}
+body.dark-mode .bottom-tab { color: var(--text-light); }
+body.dark-mode .bottom-tab.active { color: var(--vc-gold); }
+
+/* ─── Boutons secondaires ─── */
+body.dark-mode .btn {
+  background: var(--bg-alt);
+  border-color: var(--border);
+  color: var(--text);
+}
+body.dark-mode .btn:hover {
+  background: var(--bg-soft);
+  border-color: var(--vc-gold);
+}
+body.dark-mode .btn-primary {
+  background: linear-gradient(135deg, var(--vc-gold) 0%, var(--vc-red) 100%);
+  color: #fff;
+  border-color: transparent;
+}
+body.dark-mode .btn-primary:hover {
+  background: linear-gradient(135deg, var(--vc-gold-dark) 0%, var(--vc-red-dark) 100%);
+}
+
+/* ─── Rows génériques ─── */
+body.dark-mode .client-row,
+body.dark-mode .supplier-row,
+body.dark-mode .stock-row,
+body.dark-mode .chantier-row,
+body.dark-mode .invoice-row,
+body.dark-mode .purchase-row,
+body.dark-mode .frais-row,
+body.dark-mode .hr-row,
+body.dark-mode .bon-route-row,
+body.dark-mode .trash-row,
+body.dark-mode .relance-row,
+body.dark-mode .famille-row {
+  background: var(--card);
+  border-color: var(--border);
+}
+
+/* ─── Listes de détail ─── */
+body.dark-mode .invoice-items-section,
+body.dark-mode .invoice-totals-section,
+body.dark-mode .invoice-attachments-section {
+  background: var(--bg-soft);
+  border-left-color: var(--vc-gold);
+}
+
+/* ─── Form inputs dans tableau facture ─── */
+body.dark-mode .invoice-items-table td input {
+  background: var(--bg-alt);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* ─── Scanner ─── */
+body.dark-mode #scanVideo,
+body.dark-mode #scanPreview {
+  border-color: var(--vc-gold);
+}
+body.dark-mode #scanProgressWrap {
+  background: var(--bg-soft);
+}
+body.dark-mode #scanProgressTrack {
+  background: var(--bg-alt);
+}
+body.dark-mode #scanPageBar {
+  background: var(--bg-soft);
+}
+
+/* ─── Signature ─── */
+body.dark-mode .signature-history-item {
+  background: var(--bg-alt);
+}
+
+/* ─── Alertes ─── */
+body.dark-mode .alert-item {
+  background: var(--card);
+  border-color: var(--border);
+}
+
+/* ─── Corbeille ─── */
+body.dark-mode .trash-category h4 {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+/* ─── Modal dark mode — document preview ─── */
+body.dark-mode .doc-detail-preview {
+  background: var(--bg-soft);
+  border-color: var(--border);
+}
+
+/* ─── Article picker ─── */
+body.dark-mode .article-picker-row {
+  border-bottom-color: var(--border);
+}
+body.dark-mode .article-picker-row:hover {
+  background: var(--bg-soft);
+}
+
+/* ════════ §2 — PRINT STYLES ════════ */
+
+@media print {
+  /* Cache tout sauf le contenu principal */
+  .app-header,
+  .app-sidebar,
+  .bottom-bar,
+  .mobile-fab,
+  .install-banner,
+  .toast-container,
+  .section-actions,
+  .search-bar,
+  .pagination,
+  .modal-actions {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 11px;
+  }
+
+  .app-root {
+    display: block;
+    min-height: auto;
+  }
+
+  .app-main {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .app-section {
+    display: block !important;
+    animation: none;
+  }
+
+  /* Tables propres */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    page-break-inside: avoid;
+  }
+  table th, table td {
+    border: 1px solid #ccc;
+    padding: 4px 6px;
+  }
+  table th {
+    background: #f0f0f0 !important;
+    color: #000 !important;
+  }
+
+  /* Cartes sans ombre */
+  .kpi-card,
+  .chart-card,
+  .tools-card,
+  .report-block,
+  .card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    page-break-inside: avoid;
+  }
+
+  /* Liens */
+  a {
+    color: #000;
+    text-decoration: underline;
+  }
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 9px;
+    color: #666;
+  }
+
+  /* Modales ouvertes = imprimées */
+  .modal {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+    padding: 0;
+  }
+  .modal-content {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    max-height: none;
+    overflow: visible;
+  }
+  .modal-content::before {
+    display: none;
+  }
+
+  /* Masque les éléments interactifs */
+  button,
+  input[type="button"],
+  input[type="submit"],
+  .btn {
+    display: none !important;
+  }
+
+  /* KPI grid en colonne */
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .kpi-card {
+    padding: 10px;
+  }
+  .kpi-card::before {
+    display: none;
+  }
+  .kpi-value {
+    font-size: 16px;
+    color: #000;
+  }
+
+  /* Détails compacts */
+  .detail-section {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+  .detail-section h3::before {
+    display: none;
+  }
+
+  /* Charts → masqués (Chart.js utilise canvas qui ne s'imprime pas) */
+  .charts-grid {
+    display: none;
+  }
+
+  /* Page breaks */
+  .section-header {
+    page-break-after: avoid;
+  }
+  .client-row,
+  .supplier-row,
+  .stock-row,
+  .chantier-row,
+  .invoice-row,
+  .purchase-row,
+  .frais-row,
+  .hr-row,
+  .bon-route-row {
+    page-break-inside: avoid;
+  }
+}
+
+/* ════════ §3 — MODE SOMBRE : PRINT (bascule en clair) ════════ */
+
+@media print {
+  body.dark-mode {
+    --bg:        #fff;
+    --bg-alt:    #f5f5f5;
+    --bg-soft:   #fafafa;
+    --card:      #fff;
+    --border:    #ccc;
+    --text:      #000;
+    --text-soft: #333;
+    --text-light: #666;
+  }
+  body.dark-mode .app-header,
+  body.dark-mode .app-sidebar,
+  body.dark-mode .bottom-bar {
+    background: #fff;
+  }
+  body.dark-mode .toast,
+  body.dark-mode .alert-item,
+  body.dark-mode .client-row,
+  body.dark-mode .supplier-row,
+  body.dark-mode .invoice-row,
+  body.dark-mode .kpi-card {
+    background: #fff;
+    color: #000;
+  }
+}
+
+/* ════════ §4 — ANIMATIONS & TRANSITIONS (préférence) ════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ════════ §5 — HIGH CONTRAST (accessibilité) ════════ */
+
+@media (prefers-contrast: more) {
+  .btn {
+    border-width: 2px;
+  }
+  .input,
+  .input-search,
+  .input-select {
+    border-width: 2px;
+  }
+  .badge {
+    border: 1px solid currentColor;
+  }
+}
+
+/* ════════ §6 — OVERRIDES DIVERS ════════ */
+
+/* Focus visible pour accessibilité clavier */
+.btn:focus-visible,
+.input:focus-visible,
+.input-search:focus-visible,
+.input-select:focus-visible {
+  outline: 2px solid var(--vc-gold);
+  outline-offset: 2px;
+}
+
+/* Firefox — scrollbar custom */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vc-gold-light) var(--bg-alt);
+}
+
+/* WebKit — scrollbar custom */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-alt);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vc-gold-light);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vc-gold);
+}
+
+/* Empêche la sélection de texte sur les éléments UI interactifs */
+.btn,
+.nav-item,
+.section-tab,
+.hr-tab,
+.alerts-tab,
+.bottom-tab,
+.ia-model-btn,
+.chart-card h3 {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Désactive le zoom sur double-tap mobile iOS */
+button,
+.btn,
+.nav-item {
+  touch-action: manipulation;
+}

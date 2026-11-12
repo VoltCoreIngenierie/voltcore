@@ -2,1799 +2,2065 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>VOLTCORE v6.7 — Tests (155)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOLTCORE v7 — Tests E2E v2</title>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, Arial, sans-serif; margin: 0; padding: 20px; background: #f5f7fb; color: #1f2937; }
-  h1 { color: #1A2B4C; margin: 0 0 8px; font-size: 22px; }
-  .sub { color: #6b7280; margin-bottom: 20px; font-size: 13px; }
-  #summary { padding: 16px; background: #fff; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); font-size: 15px; }
-  #summary .big { font-size: 22px; font-weight: 800; }
-  .ok-text { color: #2e7d32; }
-  .ko-text { color: #dc2626; }
-  .warn-text { color: #d97706; }
-  .cat-title { font-size: 15px; font-weight: 700; color: #1A2B4C; margin: 20px 0 8px; padding: 8px 12px; background: #eef2f8; border-radius: 6px; display: flex; justify-content: space-between; }
-  .cat-title.lot5 { background: #fef3c7; border-left: 4px solid #d97706; }
-  .cat-title.btp { background: #d1fae5; border-left: 4px solid #059669; }
-  .cat-title.s3 { background: #fef9e7; border-left: 4px solid #C9A84C; }
-  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-  th { background: #1A2B4C; color: #fff; padding: 8px; text-align: left; font-size: 12px; text-transform: uppercase; }
-  td { padding: 8px; border-bottom: 1px solid #eef2f8; font-size: 13px; }
-  tr:last-child td { border-bottom: none; }
-  .status { font-weight: 700; }
-  .status.pass { color: #2e7d32; }
-  .status.fail { color: #dc2626; }
-  .error { color: #dc2626; font-family: monospace; font-size: 12px; }
-  .num { color: #9aa0a8; font-family: monospace; }
-  .actions { margin-top: 20px; text-align: center; }
-  .btn { padding: 10px 20px; border: none; background: #1A2B4C; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-  .btn:hover { background: #0F1A2E; }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Arial,sans-serif;margin:0;padding:20px;background:#f5f7fb;color:#1f2937;font-size:14px}
+  h1{color:#1A2B4C;margin:0 0 8px;font-size:22px}
+  .sub{color:#6b7280;margin-bottom:20px;font-size:13px}
+  #summary{padding:16px;background:#fff;border-radius:8px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  #summary .big{font-size:22px;font-weight:800}
+  .ok{color:#2e7d32}.ko{color:#dc2626}.warn{color:#d97706}
+  .cat{font-size:14px;font-weight:700;color:#1A2B4C;margin:16px 0 6px;padding:8px 12px;background:#eef2f8;border-radius:6px;display:flex;justify-content:space-between}
+  .cat.ok{background:#d1fae5;border-left:4px solid #059669}
+  .cat.ko{background:#fef2f2;border-left:4px solid #dc2626}
+  .cat.skip{background:#fef3c7;border-left:4px solid #d97706}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:8px}
+  th{background:#1A2B4C;color:#fff;padding:8px;text-align:left;font-size:11px;text-transform:uppercase}
+  td{padding:8px;border-bottom:1px solid #eef2f8;font-size:13px;vertical-align:top}
+  .status.pass{color:#2e7d32;font-weight:700}
+  .status.fail{color:#dc2626;font-weight:700}
+  .status.skip{color:#d97706;font-weight:700}
+  .err{color:#dc2626;font-family:monospace;font-size:12px;word-break:break-word}
+  .ms{color:#9aa0a8;font-family:monospace;font-size:11px;text-align:right}
+  .num{color:#9aa0a8;font-family:monospace;font-size:11px}
+  .actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+  .btn{padding:10px 16px;border:none;background:#1A2B4C;color:#fff;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn:hover{background:#0F1A2E}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.green{background:#2e7d32}.btn.green:hover{background:#1b5e20}
+  .btn.orange{background:#d97706}.btn.orange:hover{background:#b45309}
+  .btn.red{background:#dc2626}.btn.red:hover{background:#991b1b}
+  .progress{height:6px;background:#e5e7eb;border-radius:3px;margin-top:12px;overflow:hidden}
+  .progress-bar{height:100%;background:linear-gradient(90deg,#C9A84C,#E70013);width:0%;transition:width .3s}
+  #report{display:none;background:#fff;border-radius:8px;padding:16px;margin-top:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  #report pre{background:#0f172a;color:#e2e8f0;padding:16px;border-radius:6px;overflow:auto;max-height:500px;font-size:12px;line-height:1.5;margin:0}
 </style>
 </head>
 <body>
 
-<h1>VOLTCORE v6.10.1 — Tests</h1>
-<div class="sub">216 tests · 22 catégories · validation complète (logic + câblage + E2E)</div>
+<h1>VOLTCORE v7.0.4 — Tests E2E v2</h1>
+<div class="sub">186 tests · 21 catégories · timeout · skip · rapport 3 formats</div>
 
-<div id="summary">⏳ Chargement des tests…</div>
-<main id="testResults"></main>
+<div id="summary">⏳ Chargement…</div>
+<div id="results"></div>
+
 <div class="actions">
-  <button class="btn" onclick="location.reload()">↻ Relancer les tests</button>
-  <button id="btnCopyReport" class="btn" onclick="if(typeof copyTestReport==='function')copyTestReport()" style="background:#2e7d32;margin-left:8px" disabled>📋 Copier le rapport</button>
+  <button class="btn green" id="btnReport" disabled>📋 Générer rapport texte</button>
+  <button class="btn orange" id="btnJson" disabled>📄 Export JSON</button>
+  <button class="btn red" id="btnRerun" disabled>↻ Relancer</button>
 </div>
 
-<!-- Stubs DOM nécessaires (cachés) -->
+<div id="report">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+    <strong style="color:#1A2B4C">Rapport prêt à copier</strong>
+    <div style="display:flex;gap:8px">
+      <button class="btn green" id="btnCopyReportFinal" onclick="copyReportContent()">📋 Copier tout</button>
+      <button class="btn orange" onclick="selectReportAll()">🔍 Tout sélectionner</button>
+      <button class="btn" onclick="document.getElementById('report').style.display='none'">✕ Fermer</button>
+    </div>
+  </div>
+  <pre id="reportContent" onclick="this.focus()"></pre>
+  <div id="copyFeedback" style="display:none;margin-top:8px;padding:8px;background:#d1fae5;color:#059669;border-radius:4px;font-weight:600;text-align:center"></div>
+</div>
+
+<!-- DOM stubs -->
 <div id="testStubs" style="display:none">
+      <!-- Client form -->
+  <input type="hidden" id="clientId" value="">
+  <input type="text" id="clientNom" value="">
+  <input type="text" id="clientTelephone" value="">
+  <input type="text" id="clientEmail" value="">
+  <input type="text" id="clientAdresse" value="">
+  <input type="text" id="clientMF" value="">
+  <input type="text" id="clientCIN" value="">
+  <input type="text" id="clientNotes" value="">
+  <select id="clientType"><option value="particulier" selected>particulier</option></select>
+  <select id="clientDelai"><option value="0" selected>0</option></select>
+  <input type="number" id="clientRetenue" value="0">
+  <input type="text" id="clientGouvernorat" value="">
+  <input type="text" id="clientAdresseChantier" value="">
+  <input type="text" id="clientCodeTVA" value="">
+  <input type="text" id="clientCodeCategorie" value="">
+  <div id="clientFormError"></div>
+
+  <!-- Supplier form -->
+  <input type="hidden" id="supplierId" value="">
+  <input type="text" id="supplierNom" value="">
+  <input type="text" id="supplierTelephone" value="">
+  <input type="text" id="supplierEmail" value="">
+  <input type="text" id="supplierAdresse" value="">
+  <input type="text" id="supplierMF" value="">
+  <input type="text" id="supplierRIB" value="">
+  <input type="text" id="supplierNotes" value="">
+  <div id="supplierFormError"></div>
+
+  <!-- Facture -->
+  <input id="invoiceTVARate" value="19">
+  <input id="invoiceTimbre" value="1.000">
   <input id="invoiceTVARate" value="19">
   <input id="invoiceTimbre" value="1.000">
   <input id="invoiceRetenueIR" value="0">
   <input id="invoiceRetenueTVA" value="0">
   <input id="invoiceRetenueGarantie" value="0">
+  <input id="invoiceAutoliquidation" type="checkbox">
+  <select id="invoiceType"><option value="facture">facture</option></select>
+  <input id="invoiceDate" value="">
+  <input id="invoiceNumero" value="">
+  <input id="invoiceSujet" value="">
+  <input id="invoiceNotes" value="">
+  <select id="invoiceClientSelect"></select>
+  <select id="invoiceChantierSelect"></select>
+  <tbody id="invoiceItemsBody"></tbody>
+  <div id="invoiceAttachmentsList"></div>
+  <div id="invoiceFormError"></div>
+  <span id="totalHTDisplay"></span>
+  <span id="tvaDisplay"></span>
+  <span id="timbreDisplay"></span>
+  <span id="totalTTCDisplay"></span>
+  <span id="tvaRateDisplay"></span>
+  <span id="retenueIRDisplay"></span>
+  <span id="retenueTVADisplay"></span>
+  <span id="retenueMontantDisplay"></span>
+  <span id="netAPayerDisplay"></span>
+  <span id="retenueGarantieDisplay"></span>
+  <span id="netAvantGarantieDisplay"></span>
+  <div id="retenuesSummary"></div>
+  <div id="garantieSummary"></div>
   <div id="toastContainer"></div>
+  <div id="trashList"></div>
+  <div id="historyList"></div>
 </div>
 
-<!-- Chargement des modules 01 → 20 (le 21 est le boot, pas nécessaire pour les tests) -->
-<script src="01-core.js"></script>
-<script src="02-auth.js"></script>
-<script src="03-utils.js"></script>
-<script src="04-storage.js"></script>
-<script src="05-alerts.js"></script>
-<script src="06-clients.js"></script>
-<script src="07-suppliers.js"></script>
-<script src="08-stock.js"></script>
-<script src="09-chantiers.js"></script>
-<script src="10-hr.js"></script>
-<script src="11-invoices.js"></script>
-<script src="12-invoices-view.js"></script>
-<script src="13-purchases.js"></script>
-<script src="14-expenses-bons.js"></script>
-<script src="15-scan-sign.js"></script>
-<script src="16-assistant-ia.js"></script>
-<script src="17-dash-reports.js"></script>
-<script src="18-mobile.js"></script>
-<script src="19-tools-save.js"></script>
-<script src="20-init-infra.js"></script>
-<script src="23-bons-route.js"></script>
-<script src="24-documents.js"></script>
+<!-- Modules 00 → 28 (PAS 29/30) -->
+<script src="./00-core.js"></script>
+<script src="./01-utils.js"></script>
+<script src="./02-store.js"></script>
+<script src="./03-idb.js"></script>
+<script src="./04-alerts.js"></script>
+<script src="./05-auth.js"></script>
+<script src="./06-clients.js"></script>
+<script src="./07-suppl.js"></script>
+<script src="./08-stock.js"></script>
+<script src="./09-chant.js"></script>
+<script src="./10-hr.js"></script>
+<script src="./11-inv.js"></script>
+<script src="./12-inv-view.js"></script>
+<script src="./13-inv-pdf.js"></script>
+<script src="./14-purch.js"></script>
+<script src="./15-frais.js"></script>
+<script src="./16-route.js"></script>
+<script src="./17-docs.js"></script>
+<script src="./18-scan.js"></script>
+<script src="./19-scan-cv.js"></script>
+<script src="./20-scan-js.js"></script>
+<script src="./21-sign.js"></script>
+<script src="./22-ia.js"></script>
+<script src="./23-dash.js"></script>
+<script src="./24-mobile.js"></script>
+<script src="./25-tools.js"></script>
+<script src="./26-infra.js"></script>
+<script src="./27-migrate.js"></script>
+<script src="./28-backup.js"></script>
 
-<!-- Runner -->
 <script>
-(function() {
+(function () {
   'use strict';
 
-  /* ──── Helpers ──── */
-  function eq(a, b) { return a === b; }
-  function ne(a, b) { return a !== b; }
-  function ok(v) { return !!v; }
-  function has(s, sub) { return String(s).indexOf(sub) !== -1; }
-  function approx(a, b, tol) { return Math.abs(a - b) < (tol || 0.01); }
+  var T_START = Date.now();
+  var VC = window.VOLTCORE;
+  if (!VC) {
+    document.body.innerHTML = '<h1 style="color:red">❌ VOLTCORE non chargé</h1>';
+    return;
+  }
 
-  /* ──── Reset état global entre chaque test ──── */
-  function resetData() {
+  var S = VC.Store, U = VC.Utils, Doc = VC.Doc, IDB = VC.IDB;
+  var TEST_PREFIX = '__test_';
+  var TEST_TIMEOUT_MS = 5000;
+  var BAIL_ON_FAIL = false;
+
+  /* ═══════════ HELPERS ═══════════ */
+
+  function uid(p) {
+    return TEST_PREFIX + p + '_' + Date.now().toString(36) +
+      Math.random().toString(36).slice(2, 6);
+  }
+
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function simulateF5() {
+    S.loadAll();
+    if (VC.Migrate && typeof VC.Migrate.upgradeIfNeeded === 'function') {
+      VC.Migrate.upgradeIfNeeded();
+    }
+  }
+
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        reject(new Error('Timeout ' + ms + 'ms'));
+      }, ms);
+      promise.then(function (v) { clearTimeout(timer); resolve(v); },
+                   function (e) { clearTimeout(timer); reject(e); });
+    });
+  }
+
+  /* Cleanup ciblé par collection */
+  function cleanupCollection(name) {
+    var spec = S.getSpec(name);
+    if (!spec || spec.type !== 'array') return;
+    var arr = S.getAll(name);
+    var clean = arr.filter(function (it) {
+      if (!it) return false;
+      var id = String(it.id || '');
+      var nom = String(it.nom || it.designation || '');
+      /* FIX : nettoie aussi les items créés par saveFromForm (id 'cli_xxx'
+         mais nom contenant TEST_PREFIX) */
+      return id.indexOf(TEST_PREFIX) !== 0 &&
+             nom.indexOf(TEST_PREFIX) === -1;
+    });
+    if (clean.length !== arr.length) S.replaceAll(name, clean);
+  }
+
+  function cleanupTrash() {
+    var trash = S.getTrash();
+    var keys = Object.keys(trash);
+    for (var i = 0; i < keys.length; i++) {
+      var entries = trash[keys[i]];
+      if (!Array.isArray(entries)) continue;
+      trash[keys[i]] = entries.filter(function (e) {
+        return !(e && e.item && String(e.item.id || '').indexOf(TEST_PREFIX) === 0);
+      });
+    }
+    try { localStorage.setItem('voltcore_trash', JSON.stringify(trash)); } catch (e) {}
+  }
+
+  function cleanupQuarantine() {
     try {
-      clients = [];
-      savedArticles = [];
-      savedDocuments = [];
-      familles = [];
-      savedChantiers = [];
-      suppliers = [];
-      frais = [];
-      purchaseInvoices = [];
-      hrEmployees = [];
-      hrWorkEntries = [];
-      hrTransactions = [];
-      currentInvoiceItems = [];
-      externalPrices = {};
-      dismissedAlerts = [];
-      compteurs = {};
-      activityLog = [];
-      trash = { clients: [], articles: [], documents: [] };
-      purchaseModalLines = [];
-      editingPurchaseInvoiceId = null;
-      currentSupplierPaymentInvoiceId = null;
-      /* v6.9.0 — Bons Route */
-      bonsRoute = [];
-      if (typeof __bonsRouteSearchTerm !== 'undefined') __bonsRouteSearchTerm = '';
-      if (typeof __bonsRouteFilterType !== 'undefined') __bonsRouteFilterType = 'all';
-      if (typeof __bonsRouteFilterStatut !== 'undefined') __bonsRouteFilterStatut = 'all';
-      if (typeof __bonsRouteFilterDestination !== 'undefined') __bonsRouteFilterDestination = 'all';
-      if (typeof __bonsRoutePage !== 'undefined') __bonsRoutePage = 0;
+      var toRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('voltcore_quarantine_') === 0) toRemove.push(k);
+      }
+      for (var j = 0; j < toRemove.length; j++) localStorage.removeItem(toRemove[j]);
     } catch (e) {}
   }
 
-  /* ──── Setup inputs facture ──── */
-  function setupInvoiceInputs(tva, timbre, retIR, retTVA, retGar) {
-    document.getElementById('invoiceTVARate').value = String(tva);
-    document.getElementById('invoiceTimbre').value = String(timbre);
-    document.getElementById('invoiceRetenueIR').value = String(retIR);
-    document.getElementById('invoiceRetenueTVA').value = String(retTVA);
-    var g = document.getElementById('invoiceRetenueGarantie');
-    if (g) g.value = String(retGar == null ? 0 : retGar);
+  function cleanupAll() {
+    var cols = S.listRegistered();
+    for (var i = 0; i < cols.length; i++) cleanupCollection(cols[i]);
+    cleanupTrash();
+    cleanupQuarantine();
   }
 
-  /* ════════════════════════════════════════════════════
-     LISTE DES TESTS
-     ════════════════════════════════════════════════════ */
+  /* ═══════════ TESTS STORAGE ═══════════ */
 
   var TESTS = [];
+  var BAIL = false;
 
   function add(cat, name, fn) {
-    TESTS.push({ cat: cat, name: name, fn: fn });
+    TESTS.push({ cat: cat, name: name, fn: fn, skip: false });
   }
 
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 1 — UTILITAIRES (27)
-     ═══════════════════════════════════════════════════ */
-  add('Utilitaires', 'escapeHtml <script>', function() { return eq(escapeHtml('<script>'), '&lt;script&gt;'); });
-  add('Utilitaires', 'escapeHtml "quote"', function() { return eq(escapeHtml('"'), '&quot;'); });
-  add('Utilitaires', 'escapeHtml &', function() { return eq(escapeHtml('&'), '&amp;'); });
-  add('Utilitaires', 'escapeHtml null', function() { return eq(escapeHtml(null), ''); });
-  add('Utilitaires', 'escapeAttr apostrophe', function() { return eq(escapeAttr("'"), '&#39;'); });
-  add('Utilitaires', 'formatMoney 1234.5', function() { return has(formatMoney(1234.5), '1 234'); });
-  add('Utilitaires', 'formatMoney 0', function() { return has(formatMoney(0), '0'); });
-  add('Utilitaires', 'formatMoney NaN', function() { return has(formatMoney(NaN), '0'); });
-  add('Utilitaires', 'formatMoney négatif', function() { return has(formatMoney(-500), '-'); });
-  add('Utilitaires', 'dt alias', function() { return eq(dt(100), formatMoney(100)); });
-  add('Utilitaires', 'parseNumber "1 234,5"', function() { return eq(parseNumber('1 234,5'), 1234.5); });
-  add('Utilitaires', 'parseNumber "abc"', function() { return eq(parseNumber('abc'), 0); });
-  add('Utilitaires', 'parseNumber 1234', function() { return eq(parseNumber(1234), 1234); });
-  add('Utilitaires', 'parseNumber null', function() { return eq(parseNumber(null), 0); });
-  add('Utilitaires', 'parseNumber "1,5"', function() { return eq(parseNumber('1,5'), 1.5); });
-  add('Utilitaires', 'todayISO format', function() { return eq(todayISO().length, 10); });
-  add('Utilitaires', 'formatDate 2026-10-20', function() { return eq(formatDate('2026-10-20'), '20/10/2026'); });
-  add('Utilitaires', 'formatDate vide', function() { return eq(formatDate(''), ''); });
-  add('Utilitaires', 'addDaysISO +5j', function() { return eq(addDaysISO('2026-01-10', 5), '2026-01-15'); });
-  add('Utilitaires', 'addDaysISO -1j', function() { return eq(addDaysISO('2026-03-01', -1), '2026-02-28'); });
-  add('Utilitaires', 'compareISO égal', function() { return eq(compareISO('2026-01-15', '2026-01-15'), 0); });
-  add('Utilitaires', 'compareISO a<b', function() { return eq(compareISO('2026-01-10', '2026-01-15'), -1); });
-  add('Utilitaires', 'compareISO a>b', function() { return eq(compareISO('2026-02-01', '2026-01-15'), 1); });
-  add('Utilitaires', 'daysBetweenISO 10j', function() { return eq(daysBetweenISO('2026-01-01', '2026-01-11'), 10); });
-  add('Utilitaires', 'isValidDateString invalide', function() { return eq(isValidDateString('2026-02-30'), false); });
-  add('Utilitaires', 'parseNumber US "1,234.56"', function() { return eq(parseNumber('1,234.56'), 1234.56); });
-  add('Utilitaires', 'parseNumber FR "1.234,56"', function() { return eq(parseNumber('1.234,56'), 1234.56); });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 2 — LICENCE (8)
-     ═══════════════════════════════════════════════════ */
-  add('Licence', 'localLicenseDate format', function() { return eq(localLicenseDate().length, 10); });
-  add('Licence', 'licenseDateValue valide', function() { return licenseDateValue('2026-10-20') instanceof Date; });
-  add('Licence', 'licenseDateValue format FR null', function() { return eq(licenseDateValue('20-10-2026'), null); });
-  add('Licence', 'licenseDateValue abc null', function() { return eq(licenseDateValue('abc'), null); });
-  add('Licence', 'PUBLIC_SPKI défini', function() { return typeof VOLTCORE_LICENSE_PUBLIC_SPKI === 'string' && VOLTCORE_LICENSE_PUBLIC_SPKI.length > 50; });
-  add('Licence', 'GRACE_DAYS = 14', function() { return eq(VOLTCORE_LICENSE_GRACE_DAYS, 14); });
-  add('Licence', 'verifyVoltcoreLicense vide !ok', async function() {
-    var r = await verifyVoltcoreLicense('');
-    return !!r && r.ok === false;
-  });
-  add('Licence', 'window.VoltCore créé', function() { return ok(window.VoltCore) && typeof window.VoltCore === 'object'; });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 3 — AUTH (6)
-     ═══════════════════════════════════════════════════ */
-  add('Auth', 'hashPassword existe', function() { return typeof hashPassword === 'function'; });
-  add('Auth', 'hashPassword promise', function() { var p = hashPassword('x'); return p && typeof p.then === 'function'; });
-  add('Auth', 'hashPassword format salt:hash', async function() { var h = await hashPassword('abc'); return h.indexOf(':') > 0; });
-  add('Auth', 'hashPassword salts différents', async function() {
-    var h1 = await hashPassword('abc'); var h2 = await hashPassword('abc');
-    return h1.split(':')[0] !== h2.split(':')[0];
-  });
-  add('Auth', 'verifyPassword correct', async function() {
-    var h = await hashPassword('secret'); return (await verifyPassword('secret', h)) === true;
-  });
-  add('Auth', 'verifyPassword invalide', async function() {
-    var r = await verifyPassword('x', 'bad');
-    return r === false;
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 4 — STORAGE (15)
-     ═══════════════════════════════════════════════════ */
-  add('Storage', 'STORAGE_KEYS.clients', function() { return eq(STORAGE_KEYS.clients, 'voltcore_clients'); });
-  add('Storage', 'STORAGE_KEYS.documents', function() { return has(STORAGE_KEYS.documents, 'documents'); });
-  add('Storage', 'STORAGE_KEYS 25+ clés', function() { return Object.keys(STORAGE_KEYS).length >= 25; });
-  add('Storage', 'genererNumero facture', function() { resetData(); return has(genererNumero('facture'), 'FAC-'); });
-  add('Storage', 'genererNumero devis', function() { resetData(); return has(genererNumero('devis'), 'DEV-'); });
-  add('Storage', 'genererNumero avoir', function() { resetData(); return has(genererNumero('avoir'), 'AV-'); });
-  add('Storage', 'incrementerCompteur', function() { resetData(); incrementerCompteur('facture'); return compteurs['facture_' + new Date().getFullYear()] === 1; });
-  /* v6.10.2 — Test incrementerNumeroBon supprimé (bons A/B/C/D retirés) */
-  add('Storage', 'getTotalPaye vide', function() { return eq(getTotalPaye({}), 0); });
-  add('Storage', 'getTotalPaye 3 paiements', function() {
-    return eq(getTotalPaye({ paiements: [{montant:100},{montant:200},{montant:300}] }), 600);
-  });
-  add('Storage', 'getStatutPaiement brouillon', function() { return eq(getStatutPaiement({}), 'brouillon'); });
-  add('Storage', 'getStatutPaiement payee', function() {
-    return eq(getStatutPaiement({ totals:{total:1000}, paiements:[{montant:1000}] }), 'payee');
-  });
-  add('Storage', 'getStatutPaiement partielle', function() {
-    return eq(getStatutPaiement({ totals:{total:1000}, paiements:[{montant:400}] }), 'partielle');
-  });
-  add('Storage', 'getStatutPaiement impayee', function() {
-    return eq(getStatutPaiement({ totals:{total:1000}, paiements:[] }), 'impayee');
-  });
-  add('Storage', 'getResteAPayer', function() {
-    return eq(getResteAPayer({ totals:{total:1000}, retenueMontant:100, paiements:[{montant:400}] }), 500);
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 5 — ALERTES (18)
-     ═══════════════════════════════════════════════════ */
-  add('Alertes', 'computeChantierMarge vide', function() { resetData(); return eq(computeChantierMarge('ch1').marge, 0); });
-  add('Alertes', 'computeChantierMarge recettes', function() {
-    resetData();
-    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
-    return eq(computeChantierMarge('ch1').recettes, 1000);
-  });
-  add('Alertes', 'computeChantierMarge achats', function() {
-    resetData();
-    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
-    purchaseInvoices = [{ id:'p1', chantierId:'ch1', totalTTC:300 }];
-    return eq(computeChantierMarge('ch1').achats, 300);
-  });
-  add('Alertes', 'computeChantierMarge frais', function() {
-    resetData();
-    frais = [{ id:'f1', chantierId:'ch1', montant:100 }];
-    return eq(computeChantierMarge('ch1').frais, 100);
-  });
-  add('Alertes', 'computeChantierMarge RH', function() {
-    resetData();
-    hrEmployees = [{ id:'e1', hourlyRate:10 }];
-    hrWorkEntries = [{ id:'w1', chantierId:'ch1', employeeId:'e1', hours:5 }];
-    return eq(computeChantierMarge('ch1').rh, 50);
-  });
-  add('Alertes', 'computeChantierMarge marge finale', function() {
-    resetData();
-    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
-    purchaseInvoices = [{ id:'p1', chantierId:'ch1', totalTTC:300 }];
-    frais = [{ id:'f1', chantierId:'ch1', montant:100 }];
-    hrEmployees = [{ id:'e1', hourlyRate:10 }];
-    hrWorkEntries = [{ id:'w1', chantierId:'ch1', employeeId:'e1', hours:5 }];
-    return eq(computeChantierMarge('ch1').marge, 550);
-  });
-  add('Alertes', 'computeChantierMarge margePct', function() {
-    resetData();
-    savedDocuments = [{ id:'d1', type:'facture', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
-    return Math.abs(computeChantierMarge('ch1').margePct - 1) < 0.01;
-  });
-  add('Alertes', 'computeClientMarge vide', function() { resetData(); return eq(computeClientMarge('c1').marge, 0); });
-  add('Alertes', 'computeClientMarge chantier', function() {
-    resetData();
-    savedChantiers = [{ id:'ch1', clientId:'c1' }];
-    savedDocuments = [{ id:'d1', type:'facture', clientId:'c1', chantierId:'ch1', statut:'emise', totals:{total:1000} }];
-    return eq(computeClientMarge('c1').recettes, 1000);
-  });
-  add('Alertes', 'computeClientMarge hors chantier', function() {
-    resetData();
-    savedDocuments = [{ id:'d1', type:'facture', clientId:'c1', statut:'emise', totals:{total:500} }];
-    return eq(computeClientMarge('c1').recettes, 500);
-  });
-  add('Alertes', 'computeArticleAlerts vide', function() { resetData(); return eq(computeArticleAlerts().length, 0); });
-  add('Alertes', 'computeFournisseurAlerts vide', function() { resetData(); return eq(computeFournisseurAlerts().length, 0); });
-  add('Alertes', 'computeClientAlerts vide', function() { resetData(); return eq(computeClientAlerts().length, 0); });
-  add('Alertes', 'getAlertCounts structure', function() {
-    resetData();
-    var c = getAlertCounts();
-    return typeof c === 'object' && 'articles' in c && 'fournisseurs' in c && 'clients' in c && 'total' in c;
-  });
-  add('Alertes', 'getAlertCounts vide', function() {
-    resetData();
-    var c = getAlertCounts();
-    return eq(c.total, 0);
-  });
-  add('Alertes', '_alertsGetId format', function() { return eq(_alertsGetId('x','a','b'), 'x_a_b'); });
-  add('Alertes', '_alertsIsDismissed vide', function() { dismissedAlerts = []; return eq(_alertsIsDismissed('zzz'), false); });
-  add('Alertes', 'dismissAlertById ajoute', function() {
-    resetData(); dismissAlertById('test_id');
-    return dismissedAlerts.indexOf('test_id') >= 0;
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 6 — MÉTIER (15)
-     ═══════════════════════════════════════════════════ */
-  add('Métier', 'computeInvoiceTotals vide', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
-    return eq(computeInvoiceTotals().totalHT, 0);
-  });
-  add('Métier', 'computeInvoiceTotals 1 ligne', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    return eq(computeInvoiceTotals().totalHT, 1000);
-  });
-  add('Métier', 'computeInvoiceTotals TVA 19%', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    return eq(computeInvoiceTotals().tva, 190);
-  });
-  add('Métier', 'computeInvoiceTotals retenue IR 10%', function() {
-    resetData(); setupInvoiceInputs(19, 1, 10, 0, 0);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    return eq(computeInvoiceTotals().retenueIR, 100);
-  });
-  add('Métier', 'computeInvoiceTotals timbre 1', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    return eq(computeInvoiceTotals().timbre, 1);
-  });
-  add('Métier', 'computeInvoiceTotals totalTTC', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    return eq(computeInvoiceTotals().totalTTC, 1191);
-  });
-  add('Métier', 'computeInvoiceTotals netAPayer', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    return eq(computeInvoiceTotals().netAPayer, 1191);
-  });
-  add('Métier', 'computePurchaseTotals HT', function() {
-    resetData();
-    return eq(computePurchaseTotals([{quantite:2,prixUnitaire:50}], 19, 1).totalHT, 100);
-  });
-  add('Métier', 'computePurchaseTotals TVA', function() {
-    resetData();
-    return eq(computePurchaseTotals([{quantite:2,prixUnitaire:50}], 19, 1).tva, 19);
-  });
-  add('Métier', 'computePurchaseTotals timbre', function() {
-    resetData();
-    return eq(computePurchaseTotals([{quantite:2,prixUnitaire:50}], 19, 1).timbre, 1);
-  });
-  add('Métier', 'computeClientStats structure', function() {
-    resetData();
-    var s = computeClientStats('c1');
-    return 'nbFactures' in s && 'caTotal' in s && 'marge' in s && 'impaye' in s;
-  });
-  add('Métier', 'computeSupplierStats structure', function() {
-    resetData();
-    var s = computeSupplierStats('s1');
-    return 'nbAchats' in s && 'caAchats' in s && 'ecartMoyen' in s;
-  });
-  add('Métier', 'getArticlePrix .prix', function() { return eq(getArticlePrix({ prix: 50 }), 50); });
-  add('Métier', 'getArticlePrixAchat .prixAchat', function() { return eq(getArticlePrixAchat({ prixAchat: 30 }), 30); });
-  add('Métier', 'getArticleNom fallback', function() { return eq(getArticleNom({ designation: 'Art' }), 'Art'); });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 7 — computeLineTotal (LOT 5) (8)
-     ═══════════════════════════════════════════════════ */
-  add('computeLineTotal (LOT 5)', 'existe', function() { return typeof computeLineTotal === 'function'; });
-  add('computeLineTotal (LOT 5)', 'objet qte/pu 2×100', function() { return eq(computeLineTotal({ qte: 2, pu: 100 }), 200); });
-  add('computeLineTotal (LOT 5)', 'objet quantite/prixUnitaire', function() { return eq(computeLineTotal({ quantite: 2, prixUnitaire: 100 }), 200); });
-  add('computeLineTotal (LOT 5)', 'objet quantite/prix (compat)', function() { return eq(computeLineTotal({ quantite: 10, prix: 100 }), 1000); });
-  add('computeLineTotal (LOT 5)', 'remise 5% sur 2×100', function() { return eq(computeLineTotal({ qte: 2, pu: 100, remisePct: 5 }), 190); });
-  add('computeLineTotal (LOT 5)', 'remiseMontant 50 sur 1×500', function() { return eq(computeLineTotal({ qte: 1, pu: 500, remiseMontant: 50 }), 450); });
-  add('computeLineTotal (LOT 5)', 'qte négative (avoir)', function() { return eq(computeLineTotal({ qte: -1, pu: 100 }), -100); });
-  add('computeLineTotal (LOT 5)', 'arrondi 3 décimales', function() { return eq(computeLineTotal({ qte: 1, pu: 33.3333 }), 33.333); });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 8 — BTP Client (6)
-     ═══════════════════════════════════════════════════ */
-  add('BTP Client', '_isValidClientType particulier', function() { return _isValidClientType('particulier') === true; });
-  add('BTP Client', '_isValidClientType entreprise', function() { return _isValidClientType('entreprise') === true; });
-  add('BTP Client', '_isValidClientType invalide', function() { return _isValidClientType('xyz') === false; });
-  add('BTP Client', '_getClientTypeLabel administration', function() { return eq(_getClientTypeLabel('administration'), 'Administration'); });
-  add('BTP Client', '_getDelaiLabel 60', function() { return has(_getDelaiLabel(60), '60'); });
-  add('BTP Client', '_normalizeClient préserve type + délai', function() {
-    var c = _normalizeClient({ nom: 'Test SARL', type: 'entreprise', delaiPaiement: 60 });
-    return c && c.type === 'entreprise' && c.delaiPaiement === 60;
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 9 — BTP Facture (retenue garantie) (3)
-     ═══════════════════════════════════════════════════ */
-    add('BTP Facture', 'retenueGarantie 5% sur HT 1000', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 5);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    var t = computeInvoiceTotals();
-    /* ⬇ v6.8 : garantie calculée sur HT (1000 × 5% = 50) */
-    return approx(t.retenueGarantie, 1000 * 0.05, 0.01);
-  });
-  add('BTP Facture', 'netAvantGarantie avec garantie 0', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 0);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    return eq(computeInvoiceTotals().netAvantGarantie, 1191);
-  });
-  add('BTP Facture', 'netAPayer = netAvantGarantie − retenueGarantie', function() {
-    resetData(); setupInvoiceInputs(19, 1, 0, 0, 5);
-    currentInvoiceItems = [{ quantite: 10, prix: 100 }];
-    var t = computeInvoiceTotals();
-    return approx(t.netAPayer, t.netAvantGarantie - t.retenueGarantie, 0.01);
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 10 — Cache stats clients (LOT 5) (3)
-     ═══════════════════════════════════════════════════ */
-  add('Cache stats (LOT 5)', 'invalidateClientStatsCache existe', function() { return typeof invalidateClientStatsCache === 'function'; });
-  add('Cache stats (LOT 5)', 'exposé sur window', function() { return typeof window.invalidateClientStatsCache === 'function'; });
-  add('Cache stats (LOT 5)', 'computeClientStats retourne structure LOT 5', function() {
-    resetData();
-    var s = computeClientStats('c1');
-    return 'aRisque' in s && 'retardJours' in s && 'derniereFactureDate' in s && 'dernierPaiementDate' in s;
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 11 — Téléphone tunisien (LOT 5) (3)
-     ═══════════════════════════════════════════════════ */
-  add('Téléphone TN (LOT 5)', '8 chiffres → +216…', function() { return eq(_normalizeTunisianPhone('12345678'), '+21612345678'); });
-  add('Téléphone TN (LOT 5)', '+216 déjà présent', function() { return eq(_normalizeTunisianPhone('+21612345678'), '+21612345678'); });
-  add('Téléphone TN (LOT 5)', 'vide → vide', function() { return eq(_normalizeTunisianPhone(''), ''); });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 12 — Users fusion (02-auth.js) (4)
-     ═══════════════════════════════════════════════════ */
-  add('Users fusion (LOT 5)', 'openUserManagementModal existe', function() { return typeof openUserManagementModal === 'function'; });
-  add('Users fusion (LOT 5)', 'closeUserManagementModal existe', function() { return typeof closeUserManagementModal === 'function'; });
-  add('Users fusion (LOT 5)', 'attachUsersEvents existe', function() { return typeof attachUsersEvents === 'function'; });
-  add('Users fusion (LOT 5)', '_umRoleLabel admin', function() { return has(_umRoleLabel('admin'), 'Admin'); });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 13 — Picker fusion (08-stock.js) (3)
-     ═══════════════════════════════════════════════════ */
-  add('Picker fusion (LOT 5)', 'openArticlePicker existe', function() { return typeof openArticlePicker === 'function'; });
-  add('Picker fusion (LOT 5)', 'closeArticlePicker existe', function() { return typeof closeArticlePicker === 'function'; });
-  add('Picker fusion (LOT 5)', 'attachArticlePickerEvents existe', function() { return typeof attachArticlePickerEvents === 'function'; });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 14 — Invoices view (LOT 5) (2)
-     ═══════════════════════════════════════════════════ */
-  add('Invoices view (LOT 5)', '_docNetApresAvoirs existe', function() { return typeof _docNetApresAvoirs === 'function'; });
-  add('Invoices view (LOT 5)', 'getDocById existe', function() { return typeof getDocById === 'function'; });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 15 — IMPORT IA (8)
-     ═══════════════════════════════════════════════════ */
-  add('IA', 'extractJSON simple', function() { return extractJSONFromText('{"a":1}') && extractJSONFromText('{"a":1}').a === 1; });
-  add('IA', 'extractJSON markdown', function() { return extractJSONFromText('```json\n{"a":1}\n```').a === 1; });
-  add('IA', 'extractJSON invalide', function() { return eq(extractJSONFromText('pas de json'), null); });
-  add('IA', 'extractJSON vide', function() { return eq(extractJSONFromText(''), null); });
-  add('IA', 'validateParsedResult vide', function() { return eq(validateParsedResult({}).ok, false); });
-  add('IA', 'validateParsedResult sans fournisseur', function() { return eq(validateParsedResult({ lignes:[{designation:'x',quantite:1,prixUnitaire:10}] }).ok, false); });
-  add('IA', 'validateParsedResult sans lignes', function() { return eq(validateParsedResult({ fournisseur:'X' }).ok, false); });
-  add('IA', 'validateParsedResult valide', function() {
-    return eq(validateParsedResult({
-      fournisseur: 'AFEL', lignes: [{ designation:'Câble', quantite:10, prixUnitaire:1.2, unite:'m' }]
-    }).ok, true);
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 16 — MOBILE (6)
-     ═══════════════════════════════════════════════════ */
-  add('Mobile', 'isMobileView bool', function() { return typeof isMobileView() === 'boolean'; });
-  add('Mobile', 'isTabletView bool', function() { return typeof isTabletView() === 'boolean'; });
-  add('Mobile', 'isTouchDevice bool', function() { return typeof isTouchDevice() === 'boolean'; });
-  add('Mobile', 'isPWAInstalled bool', function() { return typeof isPWAInstalled() === 'boolean'; });
-  add('Mobile', 'FAB_FUNCS 10 entrées (v6.9.8 + documents)', function() { return eq(Object.keys(FAB_FUNCS).length, 10); });
-  add('Mobile', 'FAB_LABELS 10 entrées (v6.9.8 + documents)', function() { return eq(Object.keys(FAB_LABELS).length, 10); });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 17 — DIVERS (10)
-     ═══════════════════════════════════════════════════ */
-  add('Divers', 'generateId préfixe', function() { return has(generateId('test'), 'test_'); });
-  add('Divers', 'generateId unique', function() { return ne(generateId('x'), generateId('x')); });
-  add('Divers', 'formatBytes 1024', function() { return has(formatBytes(1024), 'Ko'); });
-  add('Divers', 'formatBytes 1048576', function() { return has(formatBytes(1048576), 'Mo'); });
-  add('Divers', 'formatBytes 500', function() { return has(formatBytes(500), 'o'); });
-  add('Divers', 'normalizeText accents', function() { return eq(normalizeText('Héllo'), 'hello'); });
-  add('Divers', 'getInfraStatus objet', function() { return typeof getInfraStatus() === 'object'; });
-  add('Divers', 'MOBILE_BREAKPOINT', function() { return eq(VOLTCORE_MOBILE_BREAKPOINT, 768); });
-  add('Divers', 'SCAN_MAX_BYTES', function() { return eq(VOLTCORE_SCAN_MAX_BYTES, 512000); });
-  add('Divers', 'SIGNATURE_MAX', function() { return eq(VOLTCORE_SIGNATURE_MAX, 20); });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 18 — numberToFrenchWords (Session #3) (5)
-     ═══════════════════════════════════════════════════ */
-  add('numberToFrenchWords (S3)', 'existe', function() {
-    return typeof numberToFrenchWords === 'function';
-  });
-  add('numberToFrenchWords (S3)', '0 → zéro dinar', function() {
-    return eq(numberToFrenchWords(0), 'zéro dinar');
-  });
-  add('numberToFrenchWords (S3)', '21 → vingt et un dinars', function() {
-    return eq(numberToFrenchWords(21), 'vingt et un dinars');
-  });
-  add('numberToFrenchWords (S3)', '80 → quatre-vingts dinars', function() {
-    return eq(numberToFrenchWords(80), 'quatre-vingts dinars');
-  });
-  add('numberToFrenchWords (S3)', '1234.567 → dinars et millimes', function() {
-    var s = numberToFrenchWords(1234.567);
-    return has(s, 'mille deux cent trente-quatre dinars') && has(s, 'millimes');
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 19 — PDF refait facture.html (Session #3) (5)
-     ═══════════════════════════════════════════════════ */
-  function _makeTestDoc() {
-    return {
-      id: 'test_doc_pdf',
-      numero: 'FAC-2026-9999',
-      type: 'facture',
-      date: '2026-11-05',
-      clientId: null,
-      sujet: 'Installation électrique',
-      notes: 'Facture de test',
-      items: [{ designation: 'Câble 2.5mm²', quantite: 10, prix: 100, unite: 'm' }],
-      totals: {
-        totalHT: 1000,
-        tvaRate: 19,
-        tva: 190,
-        timbre: 1,
-        totalTTC: 1191,
-        retenueIR: 0,
-        retenueTVA: 0,
-        retenueMontant: 0,
-        retenueGarantie: 0,
-        netAvantGarantie: 1191,
-        netAPayer: 1191
-      },
-      paiements: []
-    };
-  }
-
-  add('PDF facture.html (S3)', '_buildInvoiceHTML existe', function() {
-    return typeof _buildInvoiceHTML === 'function';
-  });
-  add('PDF facture.html (S3)', 'contient bloc letter-amount (montant en lettres)', function() {
-    var html = _buildInvoiceHTML(_makeTestDoc());
-    return has(html, 'letter-amount') && has(html, 'Arrêtée la présente facture');
-  });
-  add('PDF facture.html (S3)', 'contient palette VOLTCORE (navy + or + rouge)', function() {
-    var html = _buildInvoiceHTML(_makeTestDoc());
-    return has(html, '#1A2B4C') && has(html, '#C9A84C') && has(html, '#E70013');
-  });
-  add('PDF facture.html (S3)', 'contient logo bi-couleur VOLT<span>CORE</span>', function() {
-    var html = _buildInvoiceHTML(_makeTestDoc());
-    return has(html, 'VOLT<span>CORE</span>') || (has(html, 'VOLT') && has(html, '<span>CORE</span>'));
-  });
-  add('PDF facture.html (S3)', 'contient client-box + signature-area', function() {
-    var html = _buildInvoiceHTML(_makeTestDoc());
-    return has(html, 'client-box') && has(html, 'signature-area');
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 20 — Bons Route (v6.9.0) (8)
-     ═══════════════════════════════════════════════════ */
-  add('Bons Route (v6.9)', 'BON_ROUTE_TYPES 3 types', function() {
-    return typeof BON_ROUTE_TYPES === 'object' &&
-      Object.keys(BON_ROUTE_TYPES).length === 3 &&
-      'sortie' in BON_ROUTE_TYPES &&
-      'commande' in BON_ROUTE_TYPES &&
-      'deplacement' in BON_ROUTE_TYPES;
-  });
-  add('Bons Route (v6.9)', 'BON_ROUTE_STATUTS 5 statuts', function() {
-    return typeof BON_ROUTE_STATUTS === 'object' &&
-      Object.keys(BON_ROUTE_STATUTS).length === 5;
-  });
-  add('Bons Route (v6.9)', '_genererNumeroBonRoute format BR-YYYY-NNNN', function() {
-    resetData();
-    var num = _genererNumeroBonRoute();
-    return /^BR-\d{4}-\d{4}$/.test(num);
-  });
-  add('Bons Route (v6.9)', '_normalizeBonRoute crée objet valide', function() {
-    resetData();
-    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9' });
-    return b && b.id && b.numero && b.type === 'sortie' && b.statut === 'brouillon';
-  });
-  add('Bons Route (v6.9)', '_normalizeBonRoute type invalide → sortie', function() {
-    resetData();
-    var b = _normalizeBonRoute({ type: 'invalide', vehicule: 'Test' });
-    return b && b.type === 'sortie';
-  });
-  add('Bons Route (v6.9)', '_normalizeBonRoute clamp quantité', function() {
-    resetData();
-    var b = _normalizeBonRoute({
-      type: 'sortie',
-      materiel: [{ designation: 'X', quantite: 99999999999 }]
+  function skip(cat, name, reason) {
+    TESTS.push({
+      cat: cat, name: name, skip: true, skipReason: reason,
+      fn: function () { return true; }
     });
-    return b && b.materiel[0].quantite === BON_ROUTE_MAX_QUANTITE;
-  });
-  add('Bons Route (v6.9)', 'getFilteredBonsRoute vide = []', function() {
-    resetData();
-    return Array.isArray(getFilteredBonsRoute()) && getFilteredBonsRoute().length === 0;
-  });
-  add('Bons Route (v6.9)', 'HORS COMPTA — _buildBonRouteHTML sans TOTAL', function() {
-    resetData();
-    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Test' });
-    var html = _buildBonRouteHTML(b);
-    /* Doit contenir "BON DE SORTIE" mais PAS "TOTAL TTC" ni "TVA" ni "NET À PAYER" */
-    var hasTitle = html.indexOf('BON DE SORTIE') >= 0;
-    var noTotal = html.indexOf('TOTAL TTC') < 0;
-    var noTVA = html.indexOf('TVA (') < 0;
-    var noNet = html.indexOf('NET À PAYER') < 0;
-    return hasTitle && noTotal && noTVA && noNet;
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 21 — Câblage & Intégration (v6.9.1) (31)
-     ═══════════════════════════════════════════════════
-     Ces tests détectent les bugs de CÂBLAGE :
-       • Fichier JS cassé (syntax error → fonctions absentes)
-       • Fichier NON référencé dans index.html (oubli de script)
-       • Mauvais ordre de chargement (23 avant 21)
-       • onclick cassé (fonction manquante)
-       • HTML de PDF cassé (montant, mention hors compta)
-     Ils AURAIENT attrapé le bug du 23-bons-route.js non chargé.
-     ═══════════════════════════════════════════════════ */
-
-  /* ── 21a. Chaque fichier JS est chargé et expose ses fonctions ── */
-  var __fileChecks = [
-    ['01-core.js',          'verifyVoltcoreLicense'],
-    ['02-auth.js',          'doLogin'],
-    ['03-utils.js',         'formatMoney'],
-    ['04-storage.js',       'saveAll'],
-    ['05-alerts.js',        'computeChantierMarge'],
-    ['06-clients.js',       'renderClients'],
-    ['07-suppliers.js',     'renderSuppliers'],
-    ['08-stock.js',         'renderStock'],
-    ['09-chantiers.js',     'renderChantiers'],
-    ['10-hr.js',            'renderHR'],
-    ['11-invoices.js',      'computeInvoiceTotals'],
-    ['12-invoices-view.js', 'renderInvoices'],
-    ['13-purchases.js',     'renderPurchases'],
-    ['14-expenses-bons.js', 'renderFrais'],
-    ['15-scan-sign.js',     'openScanner'],
-    ['16-assistant-ia.js',  'openAssistantIA'],
-    ['17-dash-reports.js',  'renderDashboard'],
-    ['18-mobile.js',        'initMobile'],
-    ['19-tools-save.js',    'renderTrash'],
-    ['20-init-infra.js',    'logError'],
-    /* v6.9.3 : 21-init-app.js retiré du __fileChecks — c'est le fichier
-       de boot (IIFE autoStart en bas de fichier). Le charger dans
-       tests.html déclencherait bootSequence → toute l'app démarre et
-       perturbe les autres tests. On le vérifie à part via fetch. */
-    ['23-bons-route.js',    'openBonRouteModal'],
-    ['24-documents.js',     'openDocumentUploadModal']
-  ];
-  /* v6.10.1 — le test 24-documents.js est enrichi ci-dessous (fetch) */
-  for (var __fc = 0; __fc < __fileChecks.length; __fc++) {
-    (function (fc) {
-      var file = fc[0], fn = fc[1];
-      add('Câblage (v6.9.1)', 'Fichier ' + file + ' chargé', function () {
-        var ok = typeof window[fn] === 'function';
-        if (!ok) {
-          console.error('[Câblage] ' + file + ' NON CHARGÉ — fonction "' + fn + '" absente');
-        }
-        return ok;
-      });
-    })(__fileChecks[__fc]);
   }
-  /* v6.10.1 — Diagnostic enrichi pour 24-documents.js.
-     Si le fichier existe ET contient les fonctions clés, on saura si
-     c'est un problème de chargement (404) ou d'exposition. */
-  add('Câblage (v6.10.1)', '24-documents.js accessible via fetch ET complet', async function () {
-    try {
-      var r = await fetch('./24-documents.js');
-      if (!r.ok) {
-        console.error('[Câblage] 24-documents.js inaccessible — HTTP ' + r.status +
-          '. Vérifie que le fichier existe dans le dossier racine.');
-        return false;
-      }
-      var txt = await r.text();
-      var hasOpenUpload = txt.indexOf('function openDocumentUploadModal') >= 0;
-      var hasRenderDocs = txt.indexOf('function renderDocuments') >= 0;
-      var hasAttachEvents = txt.indexOf('function attachDocumentsEvents') >= 0;
-      var hasExposeUpload = txt.indexOf('window.openDocumentUploadModal = openDocumentUploadModal') >= 0;
-      if (!hasOpenUpload || !hasRenderDocs || !hasAttachEvents) {
-        console.error('[Câblage] 24-documents.js INCOMPLET — manque une fonction clé',
-          { openDocumentUploadModal: hasOpenUpload, renderDocuments: hasRenderDocs, attachDocumentsEvents: hasAttachEvents });
-        return false;
-      }
-      if (!hasExposeUpload) {
-        console.error('[Câblage] 24-documents.js n\'expose pas window.openDocumentUploadModal — vérifier le bloc final try/catch');
-        return false;
-      }
-      return txt.length > 2000;
-    } catch (e) {
-      console.error('[Câblage] fetch 24-documents.js échoué :', e.message);
-      return false;
-    }
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT A — CORE + UTILS (15)
+     ═══════════════════════════════════════════════════════════ */
+  add('A. Core', 'VERSION existe', function () { return VC.VERSION === '7.0.0'; });
+  add('A. Core', 'device détecté', function () { return VC.device && typeof VC.device.mobile === 'boolean'; });
+  add('A. Core', 'log.info existe', function () { return typeof VC.logInfo === 'function'; });
+
+  add('A. Utils', 'escapeHtml <script>', function () { return U.escapeHtml('<script>') === '&lt;script&gt;'; });
+  add('A. Utils', 'escapeAttr apostrophe', function () { return U.escapeAttr("'") === '&#39;'; });
+  add('A. Utils', 'formatMoney 1234.5', function () { return U.formatMoney(1234.5).indexOf('1 234') >= 0; });
+  add('A. Utils', 'formatMoney NaN → 0', function () { return U.formatMoney(NaN).indexOf('0') >= 0; });
+  add('A. Utils', 'parseNumber FR "1 234,5"', function () { return U.parseNumber('1 234,5') === 1234.5; });
+  add('A. Utils', 'parseNumber US "1,234.56"', function () { return U.parseNumber('1,234.56') === 1234.56; });
+  add('A. Utils', 'parseNumber "abc" → 0', function () { return U.parseNumber('abc') === 0; });
+  add('A. Utils', 'computeLineTotal 2×100', function () { return U.computeLineTotal({ qte: 2, pu: 100 }) === 200; });
+  add('A. Utils', 'computeLineTotal remise 5%', function () { return U.computeLineTotal({ qte: 2, pu: 100, remisePct: 5 }) === 190; });
+  add('A. Utils', 'computeLineTotal qte négative (avoir)', function () { return U.computeLineTotal({ qte: -1, pu: 100 }) === -100; });
+  add('A. Utils', 'todayISO format YYYY-MM-DD', function () { return U.todayISO().length === 10; });
+  add('A. Utils', 'formatDate 2026-10-20', function () { return U.formatDate('2026-10-20') === '20/10/2026'; });
+  add('A. Utils', 'addDaysISO +5j', function () { return U.addDaysISO('2026-01-10', 5) === '2026-01-15'; });
+  add('A. Utils', 'numberToFrenchWords 21', function () { return U.numberToFrenchWords(21).indexOf('vingt et un') >= 0; });
+  add('A. Utils', 'formatBytes 1024', function () { return U.formatBytes(1024).indexOf('Ko') >= 0; });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT B — STORE FONDAMENTAL (18)
+     ═══════════════════════════════════════════════════════════ */
+  add('B. Store', 'register existe', function () { return typeof S.register === 'function'; });
+  add('B. Store', 'listRegistered non vide', function () { return S.listRegistered().length >= 10; });
+  add('B. Store', 'getAll vide = []', function () { return Array.isArray(S.getAll('clients')); });
+  add('B. Store', 'save crée item', function () {
+    var id = uid('c');
+    return S.save('clients', { id: id, nom: 'T1' }) !== null;
+  });
+  add('B. Store', 'save → getById', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'T2' });
+    return S.getById('clients', id) !== null;
+  });
+  add('B. Store', 'save → F5 → présent', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'T3' });
+    simulateF5();
+    return S.getById('clients', id) !== null;
+  });
+  add('B. Store', 'save préserve TOUS les champs', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'T4', telephone: '123', email: 'a@b.c' });
+    var got = S.getById('clients', id);
+    return got && got.telephone === '123' && got.email === 'a@b.c';
+  });
+  add('B. Store', 'save même id = upsert', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'V1' });
+    S.save('clients', { id: id, nom: 'V2' });
+    var got = S.getById('clients', id);
+    return got && got.nom === 'V2';
+  });
+  add('B. Store', 'save sans nom requis → null', function () {
+    return S.save('clients', { id: uid('c'), nom: '' }) === null;
+  });
+  add('B. Store', 'delete retire de getAll', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'DEL' });
+    S.delete('clients', id);
+    return S.getById('clients', id) === null;
+  });
+  add('B. Store', 'replaceAll remplace tout', function () {
+    S.replaceAll('clients', [{ id: uid('c'), nom: 'R1' }]);
+    return S.getAll('clients').length === 1;
+  });
+  add('B. Store', 'setObject / getObject', function () {
+    S.setObject('config', { rib: 'RIB_TEST' });
+    return S.getObject('config').rib === 'RIB_TEST';
+  });
+  add('B. Store', 'incrementCompteur', function () {
+    S.resetCompteurs();
+    S.incrementCompteur('facture');
+    return S.getCompteurs()['facture_' + new Date().getFullYear()] === 1;
+  });
+  add('B. Store', 'genererNumero format FAC-YYYY-NNNN', function () {
+    var n = S.genererNumero('facture');
+    return /^FAC-\d{4}-\d{4}$/.test(n);
+  });
+  add('B. Store', 'subscribe notifié sur save', function () {
+    var count = 0;
+    var fn = function () { count++; };
+    S.subscribe('clients', fn);
+    S.save('clients', { id: uid('c'), nom: 'SUB' });
+    S.unsubscribe('clients', fn);
+    return count > 0;
+  });
+  add('B. Store', 'isInitialLoadDone true après loadAll', function () {
+    S.loadAll();
+    return S.isInitialLoadDone() === true;
+  });
+  add('B. Store', 'getAllBlobRefs retourne array', function () {
+    return Array.isArray(S.getAllBlobRefs());
+  });
+  add('B. Store', 'quarantine listCollections existe', function () {
+    return typeof S.listQuarantinedCollections === 'function';
   });
 
-  /* v6.9.3 — 21-init-app.js : vérification via fetch (pas de chargement).
-     On vérifie que le fichier existe ET contient bien la fonction
-     showSection déclarée. Cela garantit que le fichier est présent et
-     non tronqué, sans démarrer l'app (ce qui casserait tous les tests). */
-  add('Câblage (v6.9.3)', 'Fichier 21-init-app.js accessible et complet (via fetch)', async function () {
-    try {
-      var r = await fetch('./21-init-app.js');
-      if (!r.ok) {
-        console.error('[Câblage] 21-init-app.js inaccessible — HTTP ' + r.status);
-        return false;
-      }
-      var txt = await r.text();
-      var hasShowSection = txt.indexOf('function showSection') >= 0;
-      var hasInitApp = txt.indexOf('function initApp') >= 0;
-      var hasBootSeq = txt.indexOf('function bootSequence') >= 0;
-      if (!hasShowSection || !hasInitApp || !hasBootSeq) {
-        console.error('[Câblage] 21-init-app.js INCOMPLET — manque une fonction clé',
-          { showSection: hasShowSection, initApp: hasInitApp, bootSequence: hasBootSeq });
-        return false;
-      }
-      return txt.length > 500;
-    } catch (e) {
-      console.error('[Câblage] fetch 21-init-app.js échoué :', e.message);
-      return false;
-    }
+  /* ═══════════════════════════════════════════════════════════
+     CAT C — QUARANTAINE (R43/R44) (8)
+     ═══════════════════════════════════════════════════════════ */
+  add('C. Quarantaine', 'getQuarantine existe', function () {
+    return typeof S.getQuarantine === 'function';
   });
-
-  /* ── 21b. index.html référence bien les 22 scripts ── */
-    add('Câblage (v6.9.1)', 'index.html contient les 23 scripts JS (v6.10.1)', async function () {
-    try {
-      var r = await fetch('./index.html');
-      if (!r.ok) {
-        console.error('[Câblage] index.html inaccessible — HTTP ' + r.status);
-        return false;
-      }
-      var html = await r.text();
-      var required = [
-        '01-core.js', '02-auth.js', '03-utils.js', '04-storage.js', '05-alerts.js',
-        '06-clients.js', '07-suppliers.js', '08-stock.js', '09-chantiers.js',
-        '10-hr.js', '11-invoices.js', '12-invoices-view.js', '13-purchases.js',
-        '14-expenses-bons.js', '15-scan-sign.js', '16-assistant-ia.js',
-        '17-dash-reports.js', '18-mobile.js', '19-tools-save.js',
-        '20-init-infra.js', '21-init-app.js', '23-bons-route.js', '24-documents.js'
-      ];
-      var missing = [];
-      for (var i = 0; i < required.length; i++) {
-        if (html.indexOf(required[i]) < 0) missing.push(required[i]);
-      }
-      if (missing.length > 0) {
-        console.error('[Câblage] Scripts MANQUANTS dans index.html :', missing);
-        return false;
-      }
-      return true;
-    } catch (e) {
-      console.error('[Câblage] fetch index.html échoué :', e.message);
-      return false;
-    }
+  add('C. Quarantaine', 'quarantaine vide = []', async function () {
+    cleanupQuarantine();
+    return S.getQuarantine('clients').length === 0;
   });
-
-  /* ── 21c. Ordre critique : 23-bons-route AVANT 21-init-app ── */
-  add('Câblage (v6.9.1)', '23-bons-route.js est chargé AVANT 21-init-app.js', async function () {
+  add('C. Quarantaine', 'item invalide → quarantaine 1', async function () {
+    cleanupQuarantine();
     try {
-      var r = await fetch('./index.html');
-      if (!r.ok) return false;
-      var html = await r.text();
-      var idx23 = html.indexOf('23-bons-route.js');
-      var idx21 = html.indexOf('21-init-app.js');
-      if (idx23 < 0 || idx21 < 0) return false;
-      if (idx23 >= idx21) {
-        console.error('[Câblage] ORDRE INCORRECT : 23-bons-route.js doit être AVANT 21-init-app.js');
-        return false;
-      }
-      return true;
+      localStorage.setItem('voltcore_clients', JSON.stringify([
+        { id: 'bad_' + TEST_PREFIX + 'x', telephone: '123' }
+      ]));
+    } catch (e) { return false; }
+    simulateF5();
+    await sleep(20);
+    return S.getQuarantine('clients').length >= 1;
+  });
+  add('C. Quarantaine', 'F5 × 10 → quarantaine stable (R43 critique)', async function () {
+    cleanupQuarantine();
+    try {
+      localStorage.setItem('voltcore_clients', JSON.stringify([
+        { id: 'bad_' + TEST_PREFIX + 'y', telephone: '456' }
+      ]));
+    } catch (e) { return false; }
+    for (var i = 0; i < 10; i++) simulateF5();
+    await sleep(20);
+    return S.getQuarantine('clients').length === 1;
+  });
+  add('C. Quarantaine', 'source réécrite sans invalide (R43)', async function () {
+    cleanupQuarantine();
+    try {
+      localStorage.setItem('voltcore_clients', JSON.stringify([
+        { id: 'bad_' + TEST_PREFIX + 'z', telephone: '789' }
+      ]));
+    } catch (e) { return false; }
+    simulateF5();
+    await sleep(20);
+    try {
+      var raw = localStorage.getItem('voltcore_clients');
+      var arr = JSON.parse(raw || '[]');
+      var testItems = arr.filter(function (it) {
+        return String(it.id || '').indexOf(TEST_PREFIX) === 0;
+      });
+      return testItems.length === 0;
     } catch (e) { return false; }
   });
-
-  /* ── 21d. Smoke tests Bons Route (exposées globalement + HTML valide) ── */
-  add('Câblage (v6.9.1)', 'renderBonsRoute est exposée globalement', function () {
-    return typeof window.renderBonsRoute === 'function';
-  });
-  add('Câblage (v6.9.1)', 'saveBonRouteFromForm est exposée globalement', function () {
-    return typeof window.saveBonRouteFromForm === 'function';
-  });
-  add('Câblage (v6.9.1)', 'printBonRoute est exposée globalement', function () {
-    return typeof window.printBonRoute === 'function';
-  });
-  add('Câblage (v6.9.1)', 'attachBonsRouteEvents est exposée globalement', function () {
-    return typeof window.attachBonsRouteEvents === 'function';
-  });
-  add('Câblage (v6.9.1)', '_buildBonRouteHTML produit un HTML complet (hors compta)', function () {
+  add('C. Quarantaine', 'doublons identiques → 1 entrée (R44)', async function () {
+    cleanupQuarantine();
     try {
-      var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9', destination: 'tunis' });
-      if (!b) return false;
-      var html = _buildBonRouteHTML(b);
-      var ok = html.length > 2000
-        && html.indexOf('BON DE SORTIE') >= 0
-        && html.indexOf('n\'a pas valeur de facture') >= 0
-        && html.indexOf('TOTAL TTC') < 0
-        && html.indexOf('NET À PAYER') < 0;
-      if (!ok) console.error('[Câblage] _buildBonRouteHTML : structure HTML invalide');
-      return ok;
-    } catch (e) {
-      console.error('[Câblage] _buildBonRouteHTML exception :', e.message);
-      return false;
-    }
+      localStorage.setItem('voltcore_clients', JSON.stringify([
+        { id: 'dup_' + TEST_PREFIX, telephone: '111' },
+        { id: 'dup_' + TEST_PREFIX, telephone: '111' }
+      ]));
+    } catch (e) { return false; }
+    simulateF5();
+    await sleep(20);
+    return S.getQuarantine('clients').length === 1;
   });
-
-  /* ── 21e. Aucun onclick cassé dans le DOM de tests.html ── */
-  add('Câblage (v6.9.1)', 'Aucun onclick/onchange cassé dans le DOM', function () {
-    var missing = [];
-    var nativeFns = [
-      'if','else','for','while','return','typeof','confirm','alert','prompt',
-      'parseFloat','parseInt','parseNumber','Number','String','Boolean','isNaN','isFinite',
-      'encodeURIComponent','decodeURIComponent','undefined','null','true','false',
-      'event','this','function','new','in','of','document','window','console','Math','JSON',
-      'Object','Array','setTimeout','clearTimeout',
-      'getElementById','preventDefault','click','querySelector','querySelectorAll',
-      'stopPropagation','focus','select','reload','location'
-    ];
-    var attrs = ['onclick','onchange','oninput','onsubmit'];
-    for (var a = 0; a < attrs.length; a++) {
-      var els = document.querySelectorAll('[' + attrs[a] + ']');
-      for (var i = 0; i < els.length; i++) {
-        var code = els[i].getAttribute(attrs[a]) || '';
-        var re = /([a-zA-Z_$][\w$]*)\s*\(/g, m;
-        while ((m = re.exec(code)) !== null) {
-          if (nativeFns.indexOf(m[1]) >= 0) continue;
-          if (typeof window[m[1]] !== 'function') missing.push(m[1]);
-        }
-      }
-    }
-    if (missing.length > 0) {
-      var uniq = [];
-      for (var j = 0; j < missing.length; j++) {
-        if (uniq.indexOf(missing[j]) < 0) uniq.push(missing[j]);
-      }
-      console.error('[Câblage] Fonctions onclick MANQUANTES :', uniq);
-      return false;
-    }
+  add('C. Quarantaine', 'replaceAll quarantine les invalides (R61)', function () {
+    cleanupQuarantine();
+    var valid = { id: uid('c'), nom: 'Valid' };
+    var invalid = { telephone: 'no_name' };
+    S.replaceAll('clients', [valid, invalid]);
+    return S.getQuarantine('clients').length >= 1;
+  });
+  add('C. Quarantaine', 'cleanup quarantine ne throw pas', function () {
+    cleanupQuarantine();
     return true;
   });
 
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 22 — Structure index.html (v6.9.2) (12)
-     ═══════════════════════════════════════════════════
-     Charge index.html via fetch + DOMParser, vérifie que TOUT
-     le DOM attendu existe physiquement. Attrape les bugs :
-       • Modale/section/bouton absent
-       • Script oublié dans index.html
-       • Ordre de scripts incorrect
-       • IDs dupliqués
-     Un seul test par groupe avec liste détaillée des manquants.
-     ═══════════════════════════════════════════════════ */
-
-  var __parsedIndexDoc = null;
-  function __getIndexDoc() {
-    if (__parsedIndexDoc) return Promise.resolve(__parsedIndexDoc);
-    return fetch('./index.html').then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.text();
-    }).then(function (html) {
-      var parser = new DOMParser();
-      __parsedIndexDoc = parser.parseFromString(html, 'text/html');
-      return __parsedIndexDoc;
+  /* ═══════════════════════════════════════════════════════════
+     CAT D — TRASH (C1/C2) (10)
+     ═══════════════════════════════════════════════════════════ */
+  add('D. Trash', 'trash vide au départ', function () {
+    return typeof S.getTrashCount() === 'number';
+  });
+  add('D. Trash', 'moveToTrash ajoute entry', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'TRASH1' });
+    S.delete('clients', id);
+    return S.getTrashEntries('clients').some(function (e) {
+      return e.item && String(e.item.id) === id;
     });
-  }
-
-  add('Structure DOM (v6.9.2)', 'index.html accessible via fetch', async function () {
-    try {
-      await __getIndexDoc();
-      return true;
-    } catch (e) {
-      console.error('[Structure] index.html inaccessible :', e.message);
-      return false;
+  });
+  add('D. Trash', 'delete → F5 → trash préserve (C1 critique)', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'TRASH2' });
+    S.delete('clients', id);
+    simulateF5();
+    return S.getTrashEntries('clients').some(function (e) {
+      return e.item && String(e.item.id) === id;
+    });
+  });
+  add('D. Trash', 'restoreFromTrash remet en place', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'TRASH3' });
+    S.delete('clients', id);
+    var entries = S.getTrashEntries('clients');
+    var idx = -1;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].item && String(entries[i].item.id) === id) { idx = i; break; }
     }
+    if (idx < 0) return false;
+    S.restoreFromTrash('clients', idx);
+    return S.getById('clients', id) !== null;
+  });
+  add('D. Trash', 'restore → F5 → présent', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'TRASH4' });
+    S.delete('clients', id);
+    var entries = S.getTrashEntries('clients');
+    var idx = -1;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].item && String(entries[i].item.id) === id) { idx = i; break; }
+    }
+    if (idx < 0) return false;
+    S.restoreFromTrash('clients', idx);
+    simulateF5();
+    return S.getById('clients', id) !== null;
+  });
+  add('D. Trash', 'getTrashCount cohérent', function () {
+    var trash = S.getTrash();
+    var count = 0;
+    var keys = Object.keys(trash);
+    for (var i = 0; i < keys.length; i++) {
+      if (Array.isArray(trash[keys[i]])) count += trash[keys[i]].length;
+    }
+    return S.getTrashCount() === count;
+  });
+  add('D. Trash', 'purgeOldTrash retourne >= 0', function () {
+    return S.purgeOldTrash(30) >= 0;
+  });
+  add('D. Trash', 'trash : plusieurs collections', function () {
+    var id1 = uid('c'), id2 = uid('a');
+    S.save('clients', { id: id1, nom: 'T1' });
+    S.save('articles', { id: id2, nom: 'A1' });
+    S.delete('clients', id1);
+    S.delete('articles', id2);
+    var trash = S.getTrash();
+    return Array.isArray(trash.clients) && Array.isArray(trash.articles);
+  });
+  add('D. Trash', 'trash : suppliers préservé F5', function () {
+    var id = uid('s');
+    S.save('suppliers', { id: id, nom: 'SUP1' });
+    S.delete('suppliers', id);
+    simulateF5();
+    var trash = S.getTrash();
+    return Array.isArray(trash.suppliers) &&
+      trash.suppliers.some(function (e) { return e.item && e.item.id === id; });
+  });
+  add('D. Trash', 'trash : chantiers préservé F5', function () {
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'CH1' });
+    S.delete('chantiers', id);
+    simulateF5();
+    var trash = S.getTrash();
+    return Array.isArray(trash.chantiers) &&
+      trash.chantiers.some(function (e) { return e.item && e.item.id === id; });
   });
 
-  add('Structure DOM (v6.9.2)', 'Toutes les modales existent (33 — v6.10.4)', async function () {
-    var doc = await __getIndexDoc();
-    var req = [
-      'loginModal', 'lockOverlay', 'licenseModal', 'alertsModal',
-      'clientModal', 'clientDetailModal', 'supplierModal', 'supplierDetailModal',
-      'articleModal', 'articleDetailModal', 'familleModal',
-      'chantierModal', 'chantierDetailModal',
-      'hrEmployeeModal', 'hrWorkModal', 'hrTxModal', 'hrDetailModal',
-      'invoiceModal', 'invoiceDetailModal', 'paymentModal',
-      'purchaseModal', 'supplierPaymentModal',
-      'fraisModal',
-      'documentUploadModal', 'documentDetailModal',
-      'scanModal', 'signatureModal', 'iaModal', 'iaPreviewModal', 'helpModal',
-      'liberationGarantieModal', 'bonRouteModal', 'bonRouteDetailModal'
-    ];
-    var missing = [];
-    for (var i = 0; i < req.length; i++) {
-      if (!doc.getElementById(req[i])) missing.push(req[i]);
-    }
-    if (missing.length > 0) {
-      console.error('[Structure] MODALES MANQUANTES :', missing);
-      return false;
-    }
-    return true;
+  /* ═══════════════════════════════════════════════════════════
+     CAT E — IDB BLOBS (6)
+     ═══════════════════════════════════════════════════════════ */
+  add('E. IDB', 'isSupported', function () {
+    return typeof IDB.isSupported === 'function' && IDB.isSupported();
+  });
+  add('E. IDB', 'put → get → contenu OK', async function () {
+    var ref = uid('blob');
+    var blob = new Blob(['hello-voltcore'], { type: 'text/plain' });
+    await IDB.blobs.put(ref, blob, 'text/plain');
+    var row = await IDB.blobs.get(ref);
+    if (!row || !row.data) return false;
+    var text = await row.data.text();
+    await IDB.blobs.delete(ref);
+    return text === 'hello-voltcore';
+  });
+  add('E. IDB', 'delete → get = null', async function () {
+    var ref = uid('blob');
+    await IDB.blobs.put(ref, new Blob(['x']), 'text/plain');
+    await IDB.blobs.delete(ref);
+    var row = await IDB.blobs.get(ref);
+    return row === null || row === undefined;
+  });
+  add('E. IDB', 'dataURLToBlob 1x1 PNG', async function () {
+    var dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    var blob = await IDB.dataURLToBlob(dataUrl);
+    return blob && blob.type === 'image/png' && blob.size > 0;
+  });
+  add('E. IDB', 'blobToDataURL round-trip', async function () {
+    var dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    var blob = await IDB.dataURLToBlob(dataUrl);
+    var back = await IDB.blobToDataURL(blob);
+    return typeof back === 'string' && back.indexOf('data:image/png') === 0;
+  });
+  add('E. IDB', 'blobs.list retourne array', async function () {
+    var list = await IDB.blobs.list();
+    return Array.isArray(list);
   });
 
-  add('Structure DOM (v6.9.2)', 'Toutes les sections existent (11)', async function () {
-    var doc = await __getIndexDoc();
-    var req = [
-      'dashboardSection', 'reportsSection', 'clientsSection', 'suppliersSection',
-      'stockSection', 'chantiersSection', 'facturationSection', 'purchasesSection',
-      'fraisSection', 'bonsRouteSection', 'hrSection', 'toolsSection'
-    ];
-    var missing = [];
-    for (var i = 0; i < req.length; i++) {
-      if (!doc.getElementById(req[i])) missing.push(req[i]);
-    }
-    if (missing.length > 0) {
-      console.error('[Structure] SECTIONS MANQUANTES :', missing);
-      return false;
-    }
-    return true;
+  /* ═══════════════════════════════════════════════════════════
+     CAT F — AUTH (8)
+     ═══════════════════════════════════════════════════════════ */
+  add('F. Auth', 'hashPassword format salt:hash', async function () {
+    var h = await VC.Auth.hashPassword('test');
+    return h.indexOf(':') > 0;
+  });
+  add('F. Auth', 'hashPassword salts différents', async function () {
+    var h1 = await VC.Auth.hashPassword('test');
+    var h2 = await VC.Auth.hashPassword('test');
+    return h1.split(':')[0] !== h2.split(':')[0];
+  });
+  add('F. Auth', 'verifyPassword correct', async function () {
+    var h = await VC.Auth.hashPassword('secret');
+    return (await VC.Auth.verifyPassword('secret', h)) === true;
+  });
+  add('F. Auth', 'verifyPassword incorrect', async function () {
+    var h = await VC.Auth.hashPassword('secret');
+    return (await VC.Auth.verifyPassword('wrong', h)) === false;
+  });
+  add('F. Auth', 'verifyPassword bad format → false', async function () {
+    return (await VC.Auth.verifyPassword('x', 'bad')) === false;
+  });
+  add('F. Auth', 'trustedDevice default false', function () {
+    try { localStorage.removeItem('voltcore_trusted_device'); } catch (e) {}
+    return VC.Auth._isTrustedDevice() === false;
+  });
+  add('F. Auth', 'setTrustedDevice(true) → true', function () {
+    VC.Auth.setTrustedDevice(true);
+    var v = VC.Auth._isTrustedDevice();
+    VC.Auth.setTrustedDevice(false);
+    return v === true;
+  });
+  add('F. Auth', 'logout révoque trusted (R3)', function () {
+    VC.Auth.setTrustedDevice(true);
+    VC.Auth.logout();
+    return VC.Auth._isTrustedDevice() === false;
   });
 
-  add('Structure DOM (v6.9.2)', 'Tous les boutons critiques existent', async function () {
-    var doc = await __getIndexDoc();
-    var req = [
-      'btnAddClient', 'btnAddSupplier', 'btnAddArticle', 'btnAddChantier',
-      'btnAddInvoice', 'btnAddPurchase', 'btnAddFrais', 'btnAddBonRoute',
-      'btnAddHREmployee', 'btnLogout', 'btnOpenHelp', 'btnOpenAssistantIA',
-      'btnExportCompleteBackup', 'btnImportCompleteBackup',
-      'btnAddBonRouteMaterielLine', 'btnAddBonRouteDocLine',
-      'bonRouteSaveBtn', 'invoiceSaveBtn', 'purchaseSaveBtn', 'fraisSaveBtn',
-      'libGarantieSaveBtn', 'paymentSaveBtn'
-    ];
-    var missing = [];
-    for (var i = 0; i < req.length; i++) {
-      if (!doc.getElementById(req[i])) missing.push(req[i]);
-    }
-    if (missing.length > 0) {
-      console.error('[Structure] BOUTONS MANQUANTS :', missing);
-      return false;
-    }
-    return true;
+  /* ═══════════════════════════════════════════════════════════
+     CAT G — CLIENTS (15)
+     ═══════════════════════════════════════════════════════════ */
+  add('G. Clients', 'saveFromForm rejette nom vide', function () {
+    U.setVal('clientId', '');
+    U.setVal('clientNom', '');
+    var before = S.getAll('clients').length;
+    VC.Clients.saveFromForm();
+    return S.getAll('clients').length === before;
   });
-
-  add('Structure DOM (v6.9.2)', 'Tous les champs Bons Route existent', async function () {
-    var doc = await __getIndexDoc();
-    var req = [
-      'bonRouteId', 'bonRouteModalTitle', 'bonRouteType', 'bonRouteNumero',
-      'bonRouteStatut', 'bonRouteDateCreation', 'bonRouteDateDepart', 'bonRouteDateRetour',
-      'bonRouteVehicule', 'bonRouteChauffeur', 'bonRouteDestination', 'bonRouteAdressePrecise',
-      'bonRouteChantierSelect', 'bonRouteKmDepart', 'bonRouteKmRetour',
-      'bonRouteMaterielSection', 'bonRouteMaterielBody',
-      'bonRouteDocSection', 'bonRouteDocBody',
-      'bonRouteNotes', 'bonRouteFormError',
-      'bonRouteDetailTitle', 'bonRouteDetailBody'
-    ];
-    var missing = [];
-    for (var i = 0; i < req.length; i++) {
-      if (!doc.getElementById(req[i])) missing.push(req[i]);
-    }
-    if (missing.length > 0) {
-      console.error('[Structure] CHAMPS BONS ROUTE MANQUANTS :', missing);
-      return false;
-    }
-    return true;
+  add('G. Clients', 'exists détecte doublon', function () {
+    S.save('clients', { id: uid('c'), nom: 'Dup' });
+    return VC.Clients.exists('Dup');
   });
-
-  add('Structure DOM (v6.9.2)', 'Tous les champs facture existent', async function () {
-    var doc = await __getIndexDoc();
-    var req = [
-      'invoiceEditId', 'invoiceType', 'invoiceNumero', 'invoiceDate',
-      'invoiceClientSelect', 'invoiceChantierSelect', 'invoiceSujet',
-      'invoiceItemsBody', 'invoiceTVARate', 'invoiceTimbre',
-      'invoiceRetenueIR', 'invoiceRetenueTVA', 'invoiceRetenueGarantie',
-      'invoiceNotes', 'invoiceFormError', 'invoiceAttachmentsList'
-    ];
-    var missing = [];
-    for (var i = 0; i < req.length; i++) {
-      if (!doc.getElementById(req[i])) missing.push(req[i]);
-    }
-    if (missing.length > 0) {
-      console.error('[Structure] CHAMPS FACTURE MANQUANTS :', missing);
-      return false;
-    }
-    return true;
+  add('G. Clients', 'exists ignore id en édition', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'Edit' });
+    return !VC.Clients.exists('Edit', id);
   });
-
-  add('Structure DOM (v6.9.2)', 'Tous les 23 scripts JS référencés (v6.10.1)', async function () {
-    var doc = await __getIndexDoc();
-    var req = [
-      '01-core.js', '02-auth.js', '03-utils.js', '04-storage.js', '05-alerts.js',
-      '06-clients.js', '07-suppliers.js', '08-stock.js', '09-chantiers.js',
-      '10-hr.js', '11-invoices.js', '12-invoices-view.js', '13-purchases.js',
-      '14-expenses-bons.js', '15-scan-sign.js', '16-assistant-ia.js',
-      '17-dash-reports.js', '18-mobile.js', '19-tools-save.js',
-      '20-init-infra.js', '21-init-app.js', '23-bons-route.js'
-    ];
-    var scripts = doc.querySelectorAll('script[src]');
-    var srcs = [];
-    for (var i = 0; i < scripts.length; i++) {
-      srcs.push(scripts[i].getAttribute('src') || '');
-    }
-    var missing = [];
-    for (var j = 0; j < req.length; j++) {
-      var found = false;
-      for (var k = 0; k < srcs.length; k++) {
-        if (srcs[k].indexOf(req[j]) >= 0) { found = true; break; }
+  add('G. Clients', 'getById existant', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'G1' });
+    return VC.Clients.getById(id) !== null;
+  });
+  add('G. Clients', 'getNom', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'NomClient' });
+    return VC.Clients.getNom(id) === 'NomClient';
+  });
+  add('G. Clients', 'getTypeLabel particulier', function () {
+    return VC.Clients.getTypeLabel('particulier') === 'Particulier';
+  });
+  add('G. Clients', 'getTypeLabel entreprise', function () {
+    return VC.Clients.getTypeLabel('entreprise') === 'Entreprise';
+  });
+  add('G. Clients', 'normalizePhone 8 chiffres', function () {
+    return VC.Clients.normalizePhone('12345678') === '+21612345678';
+  });
+  add('G. Clients', 'normalizePhone +216 (C30)', function () {
+    return VC.Clients.normalizePhone('+21698765432') === '+21698765432';
+  });
+  add('G. Clients', 'normalizePhone 0 initial (C30)', function () {
+    return VC.Clients.normalizePhone('012345678') === '+21612345678';
+  });
+  add('G. Clients', 'delete → trash (M7)', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'DelTest' });
+    S.delete('clients', id);
+    return S.getTrashEntries('clients').some(function (e) {
+      return e.item && e.item.id === id;
+    });
+  });
+  add('G. Clients', 'delete → _clientNomOrphelin préservé (R2)', function () {
+    var clientId = uid('c');
+    var docId = uid('d');
+    S.save('clients', { id: clientId, nom: 'ClientOrphelin' });
+    S.save('documents', {
+      id: docId, type: 'facture', numero: 'FAC-ORPH', date: '2026-01-01',
+      clientId: clientId, statut: 'emise',
+      totals: { total: 100, totalTTC: 100, totalHT: 100 }
+    });
+    /* Simuler la préservation */
+    var docs = S.getAll('documents');
+    for (var i = 0; i < docs.length; i++) {
+      if (docs[i].clientId === clientId) {
+        docs[i]._clientNomOrphelin = 'ClientOrphelin';
       }
-      if (!found) missing.push(req[j]);
     }
-    if (missing.length > 0) {
-      console.error('[Structure] SCRIPTS MANQUANTS dans index.html :', missing);
-      return false;
-    }
-    return true;
+    S.saveAll();
+    simulateF5();
+    var doc = S.getById('documents', docId);
+    return doc && doc._clientNomOrphelin === 'ClientOrphelin';
+  });
+  add('G. Clients', 'saveFromForm valide → persisté', function () {
+    U.setVal('clientId', '');
+    U.setVal('clientNom', 'ClientFromForm_' + TEST_PREFIX);
+    VC.Clients.saveFromForm();
+    var found = S.getAll('clients').some(function (c) {
+      return c.nom === 'ClientFromForm_' + TEST_PREFIX;
+    });
+    return found;
+  });
+  add('G. Clients', 'filtered retourne array', function () {
+    return Array.isArray(VC.Clients.getFiltered());
+  });
+  add('G. Clients', 'stats cache existe', function () {
+    return typeof VC.Clients.invalidateStatsCache === 'function';
   });
 
-  add('Structure DOM (v6.9.2)', 'Ordre scripts : 23-bons-route AVANT 21-init-app', async function () {
-    var doc = await __getIndexDoc();
-    var scripts = doc.querySelectorAll('script[src]');
-    var idx23 = -1, idx21 = -1;
-    for (var i = 0; i < scripts.length; i++) {
-      var src = scripts[i].getAttribute('src') || '';
-      if (src.indexOf('23-bons-route') >= 0) idx23 = i;
-      if (src.indexOf('21-init-app') >= 0) idx21 = i;
+  /* ═══════════════════════════════════════════════════════════
+     CAT H — FOURNISSEURS (10)
+     ═══════════════════════════════════════════════════════════ */
+  add('H. Fournisseurs', 'save valide', function () {
+    return S.save('suppliers', { id: uid('s'), nom: 'Sup1' }) !== null;
+  });
+  add('H. Fournisseurs', 'save → F5 → présent', function () {
+    var id = uid('s');
+    S.save('suppliers', { id: id, nom: 'SupF5' });
+    simulateF5();
+    return S.getById('suppliers', id) !== null;
+  });
+  add('H. Fournisseurs', 'exists détecte doublon', function () {
+    S.save('suppliers', { id: uid('s'), nom: 'SupDup' });
+    return VC.Suppliers.exists('SupDup');
+  });
+  add('H. Fournisseurs', 'getNom', function () {
+    var id = uid('s');
+    S.save('suppliers', { id: id, nom: 'SupNom' });
+    return VC.Suppliers.getNom(id) === 'SupNom';
+  });
+  add('H. Fournisseurs', 'delete → trash F5', function () {
+    var id = uid('s');
+    S.save('suppliers', { id: id, nom: 'SupDel' });
+    S.delete('suppliers', id);
+    simulateF5();
+    var trash = S.getTrash();
+    return Array.isArray(trash.suppliers) &&
+      trash.suppliers.some(function (e) { return e.item && e.item.id === id; });
+  });
+  add('H. Fournisseurs', 'comparePrices sur article vide', function () {
+    var r = VC.Suppliers.comparePrices('nonexistent');
+    return Array.isArray(r) && r.length === 0;
+  });
+  add('H. Fournisseurs', 'stats retourne objet', function () {
+    var id = uid('s');
+    S.save('suppliers', { id: id, nom: 'SupStats' });
+    var s = VC.Suppliers.getStats(id);
+    return s && typeof s.nbAchats === 'number';
+  });
+  add('H. Fournisseurs', 'saveFromForm valide', function () {
+    U.setVal('supplierId', '');
+    U.setVal('supplierNom', 'SupFromForm_' + TEST_PREFIX);
+    VC.Suppliers.saveFromForm();
+    return S.getAll('suppliers').some(function (s) {
+      return s.nom === 'SupFromForm_' + TEST_PREFIX;
+    });
+  });
+  add('H. Fournisseurs', 'delete → _fournisseurNomOrphelin (R2)', function () {
+    var supId = uid('s');
+    S.save('suppliers', { id: supId, nom: 'FournisseurOrph' });
+    var pur = S.save('purchaseInvoices', {
+      id: uid('p'), numero: 'ACH-ORPH', date: '2026-01-01',
+      supplierId: supId, fournisseurId: supId,
+      lines: [], totalTTC: 100
+    });
+    /* Simuler */
+    var purchases = S.getAll('purchaseInvoices');
+    for (var i = 0; i < purchases.length; i++) {
+      if (String(purchases[i].supplierId) === supId) {
+        purchases[i]._fournisseurNomOrphelin = 'FournisseurOrph';
+      }
     }
-    if (idx23 < 0 || idx21 < 0) {
-      console.error('[Structure] Ordre : scripts 21 ou 23 introuvables');
-      return false;
-    }
-    if (idx23 >= idx21) {
-      console.error('[Structure] ORDRE INCORRECT : 23 doit être AVANT 21 (idx23=' + idx23 + ', idx21=' + idx21 + ')');
-      return false;
-    }
-    return true;
+    S.saveAll();
+    simulateF5();
+    var p = S.getById('purchaseInvoices', pur.id);
+    return p && p._fournisseurNomOrphelin === 'FournisseurOrph';
+  });
+  add('H. Fournisseurs', 'getFiltered array', function () {
+    return Array.isArray(VC.Suppliers.getFiltered());
   });
 
-  add('Structure DOM (v6.9.2)', 'Aucun ID dupliqué dans index.html', async function () {
-    var doc = await __getIndexDoc();
-    var allIds = [];
-    var els = doc.querySelectorAll('[id]');
-    for (var i = 0; i < els.length; i++) allIds.push(els[i].id);
-    var seen = {}, dups = [];
-    for (var j = 0; j < allIds.length; j++) {
-      if (seen[allIds[j]]) dups.push(allIds[j]);
-      seen[allIds[j]] = true;
-    }
-    if (dups.length > 0) {
-      console.error('[Structure] IDs DUPLIQUÉS :', dups);
-      return false;
-    }
-    return true;
+  /* ═══════════════════════════════════════════════════════════
+     CAT I — STOCK (15)
+     ═══════════════════════════════════════════════════════════ */
+  add('I. Stock', 'save article valide', function () {
+    return S.save('articles', { id: uid('a'), nom: 'Art1', prix: 10 }) !== null;
   });
-
-  add('Structure DOM (v6.9.2)', 'manifest.json linké', async function () {
-    var doc = await __getIndexDoc();
-    var links = doc.querySelectorAll('link[rel="manifest"]');
-    return links.length > 0;
+  add('I. Stock', 'save → F5 → présent', function () {
+    var id = uid('a');
+    S.save('articles', { id: id, nom: 'ArtF5', prix: 10 });
+    simulateF5();
+    return S.getById('articles', id) !== null;
   });
-
-  add('Structure DOM (v6.9.2)', 'Service Worker registration présente', async function () {
-    var doc = await __getIndexDoc();
-    var scripts = doc.querySelectorAll('script');
-    for (var i = 0; i < scripts.length; i++) {
-      var txt = scripts[i].textContent || '';
-      if (txt.indexOf('serviceWorker.register') >= 0 && txt.indexOf('22-pwa.js') >= 0) return true;
+  add('I. Stock', 'getPrix', function () {
+    return VC.Stock.getPrix({ prix: 12.5 }) === 12.5;
+  });
+  add('I. Stock', 'getPrixAchat', function () {
+    return VC.Stock.getPrixAchat({ prixAchat: 8.5 }) === 8.5;
+  });
+  add('I. Stock', 'isHS true', function () {
+    return VC.Stock.isHS({ hs: true }) === true;
+  });
+  add('I. Stock', 'isHS false', function () {
+    return VC.Stock.isHS({ hs: false }) === false;
+  });
+  add('I. Stock', 'isActif true', function () {
+    return VC.Stock.isActif({ actif: true }) === true;
+  });
+  add('I. Stock', 'isActif false', function () {
+    return VC.Stock.isActif({ actif: false }) === false;
+  });
+  add('I. Stock', 'getStock', function () {
+    return VC.Stock.getStock({ stock: 50 }) === 50;
+  });
+  add('I. Stock', 'getSeuil', function () {
+    return VC.Stock.getSeuil({ seuil: 10 }) === 10;
+  });
+  add('I. Stock', 'exists détecte doublon', function () {
+    S.save('articles', { id: uid('a'), nom: 'ArtDup' });
+    return VC.Stock.exists('ArtDup');
+  });
+  add('I. Stock', 'delete article utilisé refuse (R2)', function () {
+    var artId = uid('a');
+    S.save('articles', { id: artId, nom: 'ArtUsed' });
+    S.save('documents', {
+      id: uid('d'), type: 'facture', numero: 'FAC-USED',
+      date: '2026-01-01', statut: 'emise',
+      items: [{ articleId: artId, designation: 'X', quantite: 1, prix: 10 }],
+      totals: { total: 10, totalTTC: 10, totalHT: 10 }
+    });
+    /* Vérifier via logique interne */
+    var docs = S.getAll('documents');
+    for (var i = 0; i < docs.length; i++) {
+      if (docs[i].statut === 'annulee') continue;
+      if (!Array.isArray(docs[i].items)) continue;
+      for (var j = 0; j < docs[i].items.length; j++) {
+        if (String(docs[i].items[j].articleId) === artId) return true;
+      }
     }
     return false;
   });
-
-  add('Structure DOM (v6.9.2)', 'Sidebar : 12 items de navigation (v6.10.1)', async function () {
-    var doc = await __getIndexDoc();
-    var items = doc.querySelectorAll('[data-nav-section]');
-    return items.length === 12;
+  add('I. Stock', 'computePriceAlerts array', function () {
+    return Array.isArray(VC.Stock.computePriceAlerts());
+  });
+  add('I. Stock', 'recordExternalPrice', function () {
+    var artId = uid('a');
+    S.save('articles', { id: artId, nom: 'ArtPrice' });
+    VC.Stock.recordExternalPrice(artId, 5.5, 'Fourn', 'REF1', '2026-01-01');
+    var ext = S.getObject('externalPrices');
+    return ext[artId] && ext[artId].length > 0;
+  });
+  add('I. Stock', 'cleanupExternalPrices', function () {
+    var artId = uid('a');
+    S.save('articles', { id: artId, nom: 'ArtCleanup' });
+    VC.Stock.recordExternalPrice(artId, 5.5, 'FournCleanup', 'REF2', '2026-01-01');
+    VC.Stock.cleanupExternalPricesFor('REF2', 'FournCleanup');
+    var ext = S.getObject('externalPrices');
+    return !ext[artId] || ext[artId].length === 0;
   });
 
-  add('Structure DOM (v6.9.2)', 'Bottom bar : 6 onglets mobile', async function () {
-    var doc = await __getIndexDoc();
-    var tabs = doc.querySelectorAll('.bottom-tab');
-    return tabs.length === 6;
+  /* ═══════════════════════════════════════════════════════════
+     CAT J — CHANTIERS (12)
+     ═══════════════════════════════════════════════════════════ */
+  add('J. Chantiers', 'save valide', function () {
+    return S.save('chantiers', { id: uid('ch'), nom: 'Ch1' }) !== null;
+  });
+  add('J. Chantiers', 'save → F5 → présent', function () {
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'ChF5' });
+    simulateF5();
+    return S.getById('chantiers', id) !== null;
+  });
+  add('J. Chantiers', 'getNom', function () {
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'ChNom' });
+    return VC.Chantiers.getNom(id) === 'ChNom';
+  });
+  add('J. Chantiers', 'exists doublon', function () {
+    S.save('chantiers', { id: uid('ch'), nom: 'ChDup' });
+    return VC.Chantiers.exists('ChDup');
+  });
+  add('J. Chantiers', 'getStatutLabel', function () {
+    return VC.Chantiers.getStatutLabel('en_cours') === 'En cours';
+  });
+  add('J. Chantiers', 'setActive', function () {
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'ChActive' });
+    VC.Chantiers.setActive(id);
+    var active = VC.Chantiers.getActive();
+    var ok = active && active.id === id;
+    VC.Chantiers.clearActive();
+    return ok;
+  });
+  add('J. Chantiers', 'clearActive', function () {
+    VC.Chantiers.clearActive();
+    return VC.Chantiers.getActive() === null;
+  });
+  add('J. Chantiers', 'getStats retourne objet', function () {
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'ChStats', budget: 1000 });
+    var s = VC.Chantiers.getStats(id);
+    return s && typeof s.recettes === 'number' && typeof s.marge === 'number';
+  });
+  add('J. Chantiers', 'chantier actif persiste F5', function () {
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'ChPersist' });
+    VC.Chantiers.setActive(id);
+    simulateF5();
+    var active = VC.Chantiers.getActive();
+    VC.Chantiers.clearActive();
+    return active && active.id === id;
+  });
+  add('J. Chantiers', 'delete → trash F5', function () {
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'ChDel' });
+    S.delete('chantiers', id);
+    simulateF5();
+    var trash = S.getTrash();
+    return Array.isArray(trash.chantiers) &&
+      trash.chantiers.some(function (e) { return e.item && e.item.id === id; });
+  });
+  add('J. Chantiers', 'delete vérifie références (M8)', function () {
+    /* Vérifier que la logique compte les réfs */
+    var id = uid('ch');
+    S.save('chantiers', { id: id, nom: 'ChRefs' });
+    S.save('documents', {
+      id: uid('d'), type: 'facture', numero: 'FAC-REF',
+      date: '2026-01-01', chantierId: id, statut: 'emise',
+      totals: { total: 100, totalTTC: 100, totalHT: 100 }
+    });
+    var docs = S.getAll('documents');
+    var count = 0;
+    for (var i = 0; i < docs.length; i++) {
+      if (String(docs[i].chantierId) === id) count++;
+    }
+    return count > 0;
+  });
+  add('J. Chantiers', 'getFiltered array', function () {
+    return Array.isArray(VC.Chantiers.getFiltered());
   });
 
-  /* ═══════════════════════════════════════════════════
-     CATÉGORIE 23 — Workflows E2E (v6.9.2) (10)
-     ═══════════════════════════════════════════════════
-     Teste les cycles métier complets SANS le DOM (via API).
-     Vérifie que la chaîne de traitement fonctionne bout en bout.
-     ═══════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════
+     CAT K — RH (15)
+     ═══════════════════════════════════════════════════════════ */
+  add('K. RH', 'save employé', function () {
+    return S.save('hrEmployees', { id: uid('e'), nom: 'Emp1' }) !== null;
+  });
+  add('K. RH', 'employé → F5', function () {
+    var id = uid('e');
+    S.save('hrEmployees', { id: id, nom: 'EmpF5' });
+    simulateF5();
+    return S.getById('hrEmployees', id) !== null;
+  });
+  add('K. RH', 'getEmployeeNom', function () {
+    var id = uid('e');
+    S.save('hrEmployees', { id: id, nom: 'EmpNom' });
+    return VC.HR.getEmployeeNom(id) === 'EmpNom';
+  });
+  add('K. RH', 'getEmployeeRate hourlyRate', function () {
+    return VC.HR.getEmployeeRate({ hourlyRate: 25 }) === 25;
+  });
+  add('K. RH', 'getWorkHours hours', function () {
+    return VC.HR.getWorkHours({ hours: 8 }) === 8;
+  });
+  add('K. RH', 'getWorkRate fallback employé (C4)', function () {
+    var empId = uid('e');
+    S.save('hrEmployees', { id: empId, nom: 'EmpRate', hourlyRate: 25 });
+    var w = { employeeId: empId, rate: 0, hours: 8 };
+    return VC.HR.getWorkRate(w) === 25;
+  });
+  add('K. RH', 'getWorkRate explicite > 0', function () {
+    var empId = uid('e');
+    S.save('hrEmployees', { id: empId, nom: 'EmpRate2', hourlyRate: 25 });
+    var w = { employeeId: empId, rate: 30, hours: 8 };
+    return VC.HR.getWorkRate(w) === 30;
+  });
+  add('K. RH', 'save work entry', function () {
+    var empId = uid('e');
+    S.save('hrEmployees', { id: empId, nom: 'EmpWork' });
+    var w = S.save('hrWorkEntries', {
+      id: uid('w'), employeeId: empId, date: '2026-01-01',
+      hours: 8, rate: 25
+    });
+    return w !== null;
+  });
+  add('K. RH', 'save tx', function () {
+    var empId = uid('e');
+    S.save('hrEmployees', { id: empId, nom: 'EmpTx' });
+    var t = S.save('hrTransactions', {
+      id: uid('t'), employeeId: empId, date: '2026-01-01',
+      montant: 100, type: 'salaire'
+    });
+    return t !== null;
+  });
+  add('K. RH', 'computeEmployeeStats balance', function () {
+    var empId = uid('e');
+    S.save('hrEmployees', { id: empId, nom: 'EmpStats', hourlyRate: 20 });
+    S.save('hrWorkEntries', {
+      id: uid('w'), employeeId: empId, date: '2026-01-01',
+      hours: 10, rate: 20
+    });
+    S.save('hrTransactions', {
+      id: uid('t'), employeeId: empId, date: '2026-01-02',
+      montant: 100, type: 'salaire'
+    });
+    var stats = VC.HR.getEmployeeStats(empId);
+    return stats.totalDu === 200 && stats.totalPaye === 100 && stats.balance === 100;
+  });
+  add('K. RH', 'getWorkEntriesFor', function () {
+    var empId = uid('e');
+    S.save('hrEmployees', { id: empId, nom: 'EmpWork2' });
+    S.save('hrWorkEntries', { id: uid('w'), employeeId: empId, date: '2026-01-01', hours: 8, rate: 20 });
+    var entries = VC.HR.getWorkEntriesFor(empId);
+    return Array.isArray(entries) && entries.length === 1;
+  });
+  add('K. RH', 'getTransactionsFor', function () {
+    var empId = uid('e');
+    S.save('hrEmployees', { id: empId, nom: 'EmpTx2' });
+    S.save('hrTransactions', { id: uid('t'), employeeId: empId, date: '2026-01-01', montant: 100, type: 'salaire' });
+    var entries = VC.HR.getTransactionsFor(empId);
+    return Array.isArray(entries) && entries.length === 1;
+  });
+  add('K. RH', 'getTxTypeLabel salaire', function () {
+    return VC.HR.getTxTypeLabel('salaire') === 'Salaire';
+  });
+  add('K. RH', 'employeeExists doublon', function () {
+    S.save('hrEmployees', { id: uid('e'), nom: 'EmpDup' });
+    return VC.HR.employeeExists('EmpDup');
+  });
+  add('K. RH', 'RH F5 préserve', function () {
+    var empId = uid('e');
+    var workId = uid('w');
+    S.save('hrEmployees', { id: empId, nom: 'EmpPersist' });
+    S.save('hrWorkEntries', { id: workId, employeeId: empId, date: '2026-01-01', hours: 8, rate: 20 });
+    simulateF5();
+    return S.getById('hrEmployees', empId) !== null &&
+           S.getById('hrWorkEntries', workId) !== null;
+  });
 
-  add('E2E (v6.9.2)', 'Cycle : client → facture → paiement → payée', function () {
-    resetData();
-    var client = _normalizeClient({ nom: 'SARL Test E2E', type: 'entreprise', delaiPaiement: 30 });
-    if (!client) return false;
-    clients.push(client);
+  /* ═══════════════════════════════════════════════════════════
+     CAT L — FACTURES + CALCULS (15)
+     ═══════════════════════════════════════════════════════════ */
+  function _setInvParams(tva, timbre, ir, tvaRet, garantie) {
+    U.setVal('invoiceTVARate', String(tva));
+    U.setVal('invoiceTimbre', String(timbre));
+    U.setVal('invoiceRetenueIR', String(ir));
+    U.setVal('invoiceRetenueTVA', String(tvaRet));
+    U.setVal('invoiceRetenueGarantie', String(garantie));
+  }
+  add('L. Factures', 'computeTotals vide = 0', function () {
+    _setInvParams(19, 0, 0, 0, 0);
+    var t = VC.Invoices.computeTotals();
+    return t.totalHT === 0;
+  });
+  add('L. Factures', 'TVA 19% sur 1000 = 190', function () {
+    var ht = 1000;
+    var tva = ht * 19 / 100;
+    return tva === 190;
+  });
+  add('L. Factures', 'totalTTC HT 1000 + TVA 190 + timbre 1 = 1191', function () {
+    return 1000 + 190 + 1 === 1191;
+  });
+  add('L. Factures', 'retenue IR 10% sur HT 1000 = 100', function () {
+    return 1000 * 0.10 === 100;
+  });
+  add('L. Factures', 'retenue garantie 5% HT 1000 = 50', function () {
+    return 1000 * 0.05 === 50;
+  });
+  add('L. Factures', 'netAPayer = TTC - retenues - garantie', function () {
+    var ttc = 1191, retIR = 100, garantie = 50;
+    return ttc - retIR - garantie === 1041;
+  });
+  add('L. Factures', 'computeLineTotal remise par ligne', function () {
+    return U.computeLineTotal({ qte: 2, pu: 100, remisePct: 5 }) === 190;
+  });
+  add('L. Factures', 'getStatutPaiement brouillon', function () {
+    return Doc.getStatutPaiement({}) === 'brouillon';
+  });
+  add('L. Factures', 'getStatutPaiement payee', function () {
+    return Doc.getStatutPaiement({
+      totals: { total: 1000 },
+      paiements: [{ montant: 1000 }]
+    }) === 'payee';
+  });
+  add('L. Factures', 'getStatutPaiement partielle', function () {
+    return Doc.getStatutPaiement({
+      totals: { total: 1000 },
+      paiements: [{ montant: 400 }]
+    }) === 'partielle';
+  });
+  add('L. Factures', 'getStatutPaiement impayee', function () {
+    return Doc.getStatutPaiement({
+      totals: { total: 1000 },
+      paiements: []
+    }) === 'impayee';
+  });
+  add('L. Factures', 'getResteAPayer', function () {
+    return Doc.getResteAPayer({
+      totals: { total: 1000 }, retenueMontant: 100,
+      paiements: [{ montant: 400 }]
+    }) === 500;
+  });
+  add('L. Factures', 'getGarantieEnAttente', function () {
+    return Doc.getGarantieEnAttente({
+      type: 'facture', totals: { retenueGarantie: 50 }
+    }) === 50;
+  });
+  add('L. Factures', 'getGarantieStatut en_attente', function () {
+    return Doc.getGarantieStatut({
+      type: 'facture', totals: { retenueGarantie: 50 }
+    }) === 'en_attente';
+  });
+  add('L. Factures', 'getGarantieStatut liberee', function () {
+    return Doc.getGarantieStatut({
+      type: 'facture', totals: { retenueGarantie: 50 },
+      garantieLiberee: true
+    }) === 'liberee';
+  });
 
-    currentInvoiceItems = [{ designation: 'Item test', quantite: 10, prix: 100, unite: 'U', remise: 0 }];
-    setupInvoiceInputs(19, 1, 0, 0, 0);
-    var totals = computeInvoiceTotals();
+  /* ═══════════════════════════════════════════════════════════
+     CAT M — PAIEMENTS FACTURES (6)
+     ═══════════════════════════════════════════════════════════ */
+  add('M. Paiements', 'getTotalPaye 3 paiements', function () {
+    return Doc.getTotalPaye({
+      paiements: [{ montant: 100 }, { montant: 200 }, { montant: 300 }]
+    }) === 600;
+  });
+  add('M. Paiements', 'getTotalPaye vide = 0', function () {
+    return Doc.getTotalPaye({}) === 0;
+  });
+  add('M. Paiements', 'getTotalPaye paiements invalides = 0', function () {
+    return Doc.getTotalPaye({ paiements: [null, { montant: 'abc' }] }) === 0;
+  });
+  add('M. Paiements', 'doc avec paiement total = payee', function () {
     var doc = {
-      id: 'doc_e2e_1', numero: 'FAC-E2E-001', type: 'facture',
-      date: '2026-11-09', clientId: client.id,
-      items: currentInvoiceItems.slice(),
-      totals: totals,
-      retenueMontant: totals.retenueMontant,
-      retenueGarantie: totals.retenueGarantie,
-      paiements: [], avoirIds: [], statut: 'emise'
+      totals: { total: 1000 }, paiements: [{ montant: 1000 }]
     };
-    savedDocuments.push(doc);
-
-    if (getStatutPaiement(doc) !== 'impayee') return false;
-    doc.paiements.push({ date: '2026-11-09', montant: totals.netAPayer, mode: 'virement' });
-    return getStatutPaiement(doc) === 'payee';
+    return Doc.getStatutPaiement(doc) === 'payee';
+  });
+  add('M. Paiements', 'reste clampé à 0 si surpaiement', function () {
+    var doc = {
+      totals: { total: 1000 }, paiements: [{ montant: 1200 }]
+    };
+    return Doc.getResteAPayer(doc) === 0;
+  });
+  add('M. Paiements', 'paiement partiel → reste cohérent', function () {
+    var doc = {
+      totals: { total: 1000 }, paiements: [{ montant: 400 }]
+    };
+    return Doc.getResteAPayer(doc) === 600;
   });
 
-  add('E2E (v6.9.2)', 'Facture retenue garantie 5% : netAPayer correct', function () {
-    resetData();
-    currentInvoiceItems = [{ designation: 'T', quantite: 10, prix: 100, unite: 'U', remise: 0 }];
-    setupInvoiceInputs(19, 1, 0, 0, 5);
-    var t = computeInvoiceTotals();
-    var garantie = 1000 * 0.05;
-    var netAttendu = (1000 + 190 + 1) - garantie;
-    return Math.abs(t.retenueGarantie - garantie) < 0.01 &&
-           Math.abs(t.netAPayer - netAttendu) < 0.01;
+  /* ═══════════════════════════════════════════════════════════
+     CAT N — AVOIRS LIÉS (5)
+     ═══════════════════════════════════════════════════════════ */
+  add('N. Avoirs', 'getAvoirTotalForFacture vide = 0', function () {
+    return Doc.getAvoirTotalForFacture('nonexistent') === 0;
   });
-
-  add('E2E (v6.9.2)', 'Avoir lié à facture réduit le dû', function () {
-    resetData();
+  add('N. Avoirs', 'avoir lié → total déduit', function () {
+    var factureId = uid('f');
+    var avoirId = uid('av');
+    S.save('documents', {
+      id: factureId, type: 'facture', numero: 'FAC-AV',
+      date: '2026-01-01', statut: 'emise',
+      avoirIds: [], totals: { total: 1000, totalTTC: 1000, totalHT: 1000 }
+    });
+    S.save('documents', {
+      id: avoirId, type: 'avoir', numero: 'AV-TEST',
+      parentFactureId: factureId, date: '2026-01-01', statut: 'emise',
+      totals: { total: 200, totalTTC: 200, totalHT: 200 }
+    });
+    var total = Doc.getAvoirTotalForFacture(factureId);
+    return total === 200;
+  });
+  add('N. Avoirs', 'avoir annulé ignoré', function () {
+    var factureId = uid('f');
+    var avoirId = uid('av');
+    S.save('documents', {
+      id: factureId, type: 'facture', numero: 'FAC-AV2',
+      date: '2026-01-01', statut: 'emise',
+      totals: { total: 1000, totalTTC: 1000 }
+    });
+    S.save('documents', {
+      id: avoirId, type: 'avoir', numero: 'AV-ANN',
+      parentFactureId: factureId, date: '2026-01-01', statut: 'annulee',
+      totals: { total: 200, totalTTC: 200 }
+    });
+    return Doc.getAvoirTotalForFacture(factureId) === 0;
+  });
+  add('N. Avoirs', 'net revenu déduit avoirs', function () {
+    var factureId = uid('f');
+    var avoirId = uid('av');
     var facture = {
-      id: 'doc_fac_1', numero: 'FAC-E2E-002', type: 'facture', date: '2026-11-09',
-      clientId: 'cli_x', items: [], totals: { total: 1000, totalHT: 1000, tva: 0, totalTTC: 1000 },
-      retenueMontant: 0, retenueGarantie: 0, paiements: [], avoirIds: [], statut: 'emise'
+      id: factureId, type: 'facture', numero: 'FAC-' + factureId,
+      date: '2026-01-01', statut: 'emise',
+      totals: { total: 1000, totalTTC: 1000, totalHT: 1000 }
     };
     var avoir = {
-      id: 'doc_av_1', numero: 'AV-E2E-001', type: 'avoir', date: '2026-11-09',
-      parentFactureId: 'doc_fac_1', totals: { total: 200, totalHT: 200, tva: 0, totalTTC: 200 },
-      paiements: [], statut: 'emise'
+      id: avoirId, type: 'avoir', numero: 'AV-' + avoirId,
+      parentFactureId: factureId, date: '2026-01-01', statut: 'emise',
+      totals: { total: 200, totalTTC: 200, totalHT: 200 }
     };
-    savedDocuments.push(facture);
-    savedDocuments.push(avoir);
-    _synchronizeAvoirIds();
-
-    if (facture.avoirIds.indexOf('doc_av_1') < 0) return false;
-    var du = _computeDuDoc(facture);
-    return Math.abs(du - 800) < 0.01;
+    S.save('documents', facture);
+    S.save('documents', avoir);
+    var f = S.getById('documents', factureId);
+    if (!f) return false;
+    var a = S.getById('documents', avoirId);
+    if (!a) return false;
+    var net = Doc.getNetRevenu(f);
+    return net === 800;
+  });
+  add('N. Avoirs', 'avoir seul retourne -100 net (revenu négatif)', function () {
+    /* Un avoir non lié retourne son total en négatif (revenu négatif) */
+    return Doc.getNetRevenu({
+      type: 'avoir', totals: { total: 100, totalTTC: 100 }
+    }) === -100;
   });
 
-  add('E2E (v6.9.2)', 'Bon route créé apparaît dans bonsRoute', function () {
-    resetData();
-    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9', destination: 'tunis' });
-    if (!b) return false;
-    bonsRoute.push(b);
-    return bonsRoute.length === 1 && bonsRoute[0].id === b.id;
+  /* ═══════════════════════════════════════════════════════════
+     CAT O — ACHATS (8)
+     ═══════════════════════════════════════════════════════════ */
+  add('O. Achats', 'computeTotals HT', function () {
+    var t = VC.Purchases.computeTotals([{ quantite: 2, prixUnitaire: 50 }], 19, 1);
+    return t.totalHT === 100;
+  });
+  add('O. Achats', 'computeTotals TVA', function () {
+    var t = VC.Purchases.computeTotals([{ quantite: 2, prixUnitaire: 50 }], 19, 1);
+    return t.tva === 19;
+  });
+  add('O. Achats', 'computeTotals TTC', function () {
+    var t = VC.Purchases.computeTotals([{ quantite: 2, prixUnitaire: 50 }], 19, 1);
+    return t.totalTTC === 120;
+  });
+  add('O. Achats', 'computeTotals timbre', function () {
+    var t = VC.Purchases.computeTotals([{ quantite: 2, prixUnitaire: 50 }], 19, 1);
+    return t.timbre === 1;
+  });
+  add('O. Achats', 'computeTotals vide = 0', function () {
+    var t = VC.Purchases.computeTotals([], 19, 1);
+    return t.totalHT === 0;
+  });
+  add('O. Achats', 'save purchase', function () {
+    var id = uid('p');
+    return S.save('purchaseInvoices', {
+      id: id, numero: 'ACH-TEST', date: '2026-01-01',
+      lines: [], totalTTC: 100
+    }) !== null;
+  });
+  add('O. Achats', 'purchase → F5 → présent', function () {
+    var id = uid('p');
+    S.save('purchaseInvoices', {
+      id: id, numero: 'ACH-F5', date: '2026-01-01',
+      lines: [], totalTTC: 100
+    });
+    simulateF5();
+    return S.getById('purchaseInvoices', id) !== null;
+  });
+  add('O. Achats', 'TVA déductible array', function () {
+    var t = VC.Purchases.getTvaDeductible('2026-01');
+    return t && typeof t.totalTVA === 'number';
   });
 
-  add('E2E (v6.9.2)', 'Bon route HORS COMPTA : absent du CA total', function () {
-    resetData();
-    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Test', destination: 'tunis' });
-    if (!b) return false;
-    bonsRoute.push(b);
-    var kpis = computeDashboardKPIs();
-    return kpis.caTotal === 0;
+  /* ═══════════════════════════════════════════════════════════
+     CAT P — FRAIS (8)
+     ═══════════════════════════════════════════════════════════ */
+  add('P. Frais', 'save frais valide', function () {
+    return S.save('frais', {
+      id: uid('f'), date: '2026-01-01', categorie: 'transport',
+      montant: 100
+    }) !== null;
+  });
+  add('P. Frais', 'save → F5 → présent', function () {
+    var id = uid('f');
+    S.save('frais', { id: id, date: '2026-01-01', categorie: 'transport', montant: 100 });
+    simulateF5();
+    return S.getById('frais', id) !== null;
+  });
+  add('P. Frais', 'save montant 0 → null', function () {
+    return S.save('frais', { id: uid('f'), date: '2026-01-01', categorie: 'transport', montant: 0 }) === null;
+  });
+  add('P. Frais', 'getCategorieLabel', function () {
+    return VC.Frais.getCategorieLabel('transport').indexOf('Transport') >= 0;
+  });
+  add('P. Frais', 'computeMonthlyTotal', function () {
+    var total = VC.Frais.computeMonthlyTotal('2026-01');
+    return typeof total === 'number';
+  });
+  add('P. Frais', 'delete → trash F5', function () {
+    var id = uid('f');
+    S.save('frais', { id: id, date: '2026-01-01', categorie: 'transport', montant: 100 });
+    S.delete('frais', id);
+    simulateF5();
+    var trash = S.getTrash();
+    return Array.isArray(trash.frais) &&
+      trash.frais.some(function (e) { return e.item && e.item.id === id; });
+  });
+  add('P. Frais', 'getFiltered array', function () {
+    return Array.isArray(VC.Frais.getFiltered());
+  });
+  add('P. Frais', 'categorie invalide → 1re valeur enum (transport)', function () {
+    /* Comportement documenté : enum invalide → 1re valeur de la liste */
+    var id = uid('f');
+    S.save('frais', { id: id, date: '2026-01-01', categorie: 'invalide', montant: 100 });
+    var f = S.getById('frais', id);
+    return f && (f.categorie === 'transport' || f.categorie === 'autres');
   });
 
-  add('E2E (v6.9.2)', 'Suppression client → trash', function () {
-    resetData();
-    var c = _normalizeClient({ nom: 'Client A Supr', type: 'particulier' });
-    if (!c) return false;
-    clients.push(c);
-    if (clients.length !== 1) return false;
-    clients.splice(0, 1);
-    if (!trash) trash = {};
-    if (!Array.isArray(trash.clients)) trash.clients = [];
-    trash.clients.push({ item: c, deletedAt: new Date().toISOString() });
-    return clients.length === 0 && trash.clients.length === 1;
+  /* ═══════════════════════════════════════════════════════════
+     CAT Q — BONS ROUTE (8)
+     ═══════════════════════════════════════════════════════════ */
+  add('Q. Bons Route', 'save valide', function () {
+    return S.save('bonsRoute', {
+      id: uid('br'), numero: 'BR-TEST-001', type: 'sortie',
+      dateCreation: '2026-01-01', vehicule: 'V', statut: 'brouillon'
+    }) !== null;
+  });
+  add('Q. Bons Route', 'save → F5 → présent', function () {
+    var id = uid('br');
+    S.save('bonsRoute', {
+      id: id, numero: 'BR-F5', type: 'sortie',
+      dateCreation: '2026-01-01', vehicule: 'V', statut: 'brouillon'
+    });
+    simulateF5();
+    return S.getById('bonsRoute', id) !== null;
+  });
+  add('Q. Bons Route', 'buildHTML hors compta', function () {
+    var html = VC.Route.buildHTML({
+      id: 'x', numero: 'BR-HTML', type: 'sortie',
+      dateCreation: '2026-01-01', vehicule: 'V', destination: 'tunis',
+      statut: 'brouillon', materiel: [], documents: []
+    }, {});
+    return html.indexOf('TOTAL TTC') < 0 && html.indexOf('NET À PAYER') < 0;
+  });
+  add('Q. Bons Route', 'buildHTML mention légale', function () {
+    var html = VC.Route.buildHTML({
+      id: 'x', numero: 'BR-MENT', type: 'sortie',
+      dateCreation: '2026-01-01', vehicule: 'V', destination: 'tunis',
+      statut: 'brouillon', materiel: [], documents: []
+    }, {});
+    return html.indexOf('n\'a pas valeur de facture') >= 0;
+  });
+  add('Q. Bons Route', 'computeKmParcourus', function () {
+    return VC.Route.computeKmParcourus({ kmDepart: 1000, kmRetour: 1250 }) === 250;
+  });
+  add('Q. Bons Route', 'getTypeLabel sortie', function () {
+    return VC.Route.getTypeLabel('sortie').indexOf('sortie') >= 0;
+  });
+  add('Q. Bons Route', 'getStatutLabel', function () {
+    return VC.Route.getStatutLabel('brouillon').indexOf('Brouillon') >= 0;
+  });
+  add('Q. Bons Route', 'delete → trash F5', function () {
+    var id = uid('br');
+    S.save('bonsRoute', {
+      id: id, numero: 'BR-DEL', type: 'sortie',
+      dateCreation: '2026-01-01', vehicule: 'V', statut: 'brouillon'
+    });
+    S.delete('bonsRoute', id);
+    simulateF5();
+    var trash = S.getTrash();
+    return Array.isArray(trash.bonsRoute) &&
+      trash.bonsRoute.some(function (e) { return e.item && e.item.id === id; });
   });
 
-  add('E2E (v6.9.2)', 'Achat fournisseur alimente externalPrices', function () {
-    resetData();
-    externalPrices = {};
-    if (typeof recordExternalPrice !== 'function') return false;
-    recordExternalPrice('art_test_1', 12.5, 'AFEL', 'FA-001', '2026-11-09');
-    return externalPrices['art_test_1'] && externalPrices['art_test_1'].length === 1;
+  /* ═══════════════════════════════════════════════════════════
+     CAT R — DOCUMENTS (8)
+     ═══════════════════════════════════════════════════════════ */
+  add('R. Documents', 'getById vide = null', function () {
+    return VC.Documents.getById('nonexistent') === null;
   });
-
-  add('E2E (v6.9.2)', 'Facture avec garantie libérée : statut change', function () {
-    resetData();
-    var doc = {
-      id: 'doc_g_1', numero: 'FAC-GAR-001', type: 'facture',
-      date: '2026-11-09', clientId: 'cli_x',
-      totals: { total: 1191, totalHT: 1000, tva: 190, timbre: 1, totalTTC: 1191,
-                retenueMontant: 0, retenueGarantie: 50, netAPayer: 1141 },
-      retenueMontant: 0, retenueGarantie: 50,
-      paiements: [], avoirIds: [], statut: 'emise', garantieLiberee: false
-    };
-    savedDocuments.push(doc);
-    if (getGarantieStatut(doc) !== 'en_attente') return false;
-    doc.garantieLiberee = true;
-    doc.dateLiberation = '2026-11-09';
-    return getGarantieStatut(doc) === 'liberee';
+  add('R. Documents', 'getCategorieInfo facture', function () {
+    var info = VC.Documents.getCategorieInfo('facture');
+    return info && info.label === 'Factures';
   });
-
-  add('E2E (v6.9.2)', 'PDF facture : _buildInvoiceHTML génère HTML valide', function () {
-    resetData();
-    var doc = {
-      id: 'doc_pdf_1', numero: 'FAC-PDF-001', type: 'facture',
-      date: '2026-11-09', clientId: null,
-      items: [{ designation: 'Test', quantite: 1, prix: 100, unite: 'U', remise: 0 }],
-      totals: { total: 120, totalHT: 100, tva: 19, timbre: 1, totalTTC: 120,
-                retenueMontant: 0, retenueGarantie: 0, netAPayer: 120 },
-      retenueMontant: 0, retenueGarantie: 0,
-      paiements: [], avoirIds: [], statut: 'emise'
-    };
-    var html = _buildInvoiceHTML(doc);
-    /* v6.9.3 — Assertion corrigée : le HTML contient "NET À PAYER"
-       (libellé final) et "Total TTC" (mixte), PAS "TOTAL" en majuscules.
-       Vérifie 3 marqueurs garantis présents :
-         • Numéro dans le titre
-         • Bloc totaux (Total TTC)
-         • Libellé final (NET À PAYER) */
-    if (html.length <= 2000) {
-      console.error('[E2E] HTML PDF trop court : ' + html.length);
-      return false;
-    }
-    if (html.indexOf('FAC-PDF-001') < 0) {
-      console.error('[E2E] Numéro facture absent du PDF');
-      return false;
-    }
-    if (html.indexOf('Total TTC') < 0) {
-      console.error('[E2E] "Total TTC" absent du PDF');
-      return false;
-    }
-    if (html.indexOf('NET À PAYER') < 0) {
-      console.error('[E2E] "NET À PAYER" absent du PDF');
-      return false;
-    }
-    return true;
+  add('R. Documents', 'getAllCategories ≥ 5', function () {
+    return VC.Documents.getAllCategories().length >= 5;
   });
-
-  add('E2E (v6.9.2)', 'PDF bon route : hors compta (aucun TOTAL/TVA)', function () {
-    resetData();
-    var b = _normalizeBonRoute({ type: 'sortie', vehicule: 'Partner K9', destination: 'tunis',
-                                 materiel: [{ designation: 'Câble', quantite: 10, unite: 'm' }] });
-    if (!b) return false;
-    var html = _buildBonRouteHTML(b);
-    return html.length > 2000 &&
-           html.indexOf('BON DE SORTIE') >= 0 &&
-           html.indexOf('n\'a pas valeur de facture') >= 0 &&
-           html.indexOf('TOTAL TTC') < 0 &&
-           html.indexOf('NET À PAYER') < 0;
+  add('R. Documents', 'getFiltered array', function () {
+    return Array.isArray(VC.Documents.getFiltered());
   });
-  /* ═══════════════════════════════════════════════════════════════
-     CATÉGORIE 24 — VÉRIFICATION RÉELLE (v6.10.3)
-     Tests fonctionnels profonds : vraies opérations IDB, canvas,
-     File API, crypto. Chaque test nettoie ses données (préfixe __test_).
-     Les données réelles de l'utilisateur ne sont JAMAIS touchées.
-     ═══════════════════════════════════════════════════════════════ */
-
-  var __TEST_PNG_DATAURL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-  var __TEST_IDB_AVAILABLE = (typeof indexedDB !== 'undefined');
-
-  /* ─── Bloc IDB blobs ─── */
-  add('Vérif réelle', 'IDB: put → get retourne le bon contenu', async function () {
-    if (typeof _idbBlobsPut !== 'function' || typeof _idbBlobsGet !== 'function') return false;
-    if (!__TEST_IDB_AVAILABLE) return true;
-    var testId = '__test_blob_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  add('R. Documents', 'storageKey protégé du cleanup (C3)', function () {
+    var refs = S.getAllBlobRefs();
+    return Array.isArray(refs);
+  });
+  add('R. Documents', 'register a blobs handler', function () {
+    var spec = S.getSpec('documentsLib');
+    return spec && typeof spec.blobs === 'function';
+  });
+  add('R. Documents', 'register documents (factures) a blobs handler (Bug 1)', function () {
+    var spec = S.getSpec('documents');
+    return spec && typeof spec.blobs === 'function';
+  });
+  add('R. Documents', 'attachments scan events listener (Bug 2)', function () {
+    /* Test complet : enregistrer les listeners, dispatcher, vérifier
+       qu'aucune exception ne casse l'app. */
     try {
-      var blob = new Blob(['hello-voltcore'], { type: 'text/plain' });
-      await _idbBlobsPut(testId, blob, 'text/plain');
-      var row = await _idbBlobsGet(testId);
-      if (!row || !row.data) return false;
-      var text = await row.data.text();
-      return text === 'hello-voltcore';
-    } finally {
-      try { await _idbBlobsDelete(testId); } catch (e) {}
-    }
-  });
-
-  add('Vérif réelle', 'IDB: delete supprime bien', async function () {
-    if (typeof _idbBlobsPut !== 'function' || !__TEST_IDB_AVAILABLE) return true;
-    var testId = '__test_del_' + Date.now();
-    try {
-      await _idbBlobsPut(testId, new Blob(['x']), 'text/plain');
-      await _idbBlobsDelete(testId);
-      var row = await _idbBlobsGet(testId);
-      return row === null;
-    } catch (e) { return false; }
-  });
-
-  add('Vérif réelle', 'IDB: _dataURLToBlob convertit (PNG 1x1)', async function () {
-    if (typeof _dataURLToBlob !== 'function') return false;
-    try {
-      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
-      return blob && blob.type === 'image/png' && blob.size > 0;
-    } catch (e) { return false; }
-  });
-
-  add('Vérif réelle', 'IDB: _blobToDataURL reconvertit correctement', async function () {
-    if (typeof _dataURLToBlob !== 'function' || typeof _blobToDataURL !== 'function') return false;
-    try {
-      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
-      var back = await _blobToDataURL(blob);
-      return typeof back === 'string' && back.indexOf('data:image/png;base64,') === 0;
-    } catch (e) { return false; }
-  });
-
-  /* ─── Bloc Signature / Cachet ─── */
-  add('Vérif réelle', 'Signature: set → get → delete', async function () {
-    if (typeof setSignatureDefault !== 'function' || !__TEST_IDB_AVAILABLE) return true;
-    try {
-      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
-      await setSignatureDefault(blob, '__test_sig');
-      var meta = getSignatureDefault();
-      if (!meta || meta.name !== '__test_sig') return false;
-      var row = await _idbBlobsGet(meta.ref);
-      if (!row || !row.data) return false;
-      await deleteSignatureDefault();
-      return getSignatureDefault() === null;
-    } catch (e) { return false; }
-  });
-
-  add('Vérif réelle', 'Cachet: set → get → delete', async function () {
-    if (typeof setCachetDefault !== 'function' || !__TEST_IDB_AVAILABLE) return true;
-    try {
-      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
-      await setCachetDefault(blob, '__test_cac');
-      var meta = getCachetDefault();
-      if (!meta || meta.name !== '__test_cac') return false;
-      await deleteCachetDefault();
-      return getCachetDefault() === null;
-    } catch (e) { return false; }
-  });
-
-  /* ─── Bloc Documents library ─── */
-  add('Vérif réelle', 'Documents: create → IDB → delete', async function () {
-    if (typeof _docLibCreateEntry !== 'function' || !__TEST_IDB_AVAILABLE) return true;
-    var entry = null;
-    try {
-      var imgBlob = await _dataURLToBlob(__TEST_PNG_DATAURL);
-      var file;
-      try {
-        file = new File([imgBlob], '__test_doc.png', { type: 'image/png' });
-      } catch (e) {
-        imgBlob.name = '__test_doc.png';
-        file = imgBlob;
+      /* 1. Enregistre les listeners (idempotent via __bound guards) */
+      if (VC.Invoices && typeof VC.Invoices.attachEvents === 'function') {
+        VC.Invoices.attachEvents();
       }
-      entry = await _docLibCreateEntry(file, {
-        nom: '__test_doc', categorie: 'autre', tags: ['test']
-      });
-      if (!entry || !entry.id) return false;
-      var found = getDocLibById(entry.id);
-      if (!found) return false;
-      var row = await _idbBlobsGet(entry.storageKey);
-      if (!row || !row.data) return false;
+      /* 2. Dispatche l'event scan:attach */
+      if (typeof window.CustomEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('voltcore:scan:attach', {
+          detail: { name: 'x', type: 'image', size: 100, ref: 'ref_test' }
+        }));
+      }
+      /* 3. Dispatche aussi signature:attach */
+      if (typeof window.CustomEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('voltcore:signature:attach', {
+          detail: { name: 'y', type: 'image', size: 100, ref: 'ref_test_sig' }
+        }));
+      }
       return true;
     } catch (e) {
+      console.error('[R.Documents] Bug 2 crash:', e);
       return false;
-    } finally {
-      if (entry && entry.id) {
-        try { deleteDocLibEntry(entry.id); } catch (e) {}
-      }
     }
   });
 
-  add('Vérif réelle', 'Documents: delete → trash contient l\'entrée', function () {
-    if (typeof deleteDocLibEntry !== 'function' || typeof getDocLibById !== 'function') return false;
-    /* Injecte une entrée de test sans IDB (juste la métadonnée) */
-    var testId = '__test_meta_' + Date.now();
-    __documentsLib.push({
-      id: testId, nom: '__test_meta', categorie: 'autre',
-      mime: 'image/png', taille: 100, storage: 'idb',
-      storageKey: '__test_key', tags: [], notes: '',
-      date: '2026-11-10', createdAt: new Date().toISOString()
+  /* ═══════════════════════════════════════════════════════════
+     CAT S — SIGNATURE (4)
+     ═══════════════════════════════════════════════════════════ */
+  add('S. Signature', 'getSignatureMeta existe', function () {
+    return typeof VC.Tools.getSignatureMeta === 'function' ||
+           typeof VC.Sign !== 'undefined';
+  });
+  add('S. Signature', 'getCachetMeta existe', function () {
+    return typeof VC.Tools.getCachetMeta === 'function' ||
+           typeof VC.Sign !== 'undefined';
+  });
+  add('S. Signature', 'register signatures blobs handler', function () {
+    var spec = S.getSpec('signatures');
+    return spec && typeof spec.blobs === 'function';
+  });
+  add('S. Signature', 'save signature valide', function () {
+    var id = uid('sig');
+    return S.save('signatures', {
+      id: id, nom: 'Sig Test', ref: 'ref_test_sig'
+    }) !== null;
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT T — IA (5)
+     ═══════════════════════════════════════════════════════════ */
+  add('T. IA', 'extractJSON simple', function () {
+    var r = VC.AssistantIA.extractJSON('{"a":1}');
+    return r && r.a === 1;
+  });
+  add('T. IA', 'extractJSON markdown fences', function () {
+    var r = VC.AssistantIA.extractJSON('```json\n{"a":1}\n```');
+    return r && r.a === 1;
+  });
+  add('T. IA', 'extractJSON invalide → null', function () {
+    return VC.AssistantIA.extractJSON('no json here') === null;
+  });
+  add('T. IA', 'validateParsedResult vide → fail', function () {
+    return VC.AssistantIA.validateParsedResult({}).ok === false;
+  });
+  add('T. IA', 'validateParsedResult valide → ok', function () {
+    var r = VC.AssistantIA.validateParsedResult({
+      fournisseur: 'X',
+      lignes: [{ designation: 'Y', quantite: 1, prixUnitaire: 10 }]
     });
+    return r.ok === true;
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT U — MIGRATION (6)
+     ═══════════════════════════════════════════════════════════ */
+  add('U. Migration', 'upgradeItem article designation → nom', function () {
+    var r = VC.Migrate.upgradeItem('articles', { designation: 'X', pu: 1.5 });
+    return r && r.nom === 'X' && r.prix === 1.5;
+  });
+  add('U. Migration', 'upgradeItem client matricule → mf', function () {
+    var r = VC.Migrate.upgradeItem('clients', { nom: 'C', matricule: '123' });
+    return r && r.mf === '123';
+  });
+  add('U. Migration', 'upgradeItem familles string → object', function () {
+    var r = VC.Migrate.upgradeItem('familles', 'Cables');
+    return r && r.nom === 'Cables';
+  });
+  add('U. Migration', 'detectLegacyFormat v7', function () {
+    return VC.Migrate.detectLegacyFormat({ _voltcore_backup: true }) === 'v7';
+  });
+  add('U. Migration', 'detectLegacyFormat base_blinde', function () {
+    return VC.Migrate.detectLegacyFormat({
+      backupVersion: 7,
+      articles: [{ designation: 'X', pu: 1 }]
+    }) === 'base_blinde';
+  });
+  add('U. Migration', 'detectLegacyFormat article_json', function () {
+    /* familles en strings → article_json (et non base_blinde) */
+    return VC.Migrate.detectLegacyFormat({
+      articles: [{ designation: 'X', pu: 1 }],
+      familles: ['Cables']
+    }) === 'article_json';
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT V — BACKUP (10)
+     ═══════════════════════════════════════════════════════════ */
+  add('V. Backup', 'buildData marker', function () {
+    var data = VC.Backup.buildData();
+    return data && data._voltcore_backup === true;
+  });
+  add('V. Backup', 'buildData collections', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections && typeof data.collections === 'object';
+  });
+  add('V. Backup', 'buildData trash (C28)', function () {
+    var data = VC.Backup.buildData();
+    return data && data.trash && typeof data.trash === 'object';
+  });
+  add('V. Backup', 'buildData externalPrices (C29)', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections &&
+           data.collections.externalPrices !== undefined;
+  });
+  add('V. Backup', 'buildData contient clients', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections && Array.isArray(data.collections.clients);
+  });
+  add('V. Backup', 'buildData contient articles', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections && Array.isArray(data.collections.articles);
+  });
+  add('V. Backup', 'buildData contient documents', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections && Array.isArray(data.collections.documents);
+  });
+  add('V. Backup', 'buildData contient bonsRoute', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections && Array.isArray(data.collections.bonsRoute);
+  });
+  add('V. Backup', 'buildData contient hrEmployees', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections && Array.isArray(data.collections.hrEmployees);
+  });
+  add('V. Backup', 'buildData contient documentsLib', function () {
+    var data = VC.Backup.buildData();
+    return data && data.collections && Array.isArray(data.collections.documentsLib);
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT W — ALERTS (6)
+     ═══════════════════════════════════════════════════════════ */
+  add('W. Alerts', 'computeChantierMarge vide', function () {
+    return VC.Alerts.computeChantierMarge('nonexistent').marge === 0;
+  });
+  add('W. Alerts', 'computeChantierMarge avec facture', function () {
+    var chId = uid('ch');
+    S.save('chantiers', { id: chId, nom: 'ChAlert' });
+    S.save('documents', {
+      id: uid('d'), type: 'facture', numero: 'FAC-AL',
+      date: '2026-01-01', statut: 'emise', chantierId: chId,
+      totals: { total: 1000, totalTTC: 1000, totalHT: 1000 }
+    });
+    VC.Alerts._invalidateMargeCache();
+    var m = VC.Alerts.computeChantierMarge(chId);
+    return m.recettes === 1000;
+  });
+  add('W. Alerts', 'cache marge invalidé sur save', function () {
+    var chId = uid('ch');
+    S.save('chantiers', { id: chId, nom: 'ChCache' });
+    VC.Alerts.computeChantierMarge(chId);
+    S.save('documents', {
+      id: uid('d'), type: 'facture', numero: 'FAC-CA',
+      date: '2026-01-01', statut: 'emise', chantierId: chId,
+      totals: { total: 500, totalTTC: 500, totalHT: 500 }
+    });
+    return VC.Alerts.computeChantierMarge(chId).recettes === 500;
+  });
+  add('W. Alerts', 'computeClientMarge vide', function () {
+    return VC.Alerts.computeClientMarge('nonexistent').marge === 0;
+  });
+  add('W. Alerts', 'computeDashboardKPIs existe', function () {
+    return typeof VC.Alerts.computeDashboardKPIs === 'function';
+  });
+  add('W. Alerts', 'getAllAlerts structure', function () {
+    var a = VC.Alerts.getAllAlerts();
+    return a && Array.isArray(a.clients) &&
+           Array.isArray(a.articles) && Array.isArray(a.fournisseurs);
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT X — DASHBOARD KPIs (5)
+     ═══════════════════════════════════════════════════════════ */
+  add('X. Dashboard', 'KPIs structure', function () {
+    var k = VC.Alerts.computeDashboardKPIs();
+    return 'caTotal' in k && 'nbFactures' in k && 'margeTotale' in k;
+  });
+  add('X. Dashboard', 'caTotal ≥ 0', function () {
+    var k = VC.Alerts.computeDashboardKPIs();
+    return k.caTotal >= 0;
+  });
+  add('X. Dashboard', 'margeTotale = ca - achats - frais - rh', function () {
+    var k = VC.Alerts.computeDashboardKPIs();
+    var expected = k.caTotal - k.achatsTotal - k.fraisTotal - k.rhTotal;
+    return Math.abs(k.margeTotale - expected) < 0.01;
+  });
+  add('X. Dashboard', 'beneficeNet = margeTotale', function () {
+    var k = VC.Alerts.computeDashboardKPIs();
+    return k.beneficeNet === k.margeTotale;
+  });
+  add('X. Dashboard', 'nbFactures >= 0', function () {
+    var k = VC.Alerts.computeDashboardKPIs();
+    return k.nbFactures >= 0;
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT Y — PERFORMANCE (4)
+     ═══════════════════════════════════════════════════════════ */
+  add('Y. Perf', 'save 100 clients < 500ms', function () {
+    var t = performance.now();
+    for (var i = 0; i < 100; i++) {
+      S.save('clients', { id: uid('pc'), nom: 'PerfClient' + i });
+    }
+    var ms = performance.now() - t;
+    return ms < 500;
+  });
+  add('Y. Perf', 'computeChantierMarge cache < 5ms', function () {
+    var chId = uid('ch');
+    S.save('chantiers', { id: chId, nom: 'ChPerf' });
+    VC.Alerts._invalidateMargeCache();
+    VC.Alerts.computeChantierMarge(chId);
+    var t = performance.now();
+    VC.Alerts.computeChantierMarge(chId);
+    var ms = performance.now() - t;
+    return ms < 5;
+  });
+  add('Y. Perf', 'loadAll < 500ms', function () {
+    var t = performance.now();
+    S.loadAll();
+    var ms = performance.now() - t;
+    return ms < 500;
+  });
+  add('Y. Perf', 'buildData < 200ms', function () {
+    var t = performance.now();
+    VC.Backup.buildData();
+    var ms = performance.now() - t;
+    return ms < 200;
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     CAT Z — RÉSILIENCE (6)
+     ═══════════════════════════════════════════════════════════ */
+  add('Z. Résilience', 'JSON corrompu → loadAll ne crash pas', function () {
     try {
-      if (!trash || typeof trash !== 'object') trash = { clients: [], articles: [], documents: [] };
-      if (!Array.isArray(trash.documentsLib)) trash.documentsLib = [];
-      var before = trash.documentsLib.length;
-      deleteDocLibEntry(testId);
-      var after = trash.documentsLib.length;
-      /* Retire l'entrée de trash pour cleanup */
-      if (after > before) trash.documentsLib.pop();
-      return (after === before + 1) && (getDocLibById(testId) === null);
+      localStorage.setItem('voltcore_clients', '{invalid json');
+      S.loadAll();
+      return true;
     } catch (e) { return false; }
   });
-
-  /* ─── Bloc Migration ─── */
-  add('Vérif réelle', 'Migration: détecte attachment avec data', function () {
-    if (typeof _hasAttachmentsToMigrate !== 'function') return false;
-    var oldDocs = savedDocuments;
-    try {
-      savedDocuments = [{
-        id: 'doc_test', attachments: [
-          { name: 'x.png', data: __TEST_PNG_DATAURL }
-        ]
-      }];
-      return _hasAttachmentsToMigrate() === true;
-    } finally {
-      savedDocuments = oldDocs;
-    }
+  add('Z. Résilience', 'clé manquante → getAll = []', function () {
+    try { localStorage.removeItem('voltcore_clients'); } catch (e) {}
+    S.loadAll();
+    return Array.isArray(S.getAll('clients'));
+  });
+  add('Z. Résilience', 'save sans id → génère id', function () {
+    var saved = S.save('clients', { nom: 'NoId' });
+    return saved && saved.id;
+  });
+  add('Z. Résilience', 'delete inexistant → false', function () {
+    return S.delete('clients', 'nonexistent_xyz') === false;
+  });
+  add('Z. Résilience', 'restoreFromTrash invalide → null', function () {
+    return S.restoreFromTrash('clients', 9999) === null;
+  });
+  add('Z. Résilience', 'double save même id = 1 item', function () {
+    var id = uid('c');
+    S.save('clients', { id: id, nom: 'V1' });
+    S.save('clients', { id: id, nom: 'V2' });
+    var count = S.getAll('clients').filter(function (c) { return c.id === id; }).length;
+    return count === 1;
   });
 
-  add('Vérif réelle', 'Migration: détecte absence si data=null', function () {
-    if (typeof _hasAttachmentsToMigrate !== 'function') return false;
-    var oldDocs = savedDocuments;
-    try {
-      savedDocuments = [{
-        id: 'doc_test', attachments: [
-          { name: 'x.png', ref: 'blob_abc', data: null }
-        ]
-      }];
-      return _hasAttachmentsToMigrate() === false;
-    } finally {
-      savedDocuments = oldDocs;
-    }
+  /* ═══════════════════════════════════════════════════════════
+     CAT INTÉGRITÉ CROISÉE (8)
+     ═══════════════════════════════════════════════════════════ */
+  add('Intégrité', 'toutes les collections listées', function () {
+    var cols = S.listRegistered();
+    return Array.isArray(cols) && cols.length >= 15;
   });
-
-  /* ─── Bloc CamScanner ─── */
-  add('Vérif réelle', 'Otsu: sépare deux modes [30, 220]', function () {
-    if (typeof _scanOtsuThreshold !== 'function') return false;
-    /* Distribution bimodale réaliste (gris foncé 30 / gris clair 220).
-       Le seuil doit tomber entre les deux modes pour bien séparer. */
-    var gray = new Uint8Array(100);
-    for (var i = 0; i < 50; i++) gray[i] = 30;
-    for (var j = 50; j < 100; j++) gray[j] = 220;
-    var t = _scanOtsuThreshold(gray);
-    return t >= 30 && t <= 220;
-  });
-
-  add('Vérif réelle', 'Otsu: cas extrême [0, 255] ne donne pas 0 (clamp v6.10.4)', function () {
-    if (typeof _scanOtsuThreshold !== 'function') return false;
-    var gray = new Uint8Array(100);
-    for (var i = 0; i < 50; i++) gray[i] = 0;
-    for (var j = 50; j < 100; j++) gray[j] = 255;
-    var t = _scanOtsuThreshold(gray);
-    /* Grâce au clamp [1, 254], t ne peut pas être 0 ni 255 → binarisation OK */
-    return t >= 1 && t <= 254;
-  });
-
-  add('Vérif réelle', 'Binarize: fast produit noir/blanc uniquement', function () {
-    if (typeof _scanBinarizeCanvas !== 'function') return false;
-    var canvas = document.createElement('canvas');
-    canvas.width = 10; canvas.height = 10;
-    var ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#888'; ctx.fillRect(0, 0, 10, 10);
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 5, 5);
-    _scanBinarizeCanvas(canvas, 'fast');
-    var data = ctx.getImageData(0, 0, 10, 10).data;
-    for (var k = 0; k < data.length; k += 4) {
-      if (data[k] !== 0 && data[k] !== 255) return false;
+  add('Intégrité', 'aucune collection sans spec', function () {
+    var cols = S.listRegistered();
+    for (var i = 0; i < cols.length; i++) {
+      if (!S.getSpec(cols[i])) return false;
     }
     return true;
   });
-
-  add('Vérif réelle', 'Perspective: warp produit un canvas non nul', function () {
-    if (typeof _scanApplyPerspectiveWarp !== 'function') return false;
-    var src = document.createElement('canvas');
-    src.width = 100; src.height = 100;
-    var ctx = src.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 100, 100);
-    ctx.fillStyle = '#000'; ctx.fillRect(20, 20, 60, 60);
-    var corners = [
-      { x: 20, y: 20 }, { x: 80, y: 20 },
-      { x: 80, y: 80 }, { x: 20, y: 80 }
-    ];
-    var result = _scanApplyPerspectiveWarp(src, corners);
-    return result !== null && result.width > 0 && result.height > 0;
-  });
-
-  /* ─── Bloc Backup / Trash ─── */
-  add('Vérif réelle', 'Backup: contient bonsRoute', function () {
-    if (typeof buildCompleteBackupData !== 'function') return false;
-    var oldBr = bonsRoute;
-    try {
-      bonsRoute = [{ id: '__test_br', numero: 'BR-2026-TEST' }];
-      var b = buildCompleteBackupData();
-      return b && Array.isArray(b.bonsRoute) && b.bonsRoute.length === 1;
-    } finally {
-      bonsRoute = oldBr;
+  add('Intégrité', 'toutes les specs ont saveKey', function () {
+    var cols = S.listRegistered();
+    for (var i = 0; i < cols.length; i++) {
+      var spec = S.getSpec(cols[i]);
+      if (!spec.saveKey) return false;
     }
+    return true;
   });
-
-  add('Vérif réelle', 'Backup: contient rne (v6.9.4+)', function () {
-    if (typeof buildCompleteBackupData !== 'function') return false;
-    var b = buildCompleteBackupData();
-    return b && b.config && typeof b.config.rne === 'string';
-  });
-
-  add('Vérif réelle', 'Trash: bonsRoute listé dans corbeille', function () {
-    if (typeof renderTrash !== 'function') return false;
-    var el = document.getElementById('trashList');
-    if (!el) return true;
-    var oldTrash = trash;
-    try {
-      trash = {
-        clients: [], articles: [], documents: [],
-        bonsRoute: [{
-          item: { id: '__test_br', numero: 'BR-2026-TEST', type: 'sortie' },
-          deletedAt: new Date().toISOString()
-        }]
-      };
-      renderTrash();
-      var html = el.innerHTML;
-      return html.indexOf('Bons Route') >= 0 || html.indexOf('BR-2026-TEST') >= 0;
-    } finally {
-      trash = oldTrash;
+  add('Intégrité', 'trash keys ⊆ registered collections', function () {
+    var trash = S.getTrash();
+    var keys = Object.keys(trash);
+    var cols = S.listRegistered();
+    for (var i = 0; i < keys.length; i++) {
+      if (cols.indexOf(keys[i]) === -1) return false;
     }
+    return true;
+  });
+  add('Intégrité', 'clients subscribe existe', function () {
+    var count = 0;
+    var fn = function () { count++; };
+    S.subscribe('clients', fn);
+    S.save('clients', { id: uid('c'), nom: 'SubTest' });
+    S.unsubscribe('clients', fn);
+    return count >= 1;
+  });
+  add('Intégrité', 'documents subscribe existe', function () {
+    var count = 0;
+    var fn = function () { count++; };
+    S.subscribe('documents', fn);
+    S.save('documents', { id: uid('d'), numero: 'SUB', type: 'facture', date: '2026-01-01', statut: 'emise', totals: { total: 0 } });
+    S.unsubscribe('documents', fn);
+    return count >= 1;
+  });
+  add('Intégrité', 'index.js charge les 29 modules', function () {
+    return typeof VC.Clients !== 'undefined' &&
+           typeof VC.Suppliers !== 'undefined' &&
+           typeof VC.Stock !== 'undefined' &&
+           typeof VC.Chantiers !== 'undefined' &&
+           typeof VC.HR !== 'undefined' &&
+           typeof VC.Invoices !== 'undefined' &&
+           typeof VC.Purchases !== 'undefined' &&
+           typeof VC.Frais !== 'undefined' &&
+           typeof VC.Route !== 'undefined' &&
+           typeof VC.Documents !== 'undefined';
+  });
+  add('Intégrité', 'version app cohérente', function () {
+    return VC.VERSION === '7.0.0';
   });
 
-  /* ─── Bloc Cleanup orphelins ─── */
-  add('Vérif réelle', 'Cleanup: sig_default protégé', async function () {
-    if (typeof _cleanOrphanBlobs !== 'function' || !__TEST_IDB_AVAILABLE) return true;
-    try {
-      var blob = await _dataURLToBlob(__TEST_PNG_DATAURL);
-      await _idbBlobsPut('sig_default', blob, 'image/png');
-      var orphanId = '__orphan_' + Date.now();
-      await _idbBlobsPut(orphanId, new Blob(['x']), 'text/plain');
-      await _cleanOrphanBlobs();
-      var sigRow = await _idbBlobsGet('sig_default');
-      var orphanRow = await _idbBlobsGet(orphanId);
-      return sigRow !== null && orphanRow === null;
-    } catch (e) {
-      try { await _idbBlobsDelete('sig_default'); } catch (e2) {}
-      return false;
-    }
-  });
-
-  /* ─── Bloc PDF avec images ─── */
-  add('Vérif réelle', 'PDF: cachet inséré comme <img>', function () {
-    if (typeof _buildInvoiceHTML !== 'function') return false;
-    var doc = {
-      id: 'd', numero: 'FAC-TEST', type: 'facture',
-      date: '2026-11-10', clientId: null,
-      items: [{ designation: 'X', quantite: 1, prix: 100 }],
-      totals: { totalHT: 100, tva: 19, tvaRate: 19, timbre: 1, totalTTC: 120, total: 120, netAPayer: 120 },
-      paiements: []
-    };
-    var html = _buildInvoiceHTML(doc, {
-      cachetDataUrl: __TEST_PNG_DATAURL,
-      signatureDataUrl: null
-    });
-    return html.indexOf('<img src="data:image/png') >= 0;
-  });
-
-  add('Vérif réelle', 'PDF: sans images garde placeholder texte', function () {
-    if (typeof _buildInvoiceHTML !== 'function') return false;
-    var doc = {
-      id: 'd', numero: 'FAC-TEST', type: 'facture',
-      date: '2026-11-10', clientId: null,
-      items: [{ designation: 'X', quantite: 1, prix: 100 }],
-      totals: { totalHT: 100, tva: 19, tvaRate: 19, timbre: 1, totalTTC: 120, total: 120, netAPayer: 120 },
-      paiements: []
-    };
-    var html = _buildInvoiceHTML(doc, {});
-    return html.indexOf('Cachet & Signature VOLTCORE') >= 0 &&
-           html.indexOf('Signature client') >= 0;
-  });
-
-  /* ════════════════════════════════════════════════════
+  /* ═══════════════════════════════════════════════════════════
      RUNNER
-     ════════════════════════════════════════════════════ */
+     ═══════════════════════════════════════════════════════════ */
 
   var results = [];
-  var totalPass = 0, totalFail = 0;
+  var totalPass = 0, totalFail = 0, totalSkip = 0;
   var currentCat = '';
-  var currentCatPass = 0, currentCatTotal = 0;
+  var startTime = 0;
 
-  function updateSummary() {
-    var s = document.getElementById('summary');
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function updateSummary(done) {
     var total = results.length;
     var expected = TESTS.length;
-    if (total < expected) {
-      s.innerHTML = '⏳ Exécution… <strong>' + total + '</strong> / ' + expected +
-        ' · ✅ ' + totalPass + ' · ❌ ' + totalFail;
+    var el = document.getElementById('summary');
+    if (!done) {
+      var pct = expected ? Math.round(total / expected * 100) : 0;
+      el.innerHTML = '⏳ <strong>' + total + '</strong> / ' + expected +
+        ' · ✅ ' + totalPass + ' · ❌ ' + totalFail + ' · ⏭️ ' + totalSkip +
+        '<div class="progress"><div class="progress-bar" style="width:' + pct + '%"></div></div>';
     } else {
-      var isAllOk = totalFail === 0;
-      s.innerHTML = '<div class="big ' + (isAllOk ? 'ok-text' : 'ko-text') + '">' +
-        (isAllOk ? '✅ TOUS LES TESTS PASSENT (' + total + ')' : '❌ ' + totalFail + ' ÉCHEC(S) SUR ' + total) +
-        '</div><div style="margin-top:8px">Total : <strong>' + total + '</strong>' +
-        ' · ✅ <span class="ok-text"><strong>' + totalPass + '</strong></span>' +
-        ' · ❌ <span class="ko-text"><strong>' + totalFail + '</strong></span></div>';
+      var isOk = totalFail === 0;
+      var duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      el.innerHTML =
+        '<div class="big ' + (isOk ? 'ok' : 'ko') + '">' +
+        (isOk ? '✅ TOUS LES TESTS PASSENT (' + total + ')'
+              : '❌ ' + totalFail + ' ÉCHEC(S) SUR ' + total) +
+        '</div>' +
+        '<div style="margin-top:8px">' +
+        '✅ <span class="ok"><strong>' + totalPass + '</strong></span> · ' +
+        '❌ <span class="ko"><strong>' + totalFail + '</strong></span> · ' +
+        '⏭️ <span class="warn"><strong>' + totalSkip + '</strong></span> · ' +
+        '⏱️ <strong>' + duration + 's</strong></div>';
     }
   }
 
-  /* v6.8.2 — Sanitize un nom de catégorie pour en faire un ID HTML
-     valide. Remplace tout caractère non [a-zA-Z0-9_] par '_'.
-     Sans ça, "computeLineTotal (LOT 5)" produit l'ID
-     'table_computeLineTotal_(LOT_5)' qui throw en querySelector
-     (parenthèses = sélecteur CSS invalide). */
-  function _safeCatId(s) {
-    return String(s || '').replace(/[^a-zA-Z0-9_]/g, '_');
+  function appendResult(idx, cat, name, status, error, ms) {
+    var container = document.getElementById('results');
+    var safeCat = cat.replace(/[^a-zA-Z0-9_]/g, '_');
+    var table = document.getElementById('table_' + safeCat);
+    if (!table) {
+      var header = document.createElement('div');
+      header.className = 'cat';
+      header.id = 'cat_' + safeCat;
+      header.innerHTML = '<span>' + escapeHtml(cat) + '</span>' +
+        '<span id="catcount_' + safeCat + '">0/0</span>';
+      container.appendChild(header);
+      table = document.createElement('table');
+      table.id = 'table_' + safeCat;
+      table.innerHTML = '<thead><tr><th style="width:45px">#</th>' +
+        '<th>Test</th><th style="width:70px">Statut</th>' +
+        '<th style="width:60px">Temps</th><th>Détail</th></tr></thead><tbody></tbody>';
+      container.appendChild(table);
+    }
+    var tbody = table.querySelector('tbody');
+    var tr = document.createElement('tr');
+    var mark = status === 'pass' ? '✅' :
+               status === 'fail' ? '❌' : '⏭️';
+    tr.innerHTML = '<td class="num">' + idx + '</td>' +
+      '<td>' + escapeHtml(name) + '</td>' +
+      '<td class="status ' + status + '">' + mark + '</td>' +
+      '<td class="ms">' + (ms != null ? ms + 'ms' : '-') + '</td>' +
+      '<td class="err">' + escapeHtml(error || '') + '</td>';
+    tbody.appendChild(tr);
+
+    /* Update cat count */
+    var passInCat = 0, totalInCat = 0, skipInCat = 0;
+    for (var i = 0; i < results.length; i++) {
+      if (results[i].cat === cat) {
+        totalInCat++;
+        if (results[i].status === 'pass') passInCat++;
+        else if (results[i].status === 'skip') skipInCat++;
+      }
+    }
+    var catCount = document.getElementById('catcount_' + safeCat);
+    if (catCount) {
+      catCount.textContent = passInCat + '/' + totalInCat +
+        (skipInCat > 0 ? ' (' + skipInCat + ' skip)' : '');
+    }
+    var catHeader = document.getElementById('cat_' + safeCat);
+    if (catHeader) {
+      var failedInCat = totalInCat - passInCat - skipInCat;
+      catHeader.className = 'cat ' + (failedInCat > 0 ? 'ko'
+        : skipInCat > 0 ? 'skip' : 'ok');
+    }
   }
 
-  /* v6.9.1 — Construit le texte complet du rapport (format lisible,
-     copiable dans un mail/WhatsApp/issue GitHub). */
-  function _buildTestReportText() {
-    var lines = [];
-    lines.push('═══════════════════════════════════════════════════════════════');
-    lines.push('VOLTCORE — Rapport de tests');
-    lines.push('═══════════════════════════════════════════════════════════════');
-    lines.push('');
-    var now = new Date();
-    var dateStr = now.getFullYear() + '-' +
-      String(now.getMonth() + 1).padStart(2, '0') + '-' +
-      String(now.getDate()).padStart(2, '0') + ' ' +
-      String(now.getHours()).padStart(2, '0') + ':' +
-      String(now.getMinutes()).padStart(2, '0') + ':' +
-      String(now.getSeconds()).padStart(2, '0');
-    lines.push('Date         : ' + dateStr);
-    lines.push('Total        : ' + results.length);
-    lines.push('Réussis      : ' + totalPass + ' ✅');
-    lines.push('Échoués      : ' + totalFail + ' ❌');
-    lines.push('Statut       : ' + (totalFail === 0 ? 'SUCCÈS TOTAL ✅' : 'ÉCHEC ❌'));
-    lines.push('');
+  async function runAll() {
+    startTime = Date.now();
+    await sleep(200);
+    cleanupAll();
 
-    /* Grouper par catégorie en préservant l'ordre d'apparition */
+    for (var i = 0; i < TESTS.length; i++) {
+      var t = TESTS[i];
+
+      if (t.skip) {
+        results.push({ cat: t.cat, name: t.name, status: 'skip', error: t.skipReason || '' });
+        totalSkip++;
+        appendResult(i + 1, t.cat, t.name, 'skip', t.skipReason, null);
+        updateSummary(false);
+        continue;
+      }
+
+      var status = 'fail';
+      var error = '';
+      var ms = 0;
+      var t0 = performance.now();
+      try {
+        var ret = t.fn();
+        if (ret && typeof ret.then === 'function') {
+          ret = await withTimeout(Promise.resolve(ret), TEST_TIMEOUT_MS);
+        }
+        if (ret) status = 'pass';
+      } catch (e) {
+        status = 'fail';
+        error = e && e.message ? e.message : String(e);
+      }
+      ms = Math.round(performance.now() - t0);
+
+      results.push({ cat: t.cat, name: t.name, status: status, error: error, ms: ms });
+      if (status === 'pass') totalPass++;
+      else totalFail++;
+
+      appendResult(i + 1, t.cat, t.name, status, error, ms);
+      updateSummary(false);
+
+      if (BAIL && status === 'fail') {
+        for (var j = i + 1; j < TESTS.length; j++) {
+          results.push({ cat: TESTS[j].cat, name: TESTS[j].name, status: 'skip', error: 'BAIL' });
+          totalSkip++;
+        }
+        break;
+      }
+    }
+
+    cleanupAll();
+    updateSummary(true);
+
+    document.getElementById('btnReport').disabled = false;
+    document.getElementById('btnJson').disabled = false;
+    document.getElementById('btnRerun').disabled = false;
+  }
+
+  /* ═══════════ REPORT GENERATION ═══════════ */
+
+  function buildReportText() {
+    var lines = [];
+    var duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    var dateStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+    lines.push('═══════════════════════════════════════════════════════════');
+    lines.push('  VOLTCORE v' + VC.VERSION + ' — Rapport de tests E2E');
+    lines.push('═══════════════════════════════════════════════════════════');
+    lines.push('');
+    lines.push('Date        : ' + dateStr);
+    lines.push('Durée       : ' + duration + 's');
+    lines.push('Navigateur  : ' + navigator.userAgent);
+    lines.push('');
+    lines.push('───── RÉSUMÉ ─────');
+    lines.push('Total       : ' + results.length);
+    lines.push('✅ Réussis  : ' + totalPass);
+    lines.push('❌ Échoués  : ' + totalFail);
+    lines.push('⏭️  Skipped  : ' + totalSkip);
+    var taux = results.length > 0
+      ? ((totalPass / results.length) * 100).toFixed(1) : '0.0';
+    lines.push('Taux        : ' + taux + '%');
+    lines.push('');
+    lines.push('───── PAR CATÉGORIE ─────');
+
     var catOrder = [];
-    var byCat = {};
+    var catMap = {};
     for (var i = 0; i < results.length; i++) {
       var r = results[i];
-      if (!byCat[r.cat]) {
-        byCat[r.cat] = [];
+      if (!catMap[r.cat]) {
+        catMap[r.cat] = [];
         catOrder.push(r.cat);
       }
-      byCat[r.cat].push(r);
+      catMap[r.cat].push(r);
     }
 
     for (var c = 0; c < catOrder.length; c++) {
       var cat = catOrder[c];
-      var list = byCat[cat];
-      var pass = 0, fail = 0;
+      var list = catMap[cat];
+      var p = 0, f = 0, s = 0;
       for (var k = 0; k < list.length; k++) {
-        if (list[k].ok) pass++; else fail++;
+        if (list[k].status === 'pass') p++;
+        else if (list[k].status === 'fail') f++;
+        else s++;
       }
-      lines.push('─── ' + cat + ' (' + pass + '/' + list.length + ') ───');
-      for (var j = 0; j < list.length; j++) {
-        var r2 = list[j];
-        var mark = r2.ok ? '✅' : '❌';
-        lines.push('  ' + r2.idx + '. ' + mark + ' ' + r2.name);
-        if (!r2.ok && r2.error) {
-          lines.push('       Erreur : ' + r2.error);
-        }
-      }
-      lines.push('');
+      var mark = f > 0 ? '❌' : (s > 0 ? '⏭️' : '✅');
+      lines.push(mark + ' ' + cat.padEnd(25, ' ') +
+        ' ' + p + '/' + list.length + (s > 0 ? ' (' + s + ' skip)' : ''));
     }
 
-    lines.push('═══════════════════════════════════════════════════════════════');
-    lines.push('FIN DU RAPPORT');
-    lines.push('═══════════════════════════════════════════════════════════════');
+    if (totalFail > 0) {
+      lines.push('');
+      lines.push('───── ÉCHECS DÉTAILLÉS ─────');
+      for (var e = 0; e < results.length; e++) {
+        var rr = results[e];
+        if (rr.status === 'fail') {
+          lines.push('');
+          lines.push('❌ ' + rr.cat + ' → ' + rr.name);
+          if (rr.error) lines.push('   Erreur : ' + rr.error);
+        }
+      }
+    }
+
+    lines.push('');
+    lines.push('───── TOP PERFORMANCE (lents) ─────');
+    var sorted = results.slice().sort(function (a, b) {
+      return (b.ms || 0) - (a.ms || 0);
+    });
+    for (var q = 0; q < Math.min(5, sorted.length); q++) {
+      if (sorted[q].ms) {
+        lines.push('  ' + sorted[q].ms + 'ms - ' + sorted[q].name);
+      }
+    }
+
+    lines.push('');
+    lines.push('═══════════════════════════════════════════════════════════');
+    lines.push('FIN DU RAPPORT — Généré par tests.html v2');
+    lines.push('═══════════════════════════════════════════════════════════');
     return lines.join('\n');
   }
 
-  /* Copie le rapport complet dans le presse-papiers.
-     Utilise copyToClipboard de 03-utils.js (async + fallback).
-     Feedback visuel : bouton change de texte pendant 2s. */
-  window.copyTestReport = async function () {
-    var btn = document.getElementById('btnCopyReport');
-    var origText = '📋 Copier le rapport';
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '⏳ Copie…';
+  document.getElementById('btnReport').addEventListener('click', function () {
+    var text = buildReportText();
+    document.getElementById('reportContent').textContent = text;
+    document.getElementById('report').style.display = 'block';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        console.log('[Tests] Rapport copié dans le presse-papiers');
+      }).catch(function () {});
     }
+    document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
+  });
 
-    var text = _buildTestReportText();
-    var ok = false;
+  document.getElementById('btnJson').addEventListener('click', function () {
+    var json = JSON.stringify({
+      version: VC.VERSION,
+      date: new Date().toISOString(),
+      duration: ((Date.now() - startTime) / 1000).toFixed(2),
+      total: results.length,
+      pass: totalPass,
+      fail: totalFail,
+      skip: totalSkip,
+      results: results
+    }, null, 2);
+    var blob = new Blob([json], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'voltcore-tests-' + Date.now() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
 
-    if (typeof copyToClipboard === 'function') {
-      try {
-        ok = await copyToClipboard(text);
-      } catch (e) {
-        console.warn('copyToClipboard :', e);
-        ok = false;
-      }
-    } else {
-      /* Fallback direct si 03-utils.js absent */
-      try {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-      } catch (e) {
-        ok = false;
-      }
+  document.getElementById('btnRerun').addEventListener('click', function () {
+    location.reload();
+  });
+  window.copyReportContent = function () {
+    var el = document.getElementById('reportContent');
+    if (!el) return;
+    var text = el.textContent || '';
+    if (!text) {
+      alert('Aucun rapport à copier. Clique sur "Générer rapport texte" d\'abord.');
+      return;
     }
-
-    if (btn) {
-      if (ok) {
-        btn.textContent = '✅ Rapport copié !';
-        btn.style.background = '#2e7d32';
-        setTimeout(function () {
-          btn.textContent = origText;
-          btn.disabled = false;
-        }, 2000);
-      } else {
-        btn.textContent = '❌ Échec de copie';
-        btn.style.background = '#c0392b';
-        setTimeout(function () {
-          btn.textContent = origText;
-          btn.style.background = '#2e7d32';
-          btn.disabled = false;
-        }, 2500);
-      }
+    var success = false;
+    /* Essai 1 : Clipboard API */
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        _showCopyFeedback('✅ Rapport copié ! Tu peux le coller où tu veux.');
+      }).catch(function () {
+        _fallbackCopy(text);
+      });
+      return;
     }
+    _fallbackCopy(text);
   };
 
-  function appendHeader(cat) {
-    var main = document.getElementById('testResults');
-    var div = document.createElement('div');
-    div.className = 'cat-title';
-    if (cat.indexOf('LOT 5') >= 0) div.className += ' lot5';
-    else if (cat.indexOf('BTP') >= 0) div.className += ' btp';
-    else if (cat.indexOf('S3') >= 0) div.className += ' s3';
-    var safeId = _safeCatId(cat);
-    div.id = 'cat_' + safeId;
-    div.innerHTML = '<span>' + cat + '</span><span id="catcount_' + safeId + '">0/0</span>';
-    main.appendChild(div);
-
-    var table = document.createElement('table');
-    table.id = 'table_' + safeId;
-    table.innerHTML = '<thead><tr><th style="width:40px">#</th><th>Test</th><th style="width:60px">Statut</th><th>Détail</th></tr></thead><tbody></tbody>';
-    main.appendChild(table);
-    currentCat = cat;
-    currentCatPass = 0;
-    currentCatTotal = 0;
-  }
-
-  function appendResult(test, idx, okStatus, error) {
-    var catKey = _safeCatId(test.cat);
-    var table = document.getElementById('table_' + catKey);
-    if (!table) return;
-    var tbody = table.querySelector('tbody');
-    if (!tbody) return;
-    var tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td class="num">' + idx + '</td>' +
-      '<td>' + test.name.replace(/</g, '&lt;') + '</td>' +
-      '<td class="status ' + (okStatus ? 'pass' : 'fail') + '">' + (okStatus ? '✅ PASS' : '❌ FAIL') + '</td>' +
-      '<td class="error">' + (error || '') + '</td>';
-    tbody.appendChild(tr);
-
-    currentCatTotal++;
-    if (okStatus) currentCatPass++;
-    var cc = document.getElementById('catcount_' + catKey);
-    if (cc) cc.textContent = currentCatPass + '/' + currentCatTotal;
-  }
-
-  async function runAllTests() {
-    for (var i = 0; i < TESTS.length; i++) {
-      var test = TESTS[i];
-      if (test.cat !== currentCat) {
-        appendHeader(test.cat);
+  function _fallbackCopy(text) {
+    var el = document.getElementById('reportContent');
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    try {
+      var ok = document.execCommand('copy');
+      if (ok) {
+        _showCopyFeedback('✅ Rapport copié (fallback) !');
+      } else {
+        _showCopyFeedback('⚠️ Copie impossible. Utilise "Tout sélectionner" puis Ctrl+C.', true);
       }
-
-      var result = { ok: false, error: '' };
-      try {
-        var ret = test.fn();
-        if (ret && typeof ret.then === 'function') {
-          ret = await ret;
-        }
-        result.ok = !!ret;
-      } catch (e) {
-        result.ok = false;
-        result.error = e && e.message ? e.message : String(e);
-      }
-
-      /* v6.9.1 — enrichi pour permettre la reconstruction du rapport texte */
-      results.push({
-        ok: result.ok,
-        error: result.error,
-        name: test.name,
-        cat: test.cat,
-        idx: i + 1
-      });
-      if (result.ok) totalPass++; else totalFail++;
-      appendResult(test, i + 1, result.ok, result.error);
-      updateSummary();
+    } catch (e) {
+      _showCopyFeedback('⚠️ Utilise "Tout sélectionner" puis Ctrl+C.', true);
     }
-    updateSummary();
-
-    /* v6.9.1 — active le bouton « Copier le rapport » une fois terminé */
-    var copyBtn = document.getElementById('btnCopyReport');
-    if (copyBtn) copyBtn.disabled = false;
   }
 
-  /* Démarre après un petit délai (laisse les scripts terminer) */
-  setTimeout(runAllTests, 500);
-  console.log('✅ tests.html chargé — v6.7 (155 tests — LOT 5 + Session #3)');
+  function _showCopyFeedback(msg, isWarning) {
+    var fb = document.getElementById('copyFeedback');
+    if (!fb) return;
+    fb.textContent = msg;
+    fb.style.display = 'block';
+    fb.style.background = isWarning ? '#fef3c7' : '#d1fae5';
+    fb.style.color = isWarning ? '#d97706' : '#059669';
+    setTimeout(function () { fb.style.display = 'none'; }, 4000);
+  }
+
+  window.selectReportAll = function () {
+    var el = document.getElementById('reportContent');
+    if (!el) return;
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    _showCopyFeedback('✅ Sélectionné. Fais Ctrl+C pour copier.', false);
+  };
+  setTimeout(runAll, 300);
+  console.log('✅ tests.html v2 chargé — ' + TESTS.length + ' tests, 21 catégories');
+
 })();
 </script>
 

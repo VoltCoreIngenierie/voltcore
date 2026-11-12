@@ -1,13 +1,13 @@
 {
   "name": "VOLTCORE — Gestion d'ingénierie",
   "short_name": "VOLTCORE",
-  "description": "Gestion complète : clients, factures, stock, chantiers, RH, achats",
+  "description": "Gestion complète : clients, factures, stock, chantiers, RH, achats, documents, scan",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0b3d91",
-  "theme_color": "#0b3d91",
+  "background_color": "#1A2B4C",
+  "theme_color": "#1A2B4C",
   "lang": "fr",
   "dir": "ltr",
   "categories": ["business", "productivity"],
@@ -41,6 +41,11 @@
       "name": "Stock",
       "short_name": "Stock",
       "url": "./index.html#stock"
+    },
+    {
+      "name": "Scanner",
+      "short_name": "Scan",
+      "url": "./index.html#outils"
     }
   ]
 }

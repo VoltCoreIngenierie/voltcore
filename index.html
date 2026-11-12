@@ -4,16 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#1A2B4C">
-<meta name="description" content="VOLTCORE v6 — Gestion d'ingénierie (clients, factures, stock, chantiers, RH)">
-<title>VOLTCORE v6 — Gestion d'ingénierie</title>
+<meta name="description" content="VOLTCORE v7 — Gestion d'ingénierie (clients, factures, stock, chantiers, RH)">
+<title>VOLTCORE v7 — Gestion d'ingénierie</title>
 <link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon.png">
-<link rel="stylesheet" href="./00-style.css">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./000-style.css">
+<link rel="stylesheet" href="./001-theme.css">
 </head>
 <body>
 
-<!-- ═══════════ SKELETON (écran de chargement) ═══════════ -->
+<!-- ═══════════════════════════════════════════════════════════
+     SKELETON (écran de chargement)
+     ═══════════════════════════════════════════════════════════ -->
 <div id="appSkeleton" class="app-skeleton">
   <div class="skeleton-content">
     <div class="skeleton-logo">VOLT<span>CORE</span></div>
@@ -23,10 +26,12 @@
   </div>
 </div>
 
-<!-- ═══════════ APP ROOT (caché tant que non connecté) ═══════════ -->
+<!-- ═══════════════════════════════════════════════════════════
+     APP ROOT
+     ═══════════════════════════════════════════════════════════ -->
 <div id="appRoot" class="app-root" style="display:none">
 
-  <!-- ═══════════ HEADER ═══════════ -->
+  <!-- ─────────── HEADER ─────────── -->
   <header class="app-header">
     <div class="header-left">
       <button id="btnToggleSidebar" class="btn-icon" title="Menu" aria-label="Menu">☰</button>
@@ -55,8 +60,8 @@
     </div>
   </header>
 
-  <!-- ═══════════ SIDEBAR ═══════════ -->
-  <aside class="app-sidebar">
+  <!-- ─────────── SIDEBAR ─────────── -->
+  <aside class="app-sidebar" id="appSidebar">
     <nav class="sidebar-nav">
       <button class="nav-item" data-nav-section="dashboard">
         <span class="nav-icon">🏠</span><span class="nav-label">Tableau de bord</span>
@@ -100,16 +105,18 @@
     </nav>
   </aside>
 
-  <!-- ═══════════ MAIN ═══════════ -->
+  <!-- ─────────── MAIN ─────────── -->
   <main class="app-main">
 
-    <!-- ─────────── SECTION : DASHBOARD ─────────── -->
+    <!-- ═══ SECTION : DASHBOARD ═══ -->
     <section id="dashboardSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Tableau de bord</h1>
         <div class="section-tabs">
-          <button id="tabDashboard" class="section-tab active" onclick="if(typeof showSection==='function') showSection('dashboard')">Dashboard</button>
-          <button id="tabReports" class="section-tab" onclick="if(typeof showSection==='function') showSection('reports')">Rapports</button>
+          <button id="tabDashboard" class="section-tab active"
+            onclick="if(window.VOLTCORE&&VOLTCORE.Nav)VOLTCORE.Nav.go('dashboard')">Dashboard</button>
+          <button id="tabReports" class="section-tab"
+            onclick="if(window.VOLTCORE&&VOLTCORE.Nav)VOLTCORE.Nav.go('reports')">Rapports</button>
         </div>
       </div>
       <div class="kpi-grid">
@@ -118,33 +125,25 @@
         <div class="kpi-card"><div class="kpi-label">Marge totale</div><div id="kpiMarge" class="kpi-value">0 DT</div></div>
         <div class="kpi-card"><div class="kpi-label">Bénéfice net</div><div id="kpiBenefice" class="kpi-value">0 DT</div></div>
         <div class="kpi-card"><div class="kpi-label">Impayés</div><div id="kpiImpayes" class="kpi-value">0 DT</div></div>
-        <div class="kpi-card"><div class="kpi-label">🔒 Garanties en attente</div><div id="kpiGaranties" class="kpi-value">0 DT</div><div id="kpiNbGaranties" class="muted" style="font-size:11px;margin-top:4px;color:var(--text-light)">0 facture</div></div>
+        <div class="kpi-card">
+          <div class="kpi-label">🔒 Garanties en attente</div>
+          <div id="kpiGaranties" class="kpi-value">0 DT</div>
+          <div id="kpiNbGaranties" class="muted" style="font-size:11px;margin-top:4px">0 facture</div>
+        </div>
         <div class="kpi-card"><div class="kpi-label">Factures</div><div id="kpiNbFactures" class="kpi-value">0</div></div>
         <div class="kpi-card"><div class="kpi-label">Clients</div><div id="kpiNbClients" class="kpi-value">0</div></div>
         <div class="kpi-card"><div class="kpi-label">Chantiers</div><div id="kpiNbChantiers" class="kpi-value">0</div></div>
         <div class="kpi-card"><div class="kpi-label">Alertes</div><div id="kpiNbAlertes" class="kpi-value">0</div></div>
       </div>
       <div class="charts-grid">
-        <div class="chart-card">
-          <h3>CA vs Marge (12 mois)</h3>
-          <div id="chartCAWrapper" class="chart-wrapper" style="height:300px"></div>
-        </div>
-        <div class="chart-card">
-          <h3>Répartition par famille</h3>
-          <div id="chartFamillesWrapper" class="chart-wrapper" style="height:300px"></div>
-        </div>
-        <div class="chart-card">
-          <h3>Modes de paiement</h3>
-          <div id="chartPaiementsWrapper" class="chart-wrapper" style="height:300px"></div>
-        </div>
-        <div class="chart-card">
-          <h3>Top 10 chantiers (marge)</h3>
-          <div id="chartMargeChantiersWrapper" class="chart-wrapper" style="height:300px"></div>
-        </div>
+        <div class="chart-card"><h3>CA vs Marge (12 mois)</h3><div id="chartCAWrapper" class="chart-wrapper" style="height:300px"></div></div>
+        <div class="chart-card"><h3>Répartition par famille</h3><div id="chartFamillesWrapper" class="chart-wrapper" style="height:300px"></div></div>
+        <div class="chart-card"><h3>Modes de paiement</h3><div id="chartPaiementsWrapper" class="chart-wrapper" style="height:300px"></div></div>
+        <div class="chart-card"><h3>Top 10 chantiers (marge)</h3><div id="chartMargeChantiersWrapper" class="chart-wrapper" style="height:300px"></div></div>
       </div>
     </section>
 
-    <!-- ─────────── SECTION : RAPPORTS ─────────── -->
+    <!-- ═══ SECTION : RAPPORTS ═══ -->
     <section id="reportsSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Rapports</h1>
@@ -164,7 +163,7 @@
       <div id="garantiesBody" class="report-body" style="display:none"></div>
     </section>
 
-    <!-- ─────────── SECTION : CLIENTS ─────────── -->
+    <!-- ═══ SECTION : CLIENTS ═══ -->
     <section id="clientsSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Clients <span id="clientsCount" class="count-badge">0</span></h1>
@@ -197,7 +196,7 @@
       <div id="clientsList" class="list-container"></div>
     </section>
 
-    <!-- ─────────── SECTION : FOURNISSEURS ─────────── -->
+    <!-- ═══ SECTION : FOURNISSEURS ═══ -->
     <section id="suppliersSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Fournisseurs <span id="suppliersCount" class="count-badge">0</span></h1>
@@ -221,7 +220,7 @@
       <div id="suppliersList" class="list-container"></div>
     </section>
 
-    <!-- ─────────── SECTION : STOCK ─────────── -->
+    <!-- ═══ SECTION : STOCK ═══ -->
     <section id="stockSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Stock <span id="stockCount" class="count-badge">0</span></h1>
@@ -255,7 +254,7 @@
       </div>
     </section>
 
-    <!-- ─────────── SECTION : CHANTIERS ─────────── -->
+    <!-- ═══ SECTION : CHANTIERS ═══ -->
     <section id="chantiersSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Chantiers <span id="chantiersCount" class="count-badge">0</span></h1>
@@ -280,7 +279,7 @@
       <div id="chantiersList" class="list-container"></div>
     </section>
 
-    <!-- ─────────── SECTION : FACTURATION ─────────── -->
+    <!-- ═══ SECTION : FACTURATION ═══ -->
     <section id="facturationSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Facturation <span id="invoicesCount" class="count-badge">0</span></h1>
@@ -308,7 +307,7 @@
       <div id="invoicesList" class="list-container"></div>
     </section>
 
-    <!-- ─────────── SECTION : ACHATS ─────────── -->
+    <!-- ═══ SECTION : ACHATS ═══ -->
     <section id="purchasesSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Achats <span id="purchasesCount" class="count-badge">0</span></h1>
@@ -336,7 +335,7 @@
       <div id="purchasesList" class="list-container"></div>
     </section>
 
-    <!-- ─────────── SECTION : FRAIS + BONS ─────────── -->
+    <!-- ═══ SECTION : FRAIS ═══ -->
     <section id="fraisSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Notes de frais <span id="fraisCount" class="count-badge">0</span> · <span id="fraisTotal">0 DT</span></h1>
@@ -358,7 +357,7 @@
       <div id="fraisList" class="list-container"></div>
     </section>
 
-    <!-- ─────────── SECTION : BONS ROUTE (v6.9.0) ─────────── -->
+    <!-- ═══ SECTION : BONS ROUTE ═══ -->
     <section id="bonsRouteSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Bons Route <span id="bonsRouteCount" class="count-badge">0</span></h1>
@@ -367,7 +366,6 @@
           <button id="btnImportBonsRoute" class="btn">Importer</button>
           <button id="btnExportBonsRouteJSON" class="btn">JSON</button>
           <button id="btnExportBonsRouteCSV" class="btn">CSV</button>
-          <button id="btnPrintBonsRouteList" class="btn">🖨️</button>
         </div>
       </div>
       <div class="search-bar">
@@ -394,9 +392,14 @@
         </select>
       </div>
       <div id="bonsRouteList" class="list-container"></div>
+      <div id="bonsRoutePagination" class="pagination" style="display:none">
+        <button id="bonsRoutePrevBtn" class="btn btn-sm">◀ Précédent</button>
+        <span id="bonsRoutePageInfo" class="muted">0 bon</span>
+        <button id="bonsRouteNextBtn" class="btn btn-sm">Suivant ▶</button>
+      </div>
     </section>
 
-    <!-- ─────────── SECTION : RH ─────────── -->
+    <!-- ═══ SECTION : RH ═══ -->
     <section id="hrSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Ressources humaines <span id="hrCount" class="count-badge">0</span></h1>
@@ -419,7 +422,7 @@
       <div id="hrList" class="list-container"></div>
     </section>
 
-    <!-- ─────────── SECTION : DOCUMENTS (v6.9.8) ─────────── -->
+    <!-- ═══ SECTION : DOCUMENTS ═══ -->
     <section id="documentsSection" class="app-section" style="display:none">
       <div class="section-header">
         <h1>Documents <span id="documentsCount" class="count-badge">0</span></h1>
@@ -429,7 +432,6 @@
           <button id="btnImportDocuments" class="btn">Importer</button>
         </div>
       </div>
-      <!-- v6.9.9 — Bandeau dossier local (masqué si non supporté) -->
       <div id="documentsFsBanner" class="purchases-summary" style="display:none">
         <div style="flex:1;min-width:200px">
           <strong>📂 Dossier local :</strong>
@@ -460,17 +462,15 @@
       </div>
     </section>
 
-    <!-- ─────────── SECTION : OUTILS ─────────── -->
+    <!-- ═══ SECTION : OUTILS ═══ -->
     <section id="toolsSection" class="app-section" style="display:none">
-      <div class="section-header">
-        <h1>Outils & Paramètres</h1>
-      </div>
-
+      <div class="section-header"><h1>Outils & Paramètres</h1></div>
       <div class="tools-grid">
+
         <div class="tools-card">
           <h2>🗑️ Corbeille <span id="trashCount" class="count-badge">0</span></h2>
           <div class="tools-actions">
-            <button id="btnPurgeTrash" class="btn">Purger > 30 j</button>
+            <button id="btnPurgeTrash" class="btn">Purger &gt; 30 j</button>
             <button id="btnEmptyTrash" class="btn btn-danger">Vider</button>
           </div>
           <div id="trashList" class="list-container"></div>
@@ -520,21 +520,23 @@
           <div class="form-row">
             <label class="checkbox-label"><input type="checkbox" id="settingsDarkMode"> Mode sombre</label>
           </div>
+          <div class="form-row">
+            <label class="checkbox-label" title="Ne plus demander de mot de passe ni de licence sur cet appareil.">
+              <input type="checkbox" id="settingsTrustedDevice"> 🔒 Faire confiance à cet appareil
+            </label>
+          </div>
           <div class="tools-actions">
             <button id="btnSaveSettings" class="btn btn-primary">Enregistrer</button>
             <button id="btnResetCompteurs" class="btn btn-danger">Reset compteurs</button>
           </div>
         </div>
 
-        <!-- v6.9.6 — Signature & cachet par défaut -->
         <div class="tools-card">
           <h2>✍️ Signature & cachet par défaut</h2>
           <p class="muted" style="margin-bottom:12px;font-size:12px;line-height:1.5">
             Ces images seront automatiquement insérées dans les PDF de facture
-            et de bon route. PNG transparent recommandé (fond transparent pour
-            un rendu réaliste). Taille max 500 Ko (compression auto).
+            et de bon route. PNG transparent recommandé. Taille max 500 Ko.
           </p>
-
           <div class="form-grid">
             <div>
               <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Signature</label>
@@ -546,7 +548,6 @@
                 <button type="button" id="btnRemoveSignatureDefault" class="btn btn-danger btn-sm" style="display:none">🗑️ Supprimer</button>
               </div>
             </div>
-
             <div>
               <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Cachet</label>
               <div id="cachetDefaultPreview" class="logo-preview-container" style="min-height:100px;margin-bottom:8px">
@@ -576,7 +577,6 @@
           <div class="tools-actions">
             <button id="btnOpenScanner" class="btn">📷 Scanner</button>
             <button id="btnOpenSignature" class="btn">✍️ Signature</button>
-            <button class="btn" onclick="var b=document.getElementById('btnOpenAssistantIA');if(b)b.click();">🤖 Assistant IA</button>
             <button id="btnOpenUserManagement" class="btn">👥 Utilisateurs</button>
             <button id="btnResetServiceWorker" class="btn btn-danger">🔄 Réinitialiser cache</button>
           </div>
@@ -592,6 +592,7 @@
             <button id="diagBtn" class="btn btn-primary">🔍 Ouvrir le diagnostic</button>
           </div>
         </div>
+
       </div>
 
       <div class="tools-card">
@@ -602,7 +603,7 @@
 
   </main>
 
-  <!-- ═══════════ BOTTOM BAR (mobile) ═══════════ -->
+  <!-- ─────────── BOTTOM BAR (mobile) ─────────── -->
   <nav id="bottomBar" class="bottom-bar">
     <button class="bottom-tab" data-section="dashboard"><span>🏠</span><span>Accueil</span></button>
     <button class="bottom-tab" data-section="clients"><span>👥</span><span>Clients</span></button>
@@ -612,20 +613,22 @@
     <button class="bottom-tab" data-section="outils"><span>⚙️</span><span>Outils</span></button>
   </nav>
 
-  <!-- ═══════════ FAB ═══════════ -->
+  <!-- ─────────── FAB ─────────── -->
   <button id="mobileFab" class="mobile-fab" aria-label="Nouveau" style="display:none">＋</button>
 
-  <!-- ═══════════ INSTALL BANNER ═══════════ -->
+  <!-- ─────────── INSTALL BANNER ─────────── -->
   <div id="installPwaBanner" class="install-banner" style="display:none">
     <span>📱 Installer VOLTCORE</span>
     <button id="btnInstallPwa" class="btn btn-sm btn-primary">Installer</button>
     <button id="btnDismissInstallPwa" class="btn-icon">✕</button>
   </div>
 
-</div>
-<!-- ═══════════ FIN APP ROOT ═══════════ -->
+</div><!-- /appRoot -->
 
-<!-- ═══════════ MODALE : LOGIN ═══════════ -->
+<!-- ═══════════════════════════════════════════════════════════
+     MODALES AUTH / LICENCE
+     ═══════════════════════════════════════════════════════════ -->
+
 <div id="loginModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2>Connexion VOLTCORE</h2>
@@ -636,12 +639,11 @@
     <div id="loginError" class="form-error"></div>
     <div class="modal-actions">
       <button id="biometricLoginBtn" class="btn" style="display:none">🔐 Empreinte</button>
-      <button class="btn btn-primary" onclick="if(typeof doLogin==='function')doLogin()">Connexion</button>
+      <button class="btn btn-primary" onclick="if(window.VOLTCORE&&VOLTCORE.Auth)VOLTCORE.Auth.login()">Connexion</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ OVERLAY : LOCK ═══════════ -->
 <div id="lockOverlay" class="modal" style="display:none">
   <div class="modal-content">
     <h2>🔒 Application verrouillée</h2>
@@ -651,41 +653,32 @@
     </div>
     <div id="unlockError" class="form-error"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof doLogout==='function')doLogout()">Changer d'utilisateur</button>
-      <button class="btn btn-primary" onclick="if(typeof unlockApp==='function')unlockApp()">Déverrouiller</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Auth)VOLTCORE.Auth.logout()">Changer d'utilisateur</button>
+      <button class="btn btn-primary" onclick="if(window.VOLTCORE&&VOLTCORE.Auth)VOLTCORE.Auth.unlock()">Déverrouiller</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : LICENCE ═══════════ -->
 <div id="licenseModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2>Licence VOLTCORE</h2>
     <div id="licenseStatus" class="muted"></div>
     <label>Clé de licence<textarea id="licenseKeyInput" rows="4" class="input"></textarea></label>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof exportBackupFromLicenseGate==='function')exportBackupFromLicenseGate()">💾 Exporter mes données</button>
-      <button id="activateLicenseBtn" class="btn btn-primary" onclick="if(typeof activateVoltcoreLicense==='function')activateVoltcoreLicense()">Activer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.exportBackupFromLicenseGate)VOLTCORE.exportBackupFromLicenseGate()">💾 Exporter mes données</button>
+      <button id="activateLicenseBtn" class="btn btn-primary" onclick="if(window.VOLTCORE&&VOLTCORE.activateVoltcoreLicense)VOLTCORE.activateVoltcoreLicense()">Activer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : ALERTES (badges) ═══════════ -->
-<div id="alertsModal" class="modal" style="display:none">
-  <div class="modal-content modal-large">
-    <h2>Alertes</h2>
-    <div id="alertsModalBody"></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeAlertsModal==='function')closeAlertsModal()">Fermer</button>
-    </div>
-  </div>
-</div>
+<!-- ═══════════════════════════════════════════════════════════
+     MODALES MÉTIER
+     ═══════════════════════════════════════════════════════════ -->
 
-<!-- ═══════════ MODALE : CLIENT ═══════════ -->
 <div id="clientModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2 id="clientModalTitle">Nouveau client</h2>
-    <form id="clientForm" onsubmit="event.preventDefault(); if(typeof saveClientFromForm==='function')saveClientFromForm();">
+    <form id="clientForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.Clients)VOLTCORE.Clients.saveFromForm()">
       <input type="hidden" id="clientId">
       <div class="form-grid">
         <label>Nom *<input type="text" id="clientNom" class="input" required></label>
@@ -695,7 +688,6 @@
         <label>MF<input type="text" id="clientMF" class="input"></label>
         <label>CIN<input type="text" id="clientCIN" class="input"></label>
       </div>
-
       <h3>Informations BTP (optionnel)</h3>
       <div class="form-grid">
         <label>Type
@@ -717,46 +709,35 @@
         <label>Retenue source (%)
           <input type="number" step="0.01" min="0" max="100" id="clientRetenue" class="input" value="0">
         </label>
-        <label>Gouvernorat
-          <input type="text" id="clientGouvernorat" class="input">
-        </label>
-        <label>Adresse chantier
-          <input type="text" id="clientAdresseChantier" class="input">
-        </label>
-        <label>Code TVA
-          <input type="text" id="clientCodeTVA" class="input">
-        </label>
-        <label>Code catégorie
-          <input type="text" id="clientCodeCategorie" class="input">
-        </label>
+        <label>Gouvernorat<input type="text" id="clientGouvernorat" class="input"></label>
+        <label>Adresse chantier<input type="text" id="clientAdresseChantier" class="input"></label>
+        <label>Code TVA<input type="text" id="clientCodeTVA" class="input"></label>
+        <label>Code catégorie<input type="text" id="clientCodeCategorie" class="input"></label>
       </div>
-
       <label>Notes<textarea id="clientNotes" rows="3" class="input"></textarea></label>
       <div id="clientFormError" class="form-error"></div>
       <div class="modal-actions">
-        <button type="button" class="btn" onclick="if(typeof closeClientModal==='function')closeClientModal()">Annuler</button>
+        <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Clients)VOLTCORE.Clients.closeModal()">Annuler</button>
         <button type="submit" class="btn btn-primary">Enregistrer</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : CLIENT DETAIL ═══════════ -->
 <div id="clientDetailModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2 id="clientDetailTitle">Client</h2>
     <div id="clientDetailBody"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeClientDetail==='function')closeClientDetail()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Clients)VOLTCORE.Clients.closeDetail()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : FOURNISSEUR ═══════════ -->
 <div id="supplierModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2 id="supplierModalTitle">Nouveau fournisseur</h2>
-    <form id="supplierForm" onsubmit="event.preventDefault(); if(typeof saveSupplierFromForm==='function')saveSupplierFromForm();">
+    <form id="supplierForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.Suppliers)VOLTCORE.Suppliers.saveFromForm()">
       <input type="hidden" id="supplierId">
       <div class="form-grid">
         <label>Nom *<input type="text" id="supplierNom" class="input" required></label>
@@ -769,29 +750,27 @@
       <label>Notes<textarea id="supplierNotes" rows="3" class="input"></textarea></label>
       <div id="supplierFormError" class="form-error"></div>
       <div class="modal-actions">
-        <button type="button" class="btn" onclick="if(typeof closeSupplierModal==='function')closeSupplierModal()">Annuler</button>
+        <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Suppliers)VOLTCORE.Suppliers.closeModal()">Annuler</button>
         <button type="submit" class="btn btn-primary">Enregistrer</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : FOURNISSEUR DETAIL ═══════════ -->
 <div id="supplierDetailModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2 id="supplierDetailTitle">Fournisseur</h2>
     <div id="supplierDetailBody"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeSupplierDetail==='function')closeSupplierDetail()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Suppliers)VOLTCORE.Suppliers.closeDetail()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : ARTICLE ═══════════ -->
 <div id="articleModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2 id="articleModalTitle">Nouvel article</h2>
-    <form id="articleForm" onsubmit="event.preventDefault(); if(typeof saveArticleFromForm==='function')saveArticleFromForm();">
+    <form id="articleForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.Stock)VOLTCORE.Stock.saveFromForm()">
       <input type="hidden" id="articleId">
       <div class="form-grid">
         <label>Nom *<input type="text" id="articleNom" class="input" required></label>
@@ -808,25 +787,23 @@
       <label class="checkbox-label"><input type="checkbox" id="articleActif" checked> Actif</label>
       <div id="articleFormError" class="form-error"></div>
       <div class="modal-actions">
-        <button type="button" class="btn" onclick="if(typeof closeArticleModal==='function')closeArticleModal()">Annuler</button>
+        <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Stock)VOLTCORE.Stock.closeModal()">Annuler</button>
         <button type="submit" class="btn btn-primary">Enregistrer</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : ARTICLE DETAIL ═══════════ -->
 <div id="articleDetailModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2 id="articleDetailTitle">Article</h2>
     <div id="articleDetailBody"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeArticleDetail==='function')closeArticleDetail()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Stock)VOLTCORE.Stock.closeDetail()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : FAMILLE ═══════════ -->
 <div id="familleModal" class="modal" style="display:none">
   <div class="modal-content modal-small">
     <h2>Nouvelle famille</h2>
@@ -837,16 +814,15 @@
     <div id="familleFormError" class="form-error"></div>
     <div class="modal-actions">
       <button class="btn" onclick="document.getElementById('familleModal').style.display='none'">Annuler</button>
-      <button class="btn btn-primary" onclick="if(typeof saveFamilleFromForm==='function')saveFamilleFromForm()">Enregistrer</button>
+      <button class="btn btn-primary" onclick="if(window.VOLTCORE&&VOLTCORE.Stock)VOLTCORE.Stock.saveFamilleFromForm()">Enregistrer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : CHANTIER ═══════════ -->
 <div id="chantierModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2 id="chantierModalTitle">Nouveau chantier</h2>
-    <form id="chantierForm" onsubmit="event.preventDefault(); if(typeof saveChantierFromForm==='function')saveChantierFromForm();">
+    <form id="chantierForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.Chantiers)VOLTCORE.Chantiers.saveFromForm()">
       <input type="hidden" id="chantierId">
       <div class="form-grid">
         <label>Nom *<input type="text" id="chantierNom" class="input" required></label>
@@ -866,29 +842,27 @@
       <label>Notes<textarea id="chantierNotes" rows="3" class="input"></textarea></label>
       <div id="chantierFormError" class="form-error"></div>
       <div class="modal-actions">
-        <button type="button" class="btn" onclick="if(typeof closeChantierModal==='function')closeChantierModal()">Annuler</button>
+        <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Chantiers)VOLTCORE.Chantiers.closeModal()">Annuler</button>
         <button type="submit" class="btn btn-primary">Enregistrer</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : CHANTIER DETAIL ═══════════ -->
 <div id="chantierDetailModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2 id="chantierDetailTitle">Chantier</h2>
     <div id="chantierDetailBody"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeChantierDetail==='function')closeChantierDetail()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Chantiers)VOLTCORE.Chantiers.closeDetail()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : EMPLOYÉ ═══════════ -->
 <div id="hrEmployeeModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2 id="hrEmployeeModalTitle">Nouvel employé</h2>
-    <form id="hrEmployeeForm" onsubmit="event.preventDefault(); if(typeof saveHREmployeeFromForm==='function')saveHREmployeeFromForm();">
+    <form id="hrEmployeeForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.HR)VOLTCORE.HR.saveEmployeeFromForm()">
       <input type="hidden" id="hrEmployeeId">
       <div class="form-grid">
         <label>Nom *<input type="text" id="hrEmployeeNom" class="input" required></label>
@@ -901,18 +875,17 @@
       <label class="checkbox-label"><input type="checkbox" id="hrEmployeeActif" checked> Actif</label>
       <div id="hrEmployeeFormError" class="form-error"></div>
       <div class="modal-actions">
-        <button type="button" class="btn" onclick="if(typeof closeHREmployeeModal==='function')closeHREmployeeModal()">Annuler</button>
+        <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.HR)VOLTCORE.HR.closeEmployeeModal()">Annuler</button>
         <button type="submit" class="btn btn-primary">Enregistrer</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : JOURNÉE TRAVAILLÉE ═══════════ -->
 <div id="hrWorkModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2>Journée travaillée</h2>
-    <form id="hrWorkForm" onsubmit="event.preventDefault(); if(typeof saveHRWorkFromForm==='function')saveHRWorkFromForm();">
+    <form id="hrWorkForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.HR)VOLTCORE.HR.saveWorkFromForm()">
       <input type="hidden" id="hrWorkId">
       <input type="hidden" id="hrWorkEmployeeId">
       <div class="form-grid">
@@ -932,11 +905,10 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : PAIEMENT RH ═══════════ -->
 <div id="hrTxModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2>Paiement employé</h2>
-    <form id="hrTxForm" onsubmit="event.preventDefault(); if(typeof saveHRTxFromForm==='function')saveHRTxFromForm();">
+    <form id="hrTxForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.HR)VOLTCORE.HR.saveTxFromForm()">
       <input type="hidden" id="hrTxEmployeeId">
       <div class="form-grid">
         <label>Employé<select id="hrTxEmployeeSelect" class="input"></select></label>
@@ -960,18 +932,17 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : RH DETAIL ═══════════ -->
 <div id="hrDetailModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2 id="hrDetailTitle">Employé</h2>
     <div id="hrDetailBody"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeHRDetail==='function')closeHRDetail()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.HR)VOLTCORE.HR.closeDetail()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : FACTURE ═══════════ -->
+<!-- ═══ FACTURE : formulaire complet ═══ -->
 <div id="invoiceModal" class="modal" style="display:none">
   <div class="modal-content modal-xlarge">
     <h2>Facture / Document <span id="invoiceTypeBadge" class="badge">Facture</span></h2>
@@ -989,6 +960,10 @@
       <label>Client<select id="invoiceClientSelect" class="input"></select></label>
       <label>Chantier<select id="invoiceChantierSelect" class="input"></select></label>
       <label>Sujet<input type="text" id="invoiceSujet" class="input"></label>
+    </div>
+
+    <div id="invoiceGarantieLiberationInfo" class="alert-prix" style="display:none;margin:8px 0">
+      🔓 Garantie BTP libérée le <strong id="invoiceGarantieLiberationDate"></strong>
     </div>
 
     <div class="invoice-items-section">
@@ -1021,6 +996,11 @@
         <label>Retenue TVA %<input type="number" step="0.01" id="invoiceRetenueTVA" class="input" value="0"></label>
         <label>Retenue garantie %<input type="number" step="0.01" id="invoiceRetenueGarantie" class="input" value="0"></label>
       </div>
+      <div class="form-row">
+        <label class="checkbox-label" title="Cocher UNIQUEMENT si le client autoliquide la TVA (BTP Tunisie, prestation à entreprise assujettie).">
+          <input type="checkbox" id="invoiceAutoliquidation"> ⚠️ Autoliquidation TVA par le preneur
+        </label>
+      </div>
       <div class="totals-display">
         <div>Total HT : <span id="totalHTDisplay">0 DT</span></div>
         <div>TVA (<span id="tvaRateDisplay">19%</span>) : <span id="tvaDisplay">0 DT</span></div>
@@ -1048,7 +1028,7 @@
     <label>Notes<textarea id="invoiceNotes" rows="2" class="input"></textarea></label>
     <div id="invoiceFormError" class="form-error"></div>
     <div class="modal-actions">
-      <button type="button" class="btn" onclick="if(typeof closeInvoiceForm==='function')closeInvoiceForm()">Annuler</button>
+      <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Invoices)VOLTCORE.Invoices.closeForm()">Annuler</button>
       <button type="button" id="btnSaveBrouillon" class="btn">💾 Brouillon</button>
       <button type="button" id="btnClearBrouillon" class="btn">🗑️ Vider brouillon</button>
       <button type="button" id="invoiceSaveBtn" class="btn btn-primary">💾 Enregistrer</button>
@@ -1056,18 +1036,16 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : FACTURE DETAIL ═══════════ -->
 <div id="invoiceDetailModal" class="modal" style="display:none">
   <div class="modal-content modal-xlarge">
     <h2 id="invoiceDetailTitle">Document</h2>
     <div id="invoiceDetailBody"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeInvoiceDetail==='function')closeInvoiceDetail()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.InvoicesView)VOLTCORE.InvoicesView.closeDetail()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : PAIEMENT FACTURE ═══════════ -->
 <div id="paymentModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2 id="paymentModalTitle">Paiement</h2>
@@ -1090,7 +1068,36 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : ACHAT ═══════════ -->
+<div id="liberationGarantieModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="libGarantieTitle">🔓 Libérer la garantie BTP</h2>
+    <div id="libGarantieInfo" class="muted" style="margin-bottom:12px"></div>
+    <input type="hidden" id="libGarantieDocId">
+    <div class="form-grid">
+      <label>Montant à libérer (DT)
+        <input type="number" step="0.001" min="0" id="libGarantieMontant" class="input">
+      </label>
+      <label>Date de libération
+        <input type="date" id="libGarantieDate" class="input">
+      </label>
+      <label>Mode de règlement
+        <select id="libGarantieMode" class="input">
+          <option value="virement" selected>Virement</option>
+          <option value="cheque">Chèque</option>
+          <option value="especes">Espèces</option>
+          <option value="traite">Traite</option>
+        </select>
+      </label>
+    </div>
+    <label>Note (optionnelle)<input type="text" id="libGarantieNote" class="input" maxlength="200"></label>
+    <div id="libGarantieError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.InvoicesView)VOLTCORE.InvoicesView.closeLiberationGarantie()">Annuler</button>
+      <button type="button" id="libGarantieSaveBtn" class="btn btn-primary">🔓 Confirmer la libération</button>
+    </div>
+  </div>
+</div>
+
 <div id="purchaseModal" class="modal" style="display:none">
   <div class="modal-content modal-xlarge">
     <h2 id="purchaseModalTitle">Nouvel achat</h2>
@@ -1102,34 +1109,28 @@
       <label>TVA %<input type="number" step="0.01" id="purchaseTvaRate" class="input" value="19"></label>
       <label>Timbre<input type="number" step="0.001" id="purchaseTimbre" class="input" value="1.000"></label>
     </div>
-
     <div class="invoice-items-section">
       <h3>Lignes</h3>
       <table class="invoice-items-table">
-        <thead>
-          <tr><th>Désignation</th><th class="col-qte">Qté</th><th class="col-pu">P.U.</th><th class="col-total">Total</th><th class="col-action"></th></tr>
-        </thead>
+        <thead><tr><th>Désignation</th><th class="col-qte">Qté</th><th class="col-pu">P.U.</th><th class="col-total">Total</th><th class="col-action"></th></tr></thead>
         <tbody id="purchaseLinesBody"></tbody>
       </table>
       <button type="button" id="btnAddPurchaseLine" class="btn btn-sm">+ Ajouter une ligne</button>
     </div>
-
     <div class="totals-display">
       <div>Total HT : <span id="purchaseTotalHT">0 DT</span></div>
       <div>TVA : <span id="purchaseTVA">0 DT</span></div>
       <div class="total-ttc">Total TTC : <span id="purchaseTotalTTC">0 DT</span></div>
     </div>
-
     <label>Notes<textarea id="purchaseNotes" rows="2" class="input"></textarea></label>
     <div id="purchaseFormError" class="form-error"></div>
     <div class="modal-actions">
-      <button type="button" class="btn" onclick="if(typeof closePurchaseModal==='function')closePurchaseModal()">Annuler</button>
+      <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Purchases)VOLTCORE.Purchases.closeModal()">Annuler</button>
       <button type="button" id="purchaseSaveBtn" class="btn btn-primary">Enregistrer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : PAIEMENT FOURNISSEUR ═══════════ -->
 <div id="supplierPaymentModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2 id="supplierPaymentModalTitle">Paiement fournisseur</h2>
@@ -1152,11 +1153,10 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : FRAIS ═══════════ -->
 <div id="fraisModal" class="modal" style="display:none">
   <div class="modal-content">
     <h2 id="fraisModalTitle">Nouveau frais</h2>
-    <form id="fraisForm" onsubmit="event.preventDefault(); if(typeof saveFraisFromForm==='function')saveFraisFromForm();">
+    <form id="fraisForm" onsubmit="event.preventDefault(); if(window.VOLTCORE&&VOLTCORE.Frais)VOLTCORE.Frais.saveFromForm()">
       <input type="hidden" id="fraisId">
       <div class="form-grid">
         <label>Date<input type="date" id="fraisDate" class="input"></label>
@@ -1169,20 +1169,113 @@
       <label>Notes<textarea id="fraisNotes" rows="2" class="input"></textarea></label>
       <div id="fraisFormError" class="form-error"></div>
       <div class="modal-actions">
-        <button type="button" class="btn" onclick="if(typeof closeFraisModal==='function')closeFraisModal()">Annuler</button>
+        <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Frais)VOLTCORE.Frais.closeModal()">Annuler</button>
         <button type="submit" id="fraisSaveBtn" class="btn btn-primary">Enregistrer</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- v6.10.2 — Modale Bon A/B/C/D supprimée -->
+<div id="bonRouteModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="bonRouteModalTitle">Nouveau bon route</h2>
+    <input type="hidden" id="bonRouteId">
+    <div class="form-grid">
+      <label>Type<select id="bonRouteType" class="input"></select></label>
+      <label>Numéro<input type="text" id="bonRouteNumero" class="input" placeholder="(auto)"></label>
+      <label>Statut<select id="bonRouteStatut" class="input"></select></label>
+      <label>Date création<input type="date" id="bonRouteDateCreation" class="input"></label>
+      <label>Date départ<input type="date" id="bonRouteDateDepart" class="input"></label>
+      <label>Date retour<input type="date" id="bonRouteDateRetour" class="input"></label>
+      <label>Véhicule *<input type="text" id="bonRouteVehicule" class="input" placeholder="Partner K9 — 248 TU 8239" maxlength="80"></label>
+      <label>Chauffeur<input type="text" id="bonRouteChauffeur" class="input" maxlength="80"></label>
+      <label>Destination<select id="bonRouteDestination" class="input"></select></label>
+      <label>Adresse précise<input type="text" id="bonRouteAdressePrecise" class="input" maxlength="200"></label>
+      <label>Chantier lié (info)<select id="bonRouteChantierSelect" class="input"></select></label>
+      <label>Km départ<input type="number" step="1" min="0" id="bonRouteKmDepart" class="input" value="0"></label>
+      <label>Km retour<input type="number" step="1" min="0" id="bonRouteKmRetour" class="input" value="0"></label>
+    </div>
+    <div id="bonRouteMaterielSection" class="invoice-items-section" style="display:none">
+      <h3>📦 Matériel sorti</h3>
+      <table class="invoice-items-table">
+        <thead><tr><th>Désignation</th><th class="col-qte">Qté</th><th class="col-unite">Unité</th><th>Observation</th><th class="col-action"></th></tr></thead>
+        <tbody id="bonRouteMaterielBody"></tbody>
+      </table>
+      <div class="invoice-items-actions">
+        <button type="button" id="btnAddBonRouteMaterielLine" class="btn btn-sm">+ Ajouter une ligne</button>
+      </div>
+    </div>
+    <div id="bonRouteDocSection" class="invoice-items-section" style="display:none">
+      <h3>📄 Documents commandés</h3>
+      <table class="invoice-items-table">
+        <thead><tr><th style="width:100px">Réf.</th><th>Désignation</th><th style="width:150px">Fournisseur</th><th class="col-qte">Qté</th><th>Observation</th><th class="col-action"></th></tr></thead>
+        <tbody id="bonRouteDocBody"></tbody>
+      </table>
+      <div class="invoice-items-actions">
+        <button type="button" id="btnAddBonRouteDocLine" class="btn btn-sm">+ Ajouter une ligne</button>
+      </div>
+    </div>
+    <label>Notes<textarea id="bonRouteNotes" rows="2" class="input"></textarea></label>
+    <div id="bonRouteFormError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Route)VOLTCORE.Route.closeModal()">Annuler</button>
+      <button type="button" id="bonRouteSaveBtn" class="btn btn-primary">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
 
-<!-- ═══════════ MODALE : SCANNER ═══════════ -->
+<div id="bonRouteDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="bonRouteDetailTitle">Bon route</h2>
+    <div id="bonRouteDetailBody"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Route)VOLTCORE.Route.closeDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div id="documentUploadModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>📁 Nouveau document</h2>
+    <div class="form-grid">
+      <label>Fichier * (image ou PDF, max 5 Mo)
+        <input type="file" id="documentUploadFile" class="input" accept="image/jpeg,image/png,image/webp,application/pdf">
+      </label>
+      <label>Nom<input type="text" id="documentUploadNom" class="input" placeholder="(auto)" maxlength="200"></label>
+      <label>Catégorie<select id="documentUploadCategorie" class="input"></select></label>
+      <label>Date du document<input type="date" id="documentUploadDate" class="input"></label>
+    </div>
+    <label>Tags (séparés par virgules)
+      <input type="text" id="documentUploadTags" class="input" placeholder="ex: steg, octobre, 2026">
+    </label>
+    <label>Notes (optionnel)<textarea id="documentUploadNotes" rows="2" class="input"></textarea></label>
+    <div id="documentUploadError" class="form-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Documents)VOLTCORE.Documents.closeUploadModal()">Annuler</button>
+      <button type="button" class="btn btn-primary" id="documentUploadSaveBtn">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="documentDetailModal" class="modal" style="display:none">
+  <div class="modal-content modal-xlarge">
+    <h2 id="documentDetailTitle">Document</h2>
+    <div id="documentDetailBody"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Documents)VOLTCORE.Documents.closeDetail()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCANNER ═══ -->
 <div id="scanModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2>Scanner un document</h2>
     <div id="scanError" class="form-error"></div>
+    <div id="scanOpenCvStatus" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;margin-bottom:10px;font-size:12px">
+      <span id="scanOpenCvDot" style="width:10px;height:10px;border-radius:50%;background:#999"></span>
+      <span id="scanOpenCvText" class="muted">OpenCV en chargement…</span>
+    </div>
     <div id="scanEmptyHint" class="empty-state">Choisis une option ci-dessous.</div>
     <div id="scanVideoContainer" style="display:none">
       <video id="scanVideo" autoplay playsinline></video>
@@ -1202,30 +1295,48 @@
         </div>
       </div>
     </div>
-    <!-- v6.10.0 — Barre d'amélioration -->
+    <div id="scanProgressWrap" style="display:none">
+      <div id="scanProgressLabel">Préparation…</div>
+      <div id="scanProgressTrack"><div id="scanProgressBar"></div></div>
+    </div>
     <div id="scanImproveBar" style="display:none">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 0;border-top:1px solid var(--border);margin-top:10px">
         <span style="font-size:12px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px">Mode :</span>
-        <button type="button" id="btnScanModeFast" class="btn btn-sm active" data-scan-mode="fast">⚡ Rapide</button>
-        <button type="button" id="btnScanModePrecise" class="btn btn-sm" data-scan-mode="precise">🎯 Précis</button>
-        <button type="button" id="btnResetScanCorners" class="btn btn-sm" title="Réinitialise les 4 coins">↺ Reset coins</button>
-        <button type="button" id="btnApplyScanImprove" class="btn btn-primary btn-sm">✨ Améliorer</button>
+        <button type="button" class="btn btn-sm active" data-scan-mode="document">📄 Document</button>
+        <button type="button" class="btn btn-sm" data-scan-mode="photo">📷 Photo</button>
+        <button type="button" class="btn btn-sm" data-scan-mode="text">✏️ Texte</button>
+        <button type="button" class="btn btn-sm" data-scan-mode="none">🎨 Brut</button>
       </div>
     </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeScanner==='function')closeScanner()">Fermer</button>
-      <button id="btnStartCamera" class="btn">📷 Démarrer caméra</button>
-      <button id="btnStopCamera" class="btn" style="display:none">⏹️ Arrêter</button>
-      <button id="btnCapturePhoto" class="btn btn-primary" style="display:none">📸 Capturer</button>
-      <button id="btnImportScanGallery" class="btn">🖼️ Galerie</button>
-      <button id="btnSaveScanToDocs" class="btn btn-primary" style="display:none">📁 Documents</button>
-      <button id="btnSaveScan" class="btn btn-primary" style="display:none">💾 Sauvegarder</button>
-      <button id="btnUndoScanImprove" class="btn" style="display:none">↺ Annuler l'amélioration</button>
+    <div id="scanPageBar" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light)">Pages de cette session</strong>
+        <span id="scanPageCounter" class="muted"></span>
+      </div>
+      <div id="scanPagesThumbnails">
+        <span class="muted" style="font-size:11px">Aucune page ajoutée</span>
+      </div>
+    </div>
+    <div id="scanMainActions" class="modal-actions" style="margin-top:12px">
+      <button class="btn" id="btnStartCamera">📷 Démarrer caméra</button>
+      <button class="btn" id="btnStopCamera" style="display:none">⏹️ Arrêter</button>
+      <button class="btn btn-primary" id="btnCapturePhoto" style="display:none">📸 Capturer</button>
+      <button class="btn" id="btnImportScanGallery">🖼️ Galerie</button>
+      <button class="btn" id="btnRotateScan">🔄 Rotation</button>
+      <button class="btn" id="btnMirrorScan">↔️ Miroir</button>
+      <button class="btn" id="btnUndoScan">↩️ Annuler</button>
+      <button class="btn" id="btnResetScanCorners">↺ Reset coins</button>
+      <button class="btn btn-primary" id="btnApplyScan">✨ Appliquer</button>
+      <button class="btn" id="btnAddScanPage">+ Ajouter une page</button>
+      <button class="btn btn-primary" id="btnSaveScanToDocs">📁 Documents</button>
+      <button class="btn" id="btnAttachScanToInvoice">📎 Facture</button>
+      <button class="btn btn-primary" id="btnSaveScanAll">💾 Tout enregistrer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Scan)VOLTCORE.Scan.close()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : SIGNATURE ═══════════ -->
+<!-- ═══ SIGNATURE ═══ -->
 <div id="signatureModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2>Signature tactile</h2>
@@ -1234,7 +1345,7 @@
     </div>
     <label>Nom<input type="text" id="signatureName" class="input" placeholder="Signature pour…"></label>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeSignatureModal==='function')closeSignatureModal()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Sign)VOLTCORE.Sign.close()">Fermer</button>
       <button id="btnClearSignature" class="btn">🗑️ Effacer</button>
       <button id="btnSaveSignature" class="btn">💾 Enregistrer</button>
       <button id="btnDownloadSignature" class="btn">⬇️ Télécharger</button>
@@ -1247,7 +1358,7 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : ASSISTANT IA ═══════════ -->
+<!-- ═══ ASSISTANT IA ═══ -->
 <div id="iaModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2>Assistant IA</h2>
@@ -1268,14 +1379,13 @@
     <label>Réponse de l'IA (JSON à coller)<textarea id="iaPasteTextarea" rows="6" class="input" placeholder="Colle ici la réponse JSON de l'IA…"></textarea></label>
     <div id="iaError" class="form-error"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeAssistantIA==='function')closeAssistantIA()">Fermer</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.AssistantIA)VOLTCORE.AssistantIA.close()">Fermer</button>
       <button id="iaClearBtn" class="btn">Effacer</button>
       <button id="iaAnalyzeBtn" class="btn btn-primary">🔍 Analyser</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : APERÇU IMPORT IA ═══════════ -->
 <div id="iaPreviewModal" class="modal" style="display:none">
   <div class="modal-content modal-xlarge">
     <h2>Aperçu de l'import</h2>
@@ -1287,538 +1397,176 @@
   </div>
 </div>
 
-<!-- ═══════════ MODALE : AIDE ═══════════ -->
+<!-- ═══ AIDE ═══ -->
 <div id="helpModal" class="modal" style="display:none">
   <div class="modal-content modal-large">
     <h2>❓ Aide VOLTCORE</h2>
-    <div id="helpBody"></div>
+    <div id="helpBody">
+      <details class="help-item"><summary>Comment créer une facture ?</summary>
+        <p>Facturation → "+ Nouveau document" → remplis le client, ajoute des lignes, vérifie les totaux, puis "Enregistrer".</p></details>
+      <details class="help-item"><summary>Comment ajouter un client ?</summary>
+        <p>Clients → "+ Nouveau client" → nom obligatoire, le reste optionnel.</p></details>
+      <details class="help-item"><summary>Comment scanner un document ?</summary>
+        <p>Outils → Scanner → autorise la caméra → capture → ajuste les coins → "Appliquer" → "Documents".</p></details>
+      <details class="help-item"><summary>Comment faire un avoir ?</summary>
+        <p>Facturation → clique sur la facture → "Créer avoir". Les lignes sont pré-remplies, ajuste les quantités puis enregistre.</p></details>
+      <details class="help-item"><summary>Comment faire une sauvegarde ?</summary>
+        <p>Outils → "Exporter (JSON)". Un backup automatique est fait chaque jour dans IndexedDB (7 derniers).</p></details>
+      <details class="help-item"><summary>Comment restaurer ?</summary>
+        <p>Outils → "Importer un backup" → tape FUSIONNER pour ajouter, ou REMPLACER pour tout écraser (dangereux).</p></details>
+      <details class="help-item"><summary>Comment activer le mode sombre ?</summary>
+        <p>Outils → Paramètres → bascule "Mode sombre".</p></details>
+      <details class="help-item"><summary>Comment libérer la garantie BTP ?</summary>
+        <p>Ouvre une facture en garantie → clic "🔓 Libérer garantie" → saisis le montant → confirme.</p></details>
+      <details class="help-item"><summary>Comment activer la biométrie ?</summary>
+        <p>Paramètres → bouton "Empreinte" sur l'écran de connexion (nécessite HTTPS).</p></details>
+      <details class="help-item"><summary>Raccourcis clavier</summary>
+        <p>Échap = fermer la modale du dessus. Ctrl+K = focus recherche. Ctrl+S = sauvegarder.</p></details>
+      <div class="help-footer">VOLTCORE v7 — Document d'aide intégré</div>
+    </div>
     <div class="modal-actions">
-      <button class="btn" onclick="if(typeof closeHelpModal==='function')closeHelpModal()">Fermer</button>
+      <button class="btn" onclick="document.getElementById('helpModal').style.display='none'">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : LIBÉRATION GARANTIE BTP (v6.8.1) ═══════════ -->
-<div id="liberationGarantieModal" class="modal" style="display:none">
-  <div class="modal-content">
-    <h2 id="libGarantieTitle">🔓 Libérer la garantie BTP</h2>
-    <div id="libGarantieInfo" class="muted" style="margin-bottom:12px"></div>
-    <input type="hidden" id="libGarantieDocId">
-    <div class="form-grid">
-      <label>Montant à libérer (DT)
-        <input type="number" step="0.001" min="0" id="libGarantieMontant" class="input">
-      </label>
-      <label>Date de libération
-        <input type="date" id="libGarantieDate" class="input">
-      </label>
-      <label>Mode de règlement
-        <select id="libGarantieMode" class="input">
-          <option value="virement" selected>Virement</option>
-          <option value="cheque">Chèque</option>
-          <option value="especes">Espèces</option>
-          <option value="traite">Traite</option>
-        </select>
-      </label>
-    </div>
-    <label>Note (optionnelle)
-      <input type="text" id="libGarantieNote" class="input" maxlength="200">
-    </label>
-    <div id="libGarantieError" class="form-error"></div>
+<!-- ═══ ALERTES ═══ -->
+<div id="alertsModal" class="modal" style="display:none">
+  <div class="modal-content modal-large">
+    <h2>Alertes</h2>
+    <div id="alertsModalBody"></div>
     <div class="modal-actions">
-      <button type="button" class="btn" onclick="if(typeof closeLiberationGarantieModal==='function')closeLiberationGarantieModal(); else document.getElementById('liberationGarantieModal').style.display='none';">Annuler</button>
-      <button type="button" id="libGarantieSaveBtn" class="btn btn-primary" onclick="if(typeof confirmLiberationGarantie==='function')confirmLiberationGarantie()">🔓 Confirmer la libération</button>
+      <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Alerts)VOLTCORE.Alerts.closeModal()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MODALE : BON ROUTE (v6.9.0) ═══════════ -->
-<div id="bonRouteModal" class="modal" style="display:none">
-  <div class="modal-content modal-xlarge">
-    <h2 id="bonRouteModalTitle">Nouveau bon route</h2>
-    <input type="hidden" id="bonRouteId">
-
-    <div class="form-grid">
-      <label>Type
-        <select id="bonRouteType" class="input"
-          onchange="if(typeof _bonRouteToggleTypeSections==='function')_bonRouteToggleTypeSections(this.value)">
-        </select>
-      </label>
-      <label>Numéro
-        <input type="text" id="bonRouteNumero" class="input" placeholder="(auto)">
-      </label>
-      <label>Statut<select id="bonRouteStatut" class="input"></select></label>
-      <label>Date création<input type="date" id="bonRouteDateCreation" class="input"></label>
-      <label>Date départ<input type="date" id="bonRouteDateDepart" class="input"></label>
-      <label>Date retour<input type="date" id="bonRouteDateRetour" class="input"></label>
-      <label>Véhicule *<input type="text" id="bonRouteVehicule" class="input" placeholder="Partner K9 — 248 TU 8239" maxlength="80"></label>
-      <label>Chauffeur<input type="text" id="bonRouteChauffeur" class="input" maxlength="80"></label>
-      <label>Destination<select id="bonRouteDestination" class="input"></select></label>
-      <label>Adresse précise<input type="text" id="bonRouteAdressePrecise" class="input" maxlength="200"></label>
-      <label>Chantier lié (info)<select id="bonRouteChantierSelect" class="input"></select></label>
-      <label>Km départ<input type="number" step="1" min="0" id="bonRouteKmDepart" class="input" value="0"></label>
-      <label>Km retour<input type="number" step="1" min="0" id="bonRouteKmRetour" class="input" value="0"></label>
-    </div>
-
-    <div id="bonRouteMaterielSection" class="invoice-items-section" style="display:none">
-      <h3>📦 Matériel sorti</h3>
-      <table class="invoice-items-table">
-        <thead>
-          <tr>
-            <th>Désignation</th>
-            <th class="col-qte">Qté</th>
-            <th class="col-unite">Unité</th>
-            <th>Observation</th>
-            <th class="col-action"></th>
-          </tr>
-        </thead>
-        <tbody id="bonRouteMaterielBody"></tbody>
-      </table>
-      <div class="invoice-items-actions">
-        <button type="button" id="btnAddBonRouteMaterielLine" class="btn btn-sm"
-          onclick="if(typeof addBonRouteMaterielLine==='function')addBonRouteMaterielLine()">+ Ajouter une ligne</button>
-      </div>
-    </div>
-
-    <div id="bonRouteDocSection" class="invoice-items-section" style="display:none">
-      <h3>📄 Documents commandés</h3>
-      <table class="invoice-items-table">
-        <thead>
-          <tr>
-            <th style="width:100px">Réf.</th>
-            <th>Désignation</th>
-            <th style="width:150px">Fournisseur</th>
-            <th class="col-qte">Qté</th>
-            <th>Observation</th>
-            <th class="col-action"></th>
-          </tr>
-        </thead>
-        <tbody id="bonRouteDocBody"></tbody>
-      </table>
-      <div class="invoice-items-actions">
-        <button type="button" id="btnAddBonRouteDocLine" class="btn btn-sm"
-          onclick="if(typeof addBonRouteDocLine==='function')addBonRouteDocLine()">+ Ajouter une ligne</button>
-      </div>
-    </div>
-
-    <label>Notes<textarea id="bonRouteNotes" rows="2" class="input"></textarea></label>
-    <div id="bonRouteFormError" class="form-error"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn" onclick="if(typeof closeBonRouteModal==='function')closeBonRouteModal()">Annuler</button>
-      <button type="button" id="bonRouteSaveBtn" class="btn btn-primary"
-        onclick="if(typeof saveBonRouteFromForm==='function')saveBonRouteFromForm()">💾 Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ MODALE : DOCUMENT UPLOAD (v6.9.8) ═══════════ -->
-<div id="documentUploadModal" class="modal" style="display:none">
-  <div class="modal-content">
-    <h2>📁 Nouveau document</h2>
-    <div class="form-grid">
-      <label>Fichier * (image ou PDF, max 5 Mo)
-        <input type="file" id="documentUploadFile" class="input" accept="image/jpeg,image/png,image/webp,application/pdf">
-      </label>
-      <label>Nom
-        <input type="text" id="documentUploadNom" class="input" placeholder="(auto depuis le fichier)" maxlength="200">
-      </label>
-      <label>Catégorie
-        <select id="documentUploadCategorie" class="input"></select>
-      </label>
-      <label>Date du document
-        <input type="date" id="documentUploadDate" class="input">
-      </label>
-    </div>
-    <label>Tags (séparés par virgules)
-      <input type="text" id="documentUploadTags" class="input" placeholder="ex: steg, octobre, 2026">
-    </label>
-    <label>Notes (optionnel)
-      <textarea id="documentUploadNotes" rows="2" class="input"></textarea>
-    </label>
-    <div id="documentUploadError" class="form-error"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn" onclick="closeDocumentUploadModal()">Annuler</button>
-      <button type="button" class="btn btn-primary" id="documentUploadSaveBtn">💾 Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ MODALE : DOCUMENT DÉTAIL (v6.9.8) ═══════════ -->
-<div id="documentDetailModal" class="modal" style="display:none">
-  <div class="modal-content modal-xlarge">
-    <h2 id="documentDetailTitle">Document</h2>
-    <div id="documentDetailBody"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn" onclick="closeDocumentDetail()">Fermer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ MODALE : BON ROUTE DÉTAIL (v6.9.0) ═══════════ -->
-<div id="bonRouteDetailModal" class="modal" style="display:none">
-  <div class="modal-content modal-xlarge">
-    <h2 id="bonRouteDetailTitle">Bon route</h2>
-    <div id="bonRouteDetailBody"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn" onclick="if(typeof closeBonRouteDetail==='function')closeBonRouteDetail()">Fermer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ SCRIPTS (ordre strict — NE PAS CHANGER) ═══════════ -->
-<script src="./01-core.js"></script>
-<script src="./02-auth.js"></script>
-<script src="./03-utils.js"></script>
-<script src="./04-storage.js"></script>
-<script src="./05-alerts.js"></script>
-<script src="./06-clients.js"></script>
-<script src="./07-suppliers.js"></script>
-<script src="./08-stock.js"></script>
-<script src="./09-chantiers.js"></script>
-<script src="./10-hr.js"></script>
-<script src="./11-invoices.js"></script>
-<script src="./12-invoices-view.js"></script>
-<script src="./13-purchases.js"></script>
-<script src="./14-expenses-bons.js"></script>
-<script src="./15-scan-sign.js"></script>
-<script src="./16-assistant-ia.js"></script>
-<script src="./17-dash-reports.js"></script>
-<script src="./18-mobile.js"></script>
-<script src="./19-tools-save.js"></script>
-<script src="./20-init-infra.js"></script>
-<script src="./23-bons-route.js"></script>
-<script src="./24-documents.js"></script>
-<script src="./21-init-app.js"></script>
-
-<!-- ═══════════ BRANCHEMENT TRI CLIENTS (UI) ═══════════ -->
-<script>
-(function () {
-  function updateDirBtn() {
-    var btn = document.getElementById('clientsSortDirBtn');
-    if (!btn) return;
-    var dir = (typeof __clientsSortDir !== 'undefined') ? __clientsSortDir : 'asc';
-    btn.textContent = (dir === 'asc') ? '↑' : '↓';
-  }
-  function bindOnce() {
-    var sel = document.getElementById('clientsSortSelect');
-    var btn = document.getElementById('clientsSortDirBtn');
-    if (sel && !sel.__bound) {
-      sel.__bound = true;
-      sel.addEventListener('change', function (ev) {
-        var v = ev.target.value;
-        if (typeof setClientsSort === 'function') {
-          setClientsSort(v);
-          updateDirBtn();
-        }
-      });
-    }
-    if (btn && !btn.__bound) {
-      btn.__bound = true;
-      btn.addEventListener('click', function () {
-        var field = (typeof __clientsSortField !== 'undefined') ? __clientsSortField : 'nom';
-        if (typeof setClientsSort === 'function') {
-          setClientsSort(field);
-          updateDirBtn();
-        }
-      });
-    }
-    var current = (typeof __clientsSortField !== 'undefined') ? __clientsSortField : 'nom';
-    if (sel && !sel.value) sel.value = current;
-    updateDirBtn();
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindOnce);
-  } else {
-    bindOnce();
-  }
-  window.addEventListener('load', function () { setTimeout(bindOnce, 200); });
-})();
-</script>
-
-<!-- ═══════════ SERVICE WORKER ═══════════ -->
-<script>
-var VOLTCORE_SW_ENABLED = true;
-
-if ('serviceWorker' in navigator) {
-  if (VOLTCORE_SW_ENABLED) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./22-pwa.js')
-        .then(function () { console.log('[App] SW enregistré'); })
-        .catch(function (e) { console.warn('[App] SW échec :', e); });
-      navigator.serviceWorker.addEventListener('message', function (ev) {
-        var d = ev.data || {};
-        if (d.type === 'SW_ACTIVATED' && typeof showToast === 'function') {
-          try { showToast('Mise à jour installée. Rafraîchis (F5).', 'info', 5000); } catch (e) {}
-        }
-      });
-    });
-  } else {
-    console.log('[App] Mode correction : Service Worker désactivé');
-    navigator.serviceWorker.getRegistrations().then(function (regs) {
-      for (var i = 0; i < regs.length; i++) {
-        regs[i].unregister().then(function () {
-          console.log('[App] SW désinscrit');
-        });
-      }
-    }).catch(function () {});
-    if (window.caches && caches.keys) {
-      caches.keys().then(function (keys) {
-        for (var j = 0; j < keys.length; j++) {
-          if (keys[j].indexOf('voltcore-') === 0) {
-            caches.delete(keys[j]);
-            console.log('[App] Cache supprimé :', keys[j]);
-          }
-        }
-      }).catch(function () {});
-    }
-  }
-}
-</script>
-
-<!-- ═══════════ BOUTON RESET SW (filet de sécurité) ═══════════ -->
-<script>
-(function () {
-  function bindResetButton() {
-    var btn = document.getElementById('btnResetServiceWorker');
-    if (!btn || btn.__bound) return;
-    btn.__bound = true;
-    btn.addEventListener('click', function (ev) {
-      try { ev.preventDefault(); } catch (e) {}
-
-      var ok;
-      if (typeof confirmDialog === 'function') {
-        ok = confirmDialog(
-          'Réinitialiser le cache de l\'application ?\n\n' +
-          '⚠️ Tes données (clients, factures, stock…) ne sont PAS touchées.\n\n' +
-          'L\'application va recharger automatiquement après nettoyage.'
-        );
-      } else {
-        ok = window.confirm('Réinitialiser le cache de l\'application ?');
-      }
-      if (!ok) return;
-
-      console.log('[App] Réinitialisation SW + caches…');
-
-      function done() {
-        try { location.reload(); } catch (e) { location.href = location.href; }
-      }
-
-      var tasks = [];
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
-        tasks.push(
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            return Promise.all(regs.map(function (r) {
-              return r.unregister().then(function () {
-                console.log('[App] SW désinscrit');
-              }).catch(function () {});
-            }));
-          }).catch(function () {})
-        );
-      }
-
-      if (window.caches && caches.keys) {
-        tasks.push(
-          caches.keys().then(function (keys) {
-            return Promise.all(keys.map(function (k) {
-              if (k.indexOf('voltcore-') === 0) {
-                console.log('[App] cache supprimé :', k);
-                return caches.delete(k);
-              }
-              return null;
-            }));
-          }).catch(function () {})
-        );
-      }
-
-      Promise.all(tasks).then(done, done);
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindResetButton);
-  } else {
-    bindResetButton();
-  }
-})();
-</script>
-
-<!-- ═══ DIAGNOSTIC (accessible depuis Outils → Diagnostic) ═══ -->
+<!-- ═══════════════════════════════════════════════════════════
+     DIAGNOSTIC PANEL (hidden by default)
+     ═══════════════════════════════════════════════════════════ -->
 <div id="diagPanel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:10000;padding:16px;overflow:auto;font-family:monospace;font-size:12px;line-height:1.5">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;position:sticky;top:0;background:#fff;padding-bottom:8px;border-bottom:2px solid #1A2B4C">
     <strong style="font-size:15px;color:#1A2B4C">🔍 Diagnostic VOLTCORE</strong>
     <button onclick="document.getElementById('diagPanel').style.display='none'" style="background:#C0392B;color:#fff;border:none;padding:6px 12px;border-radius:4px;font-size:16px">✕</button>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <button onclick="runDiag()" style="padding:8px 12px;background:#1A2B4C;color:#fff;border:none;border-radius:4px;font-weight:600">🔄 État app</button>
-    <button onclick="runPerfTest()" style="padding:8px 12px;background:#2E8B57;color:#fff;border:none;border-radius:4px;font-weight:600">⏱️ Perf Stock</button>
-    <button onclick="runPerfAlerts()" style="padding:8px 12px;background:#7B1FA2;color:#fff;border:none;border-radius:4px;font-weight:600">⏱️ Perf Alertes</button>
-  </div>
-  <pre id="diagOutput" style="white-space:pre-wrap;word-break:break-word;margin:0;background:#F9FAFE;padding:12px;border-radius:6px;min-height:100px">Clique sur un bouton ci-dessus pour lancer un test.</pre>
+  <pre id="diagOutput" style="white-space:pre-wrap;word-break:break-word;margin:0;background:#F9FAFE;padding:12px;border-radius:6px;min-height:100px">Clique sur le bouton ci-dessus pour actualiser.</pre>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS — ORDRE STRICT, NE PAS MODIFIER
+     ═══════════════════════════════════════════════════════════ -->
+
+<script src="./00-core.js"></script>
+<script src="./01-utils.js"></script>
+<script src="./02-store.js"></script>
+<script src="./03-idb.js"></script>
+<script src="./04-alerts.js"></script>
+<script src="./05-auth.js"></script>
+<script src="./06-clients.js"></script>
+<script src="./07-suppl.js"></script>
+<script src="./08-stock.js"></script>
+<script src="./09-chant.js"></script>
+<script src="./10-hr.js"></script>
+<script src="./11-inv.js"></script>
+<script src="./12-inv-view.js"></script>
+<script src="./13-inv-pdf.js"></script>
+<script src="./14-purch.js"></script>
+<script src="./15-frais.js"></script>
+<script src="./16-route.js"></script>
+<script src="./17-docs.js"></script>
+<script src="./18-scan.js"></script>
+<script src="./19-scan-cv.js"></script>
+<script src="./20-scan-js.js"></script>
+<script src="./21-sign.js"></script>
+<script src="./22-ia.js"></script>
+<script src="./23-dash.js"></script>
+<script src="./24-mobile.js"></script>
+<script src="./25-tools.js"></script>
+<script src="./26-infra.js"></script>
+<script src="./27-migrate.js"></script>
+<script src="./28-backup.js"></script>
+<script src="./29-init.js"></script>
+<script src="./30-boot.js"></script>
+
+<!-- OpenCV (asynchrone, fallback sur 20-scan-js.js si indisponible) -->
 <script>
-(function(){
-  function fmt(n) { return (isFinite(n) && n >= 0) ? n.toFixed(1) + ' ms' : 'n/a'; }
-  function count(arr) { return Array.isArray(arr) ? arr.length : 0; }
-  function ok(fn) { return (typeof fn === 'function') ? '✅' : '❌'; }
-
-  window.runDiag = function() {
-    var out = [];
-    out.push('═══════════════════════════════');
-    out.push('  ÉTAT DE L\'APP VOLTCORE');
-    out.push('═══════════════════════════════');
-    out.push('');
-    out.push('▶ RUNTIME');
-    out.push('Service Worker   : ' + (typeof VOLTCORE_SW_ENABLED !== 'undefined' ? (VOLTCORE_SW_ENABLED ? '🔴 ACTIF' : '🟢 DÉSACTIVÉ') : '❓ inconnu'));
-    out.push('Utilisateur      : ' + (typeof currentUser !== 'undefined' && currentUser ? currentUser.username : 'non connecté'));
-    out.push('');
-    out.push('▶ FICHIERS CHARGÉS (détection via fonctions)');
-    out.push('01-core          : ' + ok(window.verifyVoltcoreLicense));
-    out.push('02-auth          : ' + ok(window.doLogin) + ' (fusion 23-users v6.5)');
-    out.push('03-utils         : ' + ok(window.computeLineTotal) + ' (LOT 2 + numberToFrenchWords v6.6)');
-    out.push('04-storage       : ' + ok(window.getAvoirTotalForFacture) + ' (LOT 2)');
-    out.push('05-alerts        : ' + ok(window.computeClientAlerts));
-    out.push('06-clients       : ' + ok(window.computeClientStats) + ' (v6.2)');
-    out.push('07-suppliers     : ' + ok(window.renderSuppliers));
-    out.push('08-stock         : ' + ok(window.renderStock) + ' (v6.6 fusion 24-picker)');
-    out.push('09-chantiers     : ' + ok(window.renderChantiers));
-    out.push('10-hr            : ' + ok(window.renderHR));
-    out.push('11-invoices      : ' + ok(window.computeInvoiceTotals));
-    out.push('12-invoices-view : ' + ok(window.renderInvoices) + ' (v6.7.2 PDF refait)');
-    out.push('13-purchases     : ' + ok(window.renderPurchases));
-    out.push('14-expenses-bons : ' + ok(window.renderFrais));
-    out.push('15-scan-sign     : ' + ok(window.openScanner));
-    out.push('16-assistant-ia  : ' + ok(window.openAssistantIA));
-    out.push('17-dash-reports  : ' + ok(window.renderDashboard));
-    out.push('18-mobile        : ' + ok(window.initMobile));
-    out.push('19-tools-save    : ' + ok(window.renderTrash));
-    out.push('20-init-infra    : ' + ok(window.logError));
-    out.push('21-init-app      : ' + ok(window.showSection) + ' (showSection)');
-    out.push('');
-    out.push('▶ SESSION #3 — NOUVEAUTÉS');
-    out.push('numberToFrenchWords : ' + ok(window.numberToFrenchWords));
-    out.push('_buildInvoiceHTML   : ' + ok(window._buildInvoiceHTML));
-    out.push('_docNetApresAvoirs  : ' + ok(window._docNetApresAvoirs));
-    out.push('');
-    out.push('▶ FONCTIONS FUSIONNÉES (LOT 5)');
-    out.push('openUserManagementModal  : ' + ok(window.openUserManagementModal) + ' (dans 02-auth.js)');
-    out.push('openArticlePicker        : ' + ok(window.openArticlePicker) + ' (dans 08-stock.js)');
-    out.push('closeArticlePicker       : ' + ok(window.closeArticlePicker));
-    out.push('closeUserManagementModal : ' + ok(window.closeUserManagementModal));
-    out.push('');
-    out.push('▶ ÉLÉMENTS HTML CLÉS');
-    out.push('#btnOpenAssistantIA      : ' + (document.getElementById('btnOpenAssistantIA') ? '✅' : '❌'));
-    out.push('#btnOpenUserManagement   : ' + (document.getElementById('btnOpenUserManagement') ? '✅' : '❌'));
-    out.push('#btnResetServiceWorker   : ' + (document.getElementById('btnResetServiceWorker') ? '✅' : '❌'));
-    out.push('#clientsList             : ' + (document.getElementById('clientsList') ? '✅' : '❌'));
-    out.push('#clientsSortSelect       : ' + (document.getElementById('clientsSortSelect') ? '✅' : '❌'));
-    out.push('#clientsSortDirBtn       : ' + (document.getElementById('clientsSortDirBtn') ? '✅' : '❌'));
-    out.push('#clientType              : ' + (document.getElementById('clientType') ? '✅ BTP' : '❌'));
-    out.push('#clientDelai             : ' + (document.getElementById('clientDelai') ? '✅ BTP' : '❌'));
-    out.push('#clientRetenue           : ' + (document.getElementById('clientRetenue') ? '✅ BTP' : '❌'));
-    out.push('#invoiceRetenueGarantie  : ' + (document.getElementById('invoiceRetenueGarantie') ? '✅ BTP' : '❌'));
-    out.push('.header-brand span       : ' + (document.querySelector('.header-brand .brand-core') ? '✅ Session #3' : '❌'));
-    out.push('.header-logo-underline   : ' + (document.querySelector('.header-logo-underline') ? '✅ Session #3' : '❌'));
-    out.push('');
-    out.push('▶ DONNÉES');
-    out.push('Clients          : ' + count(clients));
-    out.push('Articles         : ' + count(savedArticles));
-    out.push('Documents        : ' + count(savedDocuments));
-    out.push('Fournisseurs     : ' + count(suppliers));
-    out.push('Chantiers        : ' + count(savedChantiers));
-    out.push('Achats           : ' + count(purchaseInvoices));
-    out.push('Frais            : ' + count(frais));
-    out.push('Employés RH      : ' + count(hrEmployees));
-    out.push('Alertes          : ' + (typeof getAlertCounts === 'function' ? getAlertCounts().total : 'n/a'));
-    out.push('');
-    out.push('▶ STOCKAGE');
+  window.__opencvReady = false;
+  window.onOpenCvReady = function () {
+    window.__opencvReady = true;
+    try { console.log('✅ OpenCV.js prêt'); } catch (e) {}
     try {
-      var total = 0;
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf('voltcore_') === 0) {
-          total += (localStorage.getItem(k) || '').length;
+      window.dispatchEvent(new CustomEvent('voltcore:opencv:ready'));
+    } catch (e) {}
+  };
+</script>
+<script async src="./lib/opencv.js" onload="window.onOpenCvReady()"></script>
+
+<!-- ═══ SERVICE WORKER ═══ -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').then(function () {
+        try { console.log('[App] SW enregistré'); } catch (e) {}
+      }).catch(function (e) {
+        try { console.warn('[App] SW échec :', e); } catch (err) {}
+      });
+      navigator.serviceWorker.addEventListener('message', function (ev) {
+        var d = ev.data || {};
+        if (d.type === 'SW_ACTIVATED' && !d.isFirstInstall) {
+          try {
+            if (window.VOLTCORE && VOLTCORE.Utils && VOLTCORE.Utils.toast) {
+              VOLTCORE.Utils.toast('Mise à jour installée. Rafraîchis (F5).', 'info', 5000);
+            }
+          } catch (e) {}
         }
-      }
-      out.push('localStorage     : ' + (total / 1024).toFixed(1) + ' Ko (~' + (total / 1024 / 1024).toFixed(2) + ' Mo)');
-      out.push('Limite navigateur: ~5 Mo');
-      out.push('Utilisation      : ' + ((total / 1024 / 1024) / 5 * 100).toFixed(1) + '%');
-    } catch(e) {
-      out.push('localStorage     : erreur ' + e.message);
-    }
-    document.getElementById('diagOutput').textContent = out.join('\n');
-  };
-
-  window.runPerfTest = function() {
-    if (typeof renderStock !== 'function') {
-      document.getElementById('diagOutput').textContent = '❌ renderStock non disponible';
-      return;
-    }
-    var out = [];
-    out.push('═══════════════════════════════');
-    out.push('  PERFORMANCE — renderStock');
-    out.push('═══════════════════════════════');
-    out.push('');
-    try { renderStock(); } catch(e) {}
-    var times = [];
-    for (var i = 1; i <= 3; i++) {
-      var t = performance.now();
-      try { renderStock(); } catch(e) { out.push('Erreur test ' + i + ' : ' + e.message); }
-      var d = performance.now() - t;
-      times.push(d);
-      out.push('Test ' + i + ' : ' + fmt(d));
-    }
-    var avg = (times[0] + times[1] + times[2]) / 3;
-    out.push('');
-    out.push('MOYENNE : ' + fmt(avg));
-    out.push('');
-    if (avg < 100) out.push('✅ EXCELLENT (< 100 ms)');
-    else if (avg < 300) out.push('🟢 BON (< 300 ms)');
-    else if (avg < 800) out.push('🟡 MOYEN (300-800 ms)');
-    else if (avg < 2000) out.push('🟠 LENT (800-2000 ms)');
-    else out.push('🔴 TRÈS LENT (> 2 s)');
-    document.getElementById('diagOutput').textContent = out.join('\n');
-  };
-
-  window.runPerfAlerts = function() {
-    if (typeof computeClientAlerts !== 'function') {
-      document.getElementById('diagOutput').textContent = '❌ computeClientAlerts non disponible';
-      return;
-    }
-    var out = [];
-    out.push('═══════════════════════════════');
-    out.push('  PERFORMANCE — computeClientAlerts');
-    out.push('═══════════════════════════════');
-    out.push('');
-    try { computeClientAlerts(); } catch(e) {}
-    var times = [];
-    for (var i = 1; i <= 3; i++) {
-      var t = performance.now();
-      try { computeClientAlerts(); } catch(e) { out.push('Erreur ' + i + ' : ' + e.message); }
-      var d = performance.now() - t;
-      times.push(d);
-      out.push('Test ' + i + ' : ' + fmt(d));
-    }
-    var avg = (times[0] + times[1] + times[2]) / 3;
-    out.push('');
-    out.push('MOYENNE : ' + fmt(avg));
-    out.push('');
-    if (avg < 50) out.push('✅ EXCELLENT (< 50 ms)');
-    else if (avg < 200) out.push('🟢 BON (< 200 ms)');
-    else if (avg < 800) out.push('🟡 MOYEN (200-800 ms)');
-    else out.push('🔴 LENT (> 800 ms)');
-    document.getElementById('diagOutput').textContent = out.join('\n');
-  };
-
-  var btn = document.getElementById('diagBtn');
-  if (btn) {
-    btn.addEventListener('click', function() {
-      document.getElementById('diagPanel').style.display = 'block';
-      runDiag();
+      });
     });
   }
-})();
 </script>
-<!-- ═══ FIN DIAGNOSTIC ═══ -->
+
+<!-- ═══ RESET SW (fallback) ═══ -->
+<script>
+  (function () {
+    function bindResetButton() {
+      var btn = document.getElementById('btnResetServiceWorker');
+      if (!btn || btn.__bound) return;
+      btn.__bound = true;
+      btn.addEventListener('click', function (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        var ok = window.confirm(
+          'Réinitialiser le cache de l\'application ?\n\n' +
+          '⚠️ Tes données ne sont PAS touchées.\n\n' +
+          'L\'application va recharger automatiquement après nettoyage.'
+        );
+        if (!ok) return;
+        var tasks = [];
+        if ('serviceWorker' in navigator) {
+          tasks.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) {
+              return r.unregister().catch(function () {});
+            }));
+          }));
+        }
+        if (window.caches && caches.keys) {
+          tasks.push(caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) {
+              if (k.indexOf('voltcore-') === 0) return caches.delete(k);
+              return null;
+            }));
+          }));
+        }
+        Promise.all(tasks).then(function () {
+          try { location.reload(); } catch (e) { location.href = location.href; }
+        });
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindResetButton);
+    } else {
+      bindResetButton();
+    }
+  })();
+</script>
 
 </body>
 </html>

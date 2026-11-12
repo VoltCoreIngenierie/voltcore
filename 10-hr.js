@@ -1,195 +1,232 @@
-/* ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    VOLTCORE — 10-hr.js
-   VERSION : v6.7 (Session #3 — fallback download 30s, bump version)
-   RÔLE : RH complète (employés, journées, paiements, balance auto)
-   DÉPENDANCES : 01-core.js (hrEmployees, hrWorkEntries, hrTransactions,
-                            __hrWorkPage, __hrTxPage, __hrPerPage, trash),
-                 03-utils.js (helpers), 04-storage.js (saveAll)
-   EXPOSE : getHREmployeeById, getHREmployeeNom, hrEmployeeExists,
-            computeHREmployeeStats, getWorkEntriesFor, getTransactionsFor,
-            renderHR, renderHREmployeeRow, openHRDetail, closeHRDetail,
-            openHREmployeeModal, closeHREmployeeModal, saveHREmployeeFromForm,
-            openHRWorkModal, saveHRWorkFromForm,
-            openHRTxModal, saveHRTxFromForm,
-            deleteHREmployee, deleteHRWorkEntry, deleteHRTx,
-            setHRSearch, setHRFilter, setHRWorkPage, setHRTxPage,
-            exportHRJSON, importHRJSON, printHRRecap, attachHREvents
-   ═══════════════════════════════════════════════════════════════ */
+   VERSION : v7.0.0
+   RÔLE : RH complète — employés, journées travaillées,
+          paiements, balance automatique, pagination.
+          Normalisation + save + load + trash : gérés par Store.
+   DÉPENDANCES : 00-core, 01-utils, 02-store, 09-chant
+   ORDRE : 11ᵉ fichier chargé
 
-/* ═══════════ SECTION 1 — ÉTAT + CONSTANTES ═══════════ */
+   RÈGLES :
+   - ES5 strict
+   - Aucun catch silencieux
+   - FIX C4 : _getWorkRate fallback employé si rate est 0/vide/null
+   - FIX C5 : auto-fill rate au change du select employé
+   - FIX M8 : deleteEmployee refuse si références existent
+   ═══════════════════════════════════════════════════════════ */
 
-var __hrSearchTerm = '';
-var __hrFilter = 'all';
-var __hrDetailEmployeeId = null;
-var __hrDetailTab = 'work';
+'use strict';
 
-var HR_TX_TYPES = {
-  salaire: 'Salaire',
-  avance: 'Avance',
-  prime: 'Prime',
-  autre: 'Autre'
-};
+(function (global) {
 
-/* ═══════════ SECTION 2 — HELPERS EMPLOYÉS ═══════════ */
+  if (!global.VOLTCORE || !global.VOLTCORE.Store || !global.VOLTCORE.Utils) {
+    throw new Error('[10-hr] Modules requis non chargés');
+  }
 
-function getHREmployeeById(id) {
-  try {
-    if (!id || !Array.isArray(hrEmployees)) return null;
-    var sid = String(id);
-    for (var i = 0; i < hrEmployees.length; i++) {
-      if (hrEmployees[i] && String(hrEmployees[i].id) === sid) return hrEmployees[i];
+  var VC = global.VOLTCORE;
+  var U = VC.Utils;
+  var S = VC.Store;
+  var Ch = VC.Chantiers;
+  var HR = VC.HR || {};
+  VC.HR = HR;
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 1 — REGISTRATION STORE
+     ═══════════════════════════════════════════════════════════ */
+
+  S.register('hrEmployees', {
+    type: 'array',
+    saveKey: 'voltcore_hr_employees',
+    default: [],
+    idPrefix: 'emp',
+    trash: true,
+    backup: true,
+    schema: {
+      nom: 'string|required',
+      poste: 'string',
+      telephone: 'string',
+      hourlyRate: 'float|0-99999999',
+      dateEmbauche: 'date',
+      actif: 'bool',
+      notes: 'string'
     }
-    return null;
-  } catch (e) { return null; }
-}
+  });
 
-function getHREmployeeNom(id) {
-  var e = getHREmployeeById(id);
-  return e ? String(e.nom || '') : '';
-}
+  S.register('hrWorkEntries', {
+    type: 'array',
+    saveKey: 'voltcore_hr_work_entries',
+    default: [],
+    idPrefix: 'wrk',
+    trash: true,
+    backup: true,
+    schema: {
+      employeeId: 'string|required',
+      date: 'date|required',
+      hours: 'float|0.01-24',
+      rate: 'float|0-99999999',
+      chantierId: 'string',
+      description: 'string'
+    }
+  });
 
-function hrEmployeeExists(nom, excludeId) {
-  try {
-    if (!nom || !Array.isArray(hrEmployees)) return false;
-    var normalized = normalizeText(nom);
-    for (var i = 0; i < hrEmployees.length; i++) {
-      var e = hrEmployees[i];
+  S.register('hrTransactions', {
+    type: 'array',
+    saveKey: 'voltcore_hr_transactions',
+    default: [],
+    idPrefix: 'tx',
+    trash: true,
+    backup: true,
+    schema: {
+      employeeId: 'string|required',
+      date: 'date|required',
+      montant: 'float|0.01-999999999',
+      type: 'enum|salaire,avance,prime,autre',
+      period: 'string',
+      note: 'string'
+    }
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 2 — ÉTAT INTERNE
+     ═══════════════════════════════════════════════════════════ */
+
+  var _searchTerm = '';
+  var _filter = 'all';
+  var _detailEmployeeId = null;
+  var _detailTab = 'work';
+  var _workPage = 0;
+  var _txPage = 0;
+  var _perPage = 50;
+
+  var TX_TYPES = {
+    salaire: 'Salaire',
+    avance: 'Avance',
+    prime: 'Prime',
+    autre: 'Autre'
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 3 — HELPERS EMPLOYÉS
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.getEmployeeById = function (id) {
+    return S.getById('hrEmployees', id);
+  };
+
+  HR.getEmployeeNom = function (id) {
+    var e = HR.getEmployeeById(id);
+    return e ? String(e.nom || '') : '';
+  };
+
+  HR.employeeExists = function (nom, excludeId) {
+    if (!nom) return false;
+    var normalized = U.normalizeText(nom);
+    var list = S.getAll('hrEmployees');
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
       if (!e) continue;
       if (excludeId && String(e.id) === String(excludeId)) continue;
-      if (normalizeText(e.nom || '') === normalized) return true;
+      if (U.normalizeText(e.nom || '') === normalized) return true;
     }
     return false;
-  } catch (e) { return false; }
-}
-
-function _getEmployeeRate(emp) {
-  if (!emp) return 0;
-  if (typeof emp.hourlyRate === 'number') return emp.hourlyRate;
-  if (typeof emp.tauxHoraire === 'number') return emp.tauxHoraire;
-  return parseNumber(emp.hourlyRate || emp.tauxHoraire);
-}
-
-function _normalizeEmployee(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  var nom = String(raw.nom || raw.name || '').trim().replace(/\s+/g, ' ');
-  if (!nom) return null;
-  return {
-    id: raw.id || ('emp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
-    nom: nom,
-    poste: String(raw.poste || raw.role || '').trim(),
-    telephone: String(raw.telephone || '').trim(),
-    hourlyRate: parseNumber(raw.hourlyRate || raw.tauxHoraire),
-    dateEmbauche: String(raw.dateEmbauche || '').slice(0, 10),
-    actif: raw.actif !== false,
-    notes: String(raw.notes || '').trim(),
-    createdAt: raw.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString()
   };
-}
 
-/* ═══════════ SECTION 3 — HELPERS JOURNÉES ═══════════ */
-
-function _getWorkHours(w) {
-  if (!w) return 0;
-  if (typeof w.hours === 'number') return w.hours;
-  if (typeof w.heures === 'number') return w.heures;
-  return parseNumber(w.hours || w.heures);
-}
-
-function _getWorkRate(w) {
-  if (!w) return 0;
-  if (w.rate != null) return parseNumber(w.rate);
-  var emp = getHREmployeeById(w.employeeId);
-  return _getEmployeeRate(emp);
-}
-
-function _normalizeWorkEntry(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  if (!raw.employeeId) return null;
-  var hours = parseNumber(raw.hours || raw.heures);
-  if (hours <= 0) return null;
-  return {
-    id: raw.id || ('wrk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
-    employeeId: String(raw.employeeId),
-    date: String(raw.date || todayISO()).slice(0, 10),
-    hours: hours,
-    rate: raw.rate != null ? parseNumber(raw.rate) : null,
-    chantierId: String(raw.chantierId || ''),
-    description: String(raw.description || '').trim(),
-    createdAt: raw.createdAt || new Date().toISOString()
+  HR.getEmployeeRate = function (emp) {
+    if (!emp) return 0;
+    if (typeof emp.hourlyRate === 'number') return emp.hourlyRate;
+    if (typeof emp.tauxHoraire === 'number') return emp.tauxHoraire;
+    return U.parseNumber(emp.hourlyRate != null ? emp.hourlyRate : emp.tauxHoraire);
   };
-}
 
-function getWorkEntriesFor(employeeId) {
-  try {
-    if (!employeeId || !Array.isArray(hrWorkEntries)) return [];
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 4 — HELPERS JOURNÉES (FIX C4)
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.getWorkHours = function (w) {
+    if (!w) return 0;
+    if (typeof w.hours === 'number') return w.hours;
+    if (typeof w.heures === 'number') return w.heures;
+    return U.parseNumber(w.hours != null ? w.hours : w.heures);
+  };
+
+  /**
+   * FIX C4 : détermine le taux effectif d'une journée.
+   *
+   * Comportement :
+   *   - Si w.rate > 0 → utilise le taux explicite
+   *   - Sinon (0, vide, null, undefined) → fallback au taux de l'employé
+   *
+   * L'ancien code faisait `if (w.rate != null) return parseNumber(w.rate)`
+   * ce qui retournait 0 si rate était une string vide '', car `'' != null`
+   * est true en JS. Résultat : l'employé n'était pas payé.
+   */
+  HR.getWorkRate = function (w) {
+    if (!w) return 0;
+
+    var explicit = U.parseNumber(w.rate);
+    if (explicit > 0) return explicit;
+
+    var emp = HR.getEmployeeById(w.employeeId);
+    return HR.getEmployeeRate(emp);
+  };
+
+  HR.getWorkEntriesFor = function (employeeId) {
+    if (!employeeId) return [];
     var sid = String(employeeId);
-    var out = hrWorkEntries.filter(function (w) {
+    var all = S.getAll('hrWorkEntries');
+    var out = all.filter(function (w) {
       return w && String(w.employeeId) === sid;
     });
     out.sort(function (a, b) {
       return String(b.date || '') > String(a.date || '') ? 1 : -1;
     });
     return out;
-  } catch (e) { return []; }
-}
-
-/* ═══════════ SECTION 4 — HELPERS PAIEMENTS ═══════════ */
-
-function _normalizeTx(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  if (!raw.employeeId) return null;
-  var montant = parseNumber(raw.montant);
-  if (montant <= 0) return null;
-  var type = String(raw.type || 'salaire').toLowerCase();
-  if (!HR_TX_TYPES[type]) type = 'autre';
-  return {
-    id: raw.id || ('tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
-    employeeId: String(raw.employeeId),
-    date: String(raw.date || todayISO()).slice(0, 10),
-    montant: montant,
-    type: type,
-    period: String(raw.period || '').trim(),
-    note: String(raw.note || '').trim(),
-    createdAt: raw.createdAt || new Date().toISOString()
   };
-}
 
-function getTransactionsFor(employeeId) {
-  try {
-    if (!employeeId || !Array.isArray(hrTransactions)) return [];
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 5 — HELPERS PAIEMENTS
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.getTransactionsFor = function (employeeId) {
+    if (!employeeId) return [];
     var sid = String(employeeId);
-    var out = hrTransactions.filter(function (t) {
+    var all = S.getAll('hrTransactions');
+    var out = all.filter(function (t) {
       return t && String(t.employeeId) === sid;
     });
     out.sort(function (a, b) {
       return String(b.date || '') > String(a.date || '') ? 1 : -1;
     });
     return out;
-  } catch (e) { return []; }
-}
+  };
 
-/* ═══════════ SECTION 5 — STATISTIQUES ═══════════ */
+  HR.getTxTypeLabel = function (type) {
+    return TX_TYPES[type] || type;
+  };
 
-function computeHREmployeeStats(employeeId) {
-  var empty = { totalDu: 0, totalPaye: 0, balance: 0, nbJours: 0, nbPaiements: 0, totalHeures: 0 };
-  try {
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 6 — STATISTIQUES (balance)
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.getEmployeeStats = function (employeeId) {
+    var empty = { totalDu: 0, totalPaye: 0, balance: 0, nbJours: 0, nbPaiements: 0, totalHeures: 0 };
     if (!employeeId) return empty;
 
-    var works = getWorkEntriesFor(employeeId);
+    var works = HR.getWorkEntriesFor(employeeId);
     var totalDu = 0, totalHeures = 0;
+
     for (var i = 0; i < works.length; i++) {
       var w = works[i];
-      var h = _getWorkHours(w);
-      var r = _getWorkRate(w);
+      var h = HR.getWorkHours(w);
+      var r = HR.getWorkRate(w);
       totalHeures += h;
       totalDu += h * r;
     }
 
-    var txs = getTransactionsFor(employeeId);
+    var txs = HR.getTransactionsFor(employeeId);
     var totalPaye = 0;
     for (var j = 0; j < txs.length; j++) {
-      totalPaye += parseNumber(txs[j].montant);
+      totalPaye += U.parseNumber(txs[j].montant);
     }
 
     return {
@@ -200,335 +237,327 @@ function computeHREmployeeStats(employeeId) {
       nbPaiements: txs.length,
       totalHeures: totalHeures
     };
-  } catch (e) { console.warn('computeHREmployeeStats :', e); return empty; }
-}
+  };
 
-/* ═══════════ SECTION 6 — RENDU LISTE ═══════════ */
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 7 — RENDU LISTE
+     ═══════════════════════════════════════════════════════════ */
 
-function renderHR() {
-  try {
+  HR.render = function () {
     var container = document.getElementById('hrList');
     if (!container) return;
 
-    var list = _getFilteredHREmployees();
+    var list = HR.getFiltered();
     if (list.length === 0) {
       container.innerHTML = '<div class="empty-state">Aucun employé' +
-        (__hrSearchTerm || __hrFilter !== 'all' ? ' pour ce filtre' : '') +
+        (_searchTerm || _filter !== 'all' ? ' pour ce filtre' : '') +
         '. Clique sur "+ Nouvel employé" pour commencer.</div>';
-      _updateHRCount(0);
+      U.setText('hrCount', '0');
       return;
     }
 
     var html = '';
-    for (var i = 0; i < list.length; i++) html += renderHREmployeeRow(list[i]);
+    for (var i = 0; i < list.length; i++) {
+      html += HR.renderRow(list[i]);
+    }
     container.innerHTML = html;
-    _updateHRCount(list.length);
-  } catch (e) { console.warn('renderHR :', e); }
-}
+    U.setText('hrCount', String(list.length));
+  };
 
-function renderHREmployeeRow(emp) {
-  try {
+  HR.renderRow = function (emp) {
     if (!emp) return '';
-    var id = escapeAttr(emp.id);
-    var nom = escapeHtml(emp.nom || '(Sans nom)');
-    var poste = escapeHtml(emp.poste || '');
-    var tel = escapeHtml(emp.telephone || '');
+
+    var id = U.escapeAttr(emp.id);
+    var nom = U.escapeHtml(emp.nom || '(Sans nom)');
+    var poste = U.escapeHtml(emp.poste || '');
+    var tel = U.escapeHtml(emp.telephone || '');
 
     var badges = '';
     if (emp.actif === false) badges += '<span class="badge badge-muted">Inactif</span> ';
-    var stats = computeHREmployeeStats(emp.id);
+
+    var stats = HR.getEmployeeStats(emp.id);
     var balColor = stats.balance > 0.01 ? 'var(--danger)'
-                 : stats.balance < -0.01 ? 'var(--success)'
-                 : 'var(--muted)';
+      : stats.balance < -0.01 ? 'var(--success)' : 'var(--muted)';
     var balLabel = stats.balance > 0.01 ? 'dû'
-                 : stats.balance < -0.01 ? 'trop payé'
-                 : 'à jour';
+      : stats.balance < -0.01 ? 'trop payé' : 'à jour';
 
     return '<div class="hr-row" data-employee-id="' + id + '">' +
       '<div class="hr-row-main">' +
         '<div class="hr-row-name">' + nom + ' ' + badges + '</div>' +
         '<div class="hr-row-meta">' +
-          (poste ? escapeHtml(poste) + ' · ' : '') +
+          (poste ? poste + ' · ' : '') +
           (tel ? '📞 ' + tel : '') +
           (stats.nbJours > 0 ? ' · ' + stats.nbJours + ' jour(s)' : '') +
         '</div>' +
         '<div class="hr-row-balance" style="color:' + balColor + '">' +
-          'Balance : ' + formatMoney(stats.balance) + ' (' + balLabel + ')' +
+          'Balance : ' + U.formatMoney(stats.balance) + ' (' + balLabel + ')' +
         '</div>' +
       '</div>' +
       '<div class="hr-row-actions">' +
         '<button type="button" class="btn-icon" title="Détail" ' +
-          'onclick="openHRDetail(\'' + id + '\')">👁️</button>' +
+        'onclick="VC.HR.openDetail(\'' + id + '\')">👁️</button>' +
         '<button type="button" class="btn-icon" title="Éditer" ' +
-          'onclick="openHREmployeeModal(\'' + id + '\')">✏️</button>' +
+        'onclick="VC.HR.openEmployeeModal(\'' + id + '\')">✏️</button>' +
         '<button type="button" class="btn-icon" title="Journée" ' +
-          'onclick="openHRWorkModal(\'' + id + '\')">📅</button>' +
+        'onclick="VC.HR.openWorkModal(\'' + id + '\')">📅</button>' +
         '<button type="button" class="btn-icon" title="Paiement" ' +
-          'onclick="openHRTxModal(\'' + id + '\')">💰</button>' +
+        'onclick="VC.HR.openTxModal(\'' + id + '\')">💰</button>' +
         '<button type="button" class="btn-icon btn-danger" title="Supprimer" ' +
-          'onclick="deleteHREmployee(\'' + id + '\')">🗑️</button>' +
+        'onclick="VC.HR.removeEmployee(\'' + id + '\')">🗑️</button>' +
       '</div>' +
     '</div>';
-  } catch (e) { console.warn('renderHREmployeeRow :', e); return ''; }
-}
+  };
 
-function _updateHRCount(n) {
-  try {
-    var el = document.getElementById('hrCount');
-    if (el) el.textContent = String(n);
-  } catch (e) {}
-}
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 8 — DÉTAIL (avec tabs)
+     ═══════════════════════════════════════════════════════════ */
 
-/* ═══════════ SECTION 7 — RENDU DÉTAIL (tabs) ═══════════ */
+  HR.openDetail = function (id) {
+    var emp = HR.getEmployeeById(id);
+    if (!emp) {
+      U.toast('Employé introuvable.', 'error');
+      return;
+    }
 
-function openHRDetail(id) {
-  try {
-    var emp = getHREmployeeById(id);
-    if (!emp) return;
-    __hrDetailEmployeeId = String(id);
-    __hrDetailTab = 'work';
+    _detailEmployeeId = String(id);
+    _detailTab = 'work';
+    _workPage = 0;
+    _txPage = 0;
 
-    var modal = document.getElementById('hrDetailModal');
-    if (!modal) return;
+    U.setText('hrDetailTitle', emp.nom || 'Employé');
+    _renderDetailBody();
+    U.showFlex('hrDetailModal');
+  };
 
-    var title = document.getElementById('hrDetailTitle');
-    if (title) title.textContent = emp.nom || 'Employé';
+  HR.closeDetail = function () {
+    U.hide('hrDetailModal');
+    _detailEmployeeId = null;
+  };
 
-    _renderHRDetailBody();
-    modal.style.display = 'flex';
-  } catch (e) { console.warn('openHRDetail :', e); }
-}
+  HR.switchDetailTab = function (tab) {
+    _detailTab = (tab === 'tx') ? 'tx' : 'work';
+    _renderDetailBody();
+  };
 
-function closeHRDetail() {
-  try {
-    var m = document.getElementById('hrDetailModal');
-    if (m) m.style.display = 'none';
-    __hrDetailEmployeeId = null;
-  } catch (e) {}
-}
-
-function switchHRDetailTab(tab) {
-  __hrDetailTab = (tab === 'tx') ? 'tx' : 'work';
-  _renderHRDetailBody();
-}
-
-function _renderHRDetailBody() {
-  try {
+  function _renderDetailBody() {
     var body = document.getElementById('hrDetailBody');
-    if (!body || !__hrDetailEmployeeId) return;
-    var emp = getHREmployeeById(__hrDetailEmployeeId);
+    if (!body || !_detailEmployeeId) return;
+
+    var emp = HR.getEmployeeById(_detailEmployeeId);
     if (!emp) return;
 
-    var stats = computeHREmployeeStats(emp.id);
+    var stats = HR.getEmployeeStats(emp.id);
     var html = '';
 
+    /* Bloc infos */
     html += '<div class="detail-section"><h3>Infos</h3><div class="detail-grid">';
-    html += _hrDetailItem('Poste', emp.poste || '—');
-    html += _hrDetailItem('Téléphone', emp.telephone || '—');
-    html += _hrDetailItem('Taux horaire', formatMoney(_getEmployeeRate(emp)));
-    html += _hrDetailItem('Date embauche', emp.dateEmbauche ? formatDate(emp.dateEmbauche) : '—');
-    html += _hrDetailItem('Statut', emp.actif === false ? 'Inactif' : 'Actif');
+    html += _detailItem('Poste', emp.poste || '—');
+    html += _detailItem('Téléphone', emp.telephone || '—');
+    html += _detailItem('Taux horaire', U.formatMoney(HR.getEmployeeRate(emp)));
+    html += _detailItem('Date embauche', emp.dateEmbauche ? U.formatDate(emp.dateEmbauche) : '—');
+    html += _detailItem('Statut', emp.actif === false ? 'Inactif' : 'Actif');
     html += '</div></div>';
 
+    /* Bloc balance */
     html += '<div class="detail-section"><h3>Balance</h3><div class="stats-grid">';
-    html += _hrStatItem('Heures', stats.totalHeures.toFixed(1) + 'h');
-    html += _hrStatItem('Total dû', formatMoney(stats.totalDu));
-    html += _hrStatItem('Total payé', formatMoney(stats.totalPaye));
+    html += _statItem('Heures', stats.totalHeures.toFixed(1) + 'h');
+    html += _statItem('Total dû', U.formatMoney(stats.totalDu));
+    html += _statItem('Total payé', U.formatMoney(stats.totalPaye));
     var balColor = stats.balance > 0.01 ? 'var(--danger)'
-                 : stats.balance < -0.01 ? 'var(--success)' : 'var(--muted)';
-    html += _hrStatItem('Balance', formatMoney(stats.balance), balColor);
+      : stats.balance < -0.01 ? 'var(--success)' : 'var(--muted)';
+    html += _statItem('Balance', U.formatMoney(stats.balance), balColor);
     html += '</div></div>';
 
+    /* Tabs */
     html += '<div class="hr-tabs">';
-    html += '<button type="button" class="hr-tab' + (__hrDetailTab === 'work' ? ' active' : '') +
-      '" onclick="switchHRDetailTab(\'work\')">📅 Journées (' + stats.nbJours + ')</button>';
-    html += '<button type="button" class="hr-tab' + (__hrDetailTab === 'tx' ? ' active' : '') +
-      '" onclick="switchHRDetailTab(\'tx\')">💰 Paiements (' + stats.nbPaiements + ')</button>';
+    html += '<button type="button" class="hr-tab' + (_detailTab === 'work' ? ' active' : '') +
+      '" onclick="VC.HR.switchDetailTab(\'work\')">📅 Journées (' + stats.nbJours + ')</button>';
+    html += '<button type="button" class="hr-tab' + (_detailTab === 'tx' ? ' active' : '') +
+      '" onclick="VC.HR.switchDetailTab(\'tx\')">💰 Paiements (' + stats.nbPaiements + ')</button>';
     html += '</div>';
 
-    if (__hrDetailTab === 'work') html += _renderWorkTab();
+    if (_detailTab === 'work') html += _renderWorkTab();
     else html += _renderTxTab();
 
     body.innerHTML = html;
-  } catch (e) { console.warn('_renderHRDetailBody :', e); }
-}
-
-function _renderWorkTab() {
-  var works = getWorkEntriesFor(__hrDetailEmployeeId);
-  var perPage = parseInt(window.__hrPerPage, 10) || 50;
-  var page = parseInt(window.__hrWorkPage, 10) || 0;
-  var maxPage = Math.max(0, Math.ceil(works.length / perPage) - 1);
-  if (page > maxPage) page = maxPage;
-  var slice = works.slice(page * perPage, (page + 1) * perPage);
-
-  var html = '<div class="hr-tab-content">';
-  html += '<div class="hr-tab-actions">' +
-    '<button type="button" class="btn btn-primary btn-sm" onclick="openHRWorkModal(\'' +
-    escapeAttr(__hrDetailEmployeeId) + '\')">+ Journée</button></div>';
-
-  if (slice.length === 0) {
-    html += '<div class="empty-state">Aucune journée enregistrée.</div>';
-  } else {
-    html += '<table class="hr-table"><thead><tr>' +
-      '<th>Date</th><th>Heures</th><th>Taux</th><th>Chantier</th><th>Note</th><th></th>' +
-      '</tr></thead><tbody>';
-    for (var i = 0; i < slice.length; i++) {
-      var w = slice[i];
-      var taux = _getWorkRate(w);
-      var chNom = w.chantierId ? getChantierNom(w.chantierId) : '—';
-      html += '<tr>' +
-        '<td>' + escapeHtml(formatDate(w.date)) + '</td>' +
-        '<td>' + _getWorkHours(w).toFixed(1) + 'h</td>' +
-        '<td>' + formatMoney(taux) + '</td>' +
-        '<td>' + escapeHtml(chNom) + '</td>' +
-        '<td>' + escapeHtml(w.description || '—') + '</td>' +
-        '<td><button type="button" class="btn-icon btn-danger" ' +
-        'onclick="deleteHRWorkEntry(\'' + escapeAttr(w.id) + '\')">🗑️</button></td>' +
-        '</tr>';
-    }
-    html += '</tbody></table>';
   }
 
-  html += _renderPagination('work', page, maxPage);
-  html += '</div>';
-  return html;
-}
+  function _renderWorkTab() {
+    var works = HR.getWorkEntriesFor(_detailEmployeeId);
+    var maxPage = Math.max(0, Math.ceil(works.length / _perPage) - 1);
+    if (_workPage > maxPage) _workPage = maxPage;
 
-function _renderTxTab() {
-  var txs = getTransactionsFor(__hrDetailEmployeeId);
-  var perPage = parseInt(window.__hrPerPage, 10) || 50;
-  var page = parseInt(window.__hrTxPage, 10) || 0;
-  var maxPage = Math.max(0, Math.ceil(txs.length / perPage) - 1);
-  if (page > maxPage) page = maxPage;
-  var slice = txs.slice(page * perPage, (page + 1) * perPage);
+    var start = _workPage * _perPage;
+    var slice = works.slice(start, start + _perPage);
 
-  var html = '<div class="hr-tab-content">';
-  html += '<div class="hr-tab-actions">' +
-    '<button type="button" class="btn btn-primary btn-sm" onclick="openHRTxModal(\'' +
-    escapeAttr(__hrDetailEmployeeId) + '\')">+ Paiement</button></div>';
+    var html = '<div class="hr-tab-content">';
+    html += '<div class="hr-tab-actions">' +
+      '<button type="button" class="btn btn-primary btn-sm" ' +
+      'onclick="VC.HR.openWorkModal(\'' + U.escapeAttr(_detailEmployeeId) + '\')">+ Journée</button>' +
+      '</div>';
 
-  if (slice.length === 0) {
-    html += '<div class="empty-state">Aucun paiement enregistré.</div>';
-  } else {
-    html += '<table class="hr-table"><thead><tr>' +
-      '<th>Date</th><th>Type</th><th>Montant</th><th>Note</th><th></th>' +
-      '</tr></thead><tbody>';
-    for (var i = 0; i < slice.length; i++) {
-      var t = slice[i];
-      html += '<tr>' +
-        '<td>' + escapeHtml(formatDate(t.date)) + '</td>' +
-        '<td>' + escapeHtml(HR_TX_TYPES[t.type] || t.type) + '</td>' +
-        '<td>' + formatMoney(t.montant) + '</td>' +
-        '<td>' + escapeHtml(t.note || '—') + '</td>' +
-        '<td><button type="button" class="btn-icon btn-danger" ' +
-        'onclick="deleteHRTx(\'' + escapeAttr(t.id) + '\')">🗑️</button></td>' +
-        '</tr>';
+    if (slice.length === 0) {
+      html += '<div class="empty-state">Aucune journée enregistrée.</div>';
+    } else {
+      html += '<table class="hr-table"><thead><tr>' +
+        '<th>Date</th><th>Heures</th><th>Taux</th><th>Chantier</th>' +
+        '<th>Note</th><th></th></tr></thead><tbody>';
+      for (var i = 0; i < slice.length; i++) {
+        var w = slice[i];
+        var taux = HR.getWorkRate(w);
+        var chNom = w.chantierId ? Ch.getNom(w.chantierId) : '—';
+        html += '<tr>' +
+          '<td>' + U.escapeHtml(U.formatDate(w.date)) + '</td>' +
+          '<td>' + HR.getWorkHours(w).toFixed(1) + 'h</td>' +
+          '<td>' + U.formatMoney(taux) + '</td>' +
+          '<td>' + U.escapeHtml(chNom || '—') + '</td>' +
+          '<td>' + U.escapeHtml(w.description || '—') + '</td>' +
+          '<td><button type="button" class="btn-icon btn-danger" ' +
+          'onclick="VC.HR.removeWorkEntry(\'' + U.escapeAttr(w.id) + '\')">🗑️</button></td>' +
+          '</tr>';
+      }
+      html += '</tbody></table>';
     }
-    html += '</tbody></table>';
+
+    html += _renderPagination('work', _workPage, maxPage);
+    html += '</div>';
+    return html;
   }
 
-  html += _renderPagination('tx', page, maxPage);
-  html += '</div>';
-  return html;
-}
+  function _renderTxTab() {
+    var txs = HR.getTransactionsFor(_detailEmployeeId);
+    var maxPage = Math.max(0, Math.ceil(txs.length / _perPage) - 1);
+    if (_txPage > maxPage) _txPage = maxPage;
 
-function _renderPagination(kind, page, maxPage) {
-  if (maxPage <= 0) return '';
-  var fn = kind === 'work' ? 'setHRWorkPage' : 'setHRTxPage';
-  return '<div class="hr-pagination">' +
-    '<button type="button" class="btn btn-sm"' + (page <= 0 ? ' disabled' : '') +
-    ' onclick="' + fn + '(' + (page - 1) + ')">◀ Précédent</button>' +
-    '<span class="muted">Page ' + (page + 1) + ' / ' + (maxPage + 1) + '</span>' +
-    '<button type="button" class="btn btn-sm"' + (page >= maxPage ? ' disabled' : '') +
-    ' onclick="' + fn + '(' + (page + 1) + ')">Suivant ▶</button>' +
-    '</div>';
-}
+    var start = _txPage * _perPage;
+    var slice = txs.slice(start, start + _perPage);
 
-function _hrDetailItem(label, value) {
-  return '<div class="detail-item"><div class="detail-label">' + escapeHtml(label) +
-    '</div><div class="detail-value">' + escapeHtml(value) + '</div></div>';
-}
+    var html = '<div class="hr-tab-content">';
+    html += '<div class="hr-tab-actions">' +
+      '<button type="button" class="btn btn-primary btn-sm" ' +
+      'onclick="VC.HR.openTxModal(\'' + U.escapeAttr(_detailEmployeeId) + '\')">+ Paiement</button>' +
+      '</div>';
 
-function _hrStatItem(label, value, color) {
-  return '<div class="stat-item"><div class="stat-value"' +
-    (color ? ' style="color:' + color + '"' : '') + '>' + escapeHtml(value) +
-    '</div><div class="stat-label">' + escapeHtml(label) + '</div></div>';
-}
+    if (slice.length === 0) {
+      html += '<div class="empty-state">Aucun paiement enregistré.</div>';
+    } else {
+      html += '<table class="hr-table"><thead><tr>' +
+        '<th>Date</th><th>Type</th><th>Montant</th><th>Note</th><th></th>' +
+        '</tr></thead><tbody>';
+      for (var i = 0; i < slice.length; i++) {
+        var t = slice[i];
+        html += '<tr>' +
+          '<td>' + U.escapeHtml(U.formatDate(t.date)) + '</td>' +
+          '<td>' + U.escapeHtml(HR.getTxTypeLabel(t.type)) + '</td>' +
+          '<td>' + U.formatMoney(t.montant) + '</td>' +
+          '<td>' + U.escapeHtml(t.note || '—') + '</td>' +
+          '<td><button type="button" class="btn-icon btn-danger" ' +
+          'onclick="VC.HR.removeTx(\'' + U.escapeAttr(t.id) + '\')">🗑️</button></td>' +
+          '</tr>';
+      }
+      html += '</tbody></table>';
+    }
 
-/* ═══════════ SECTION 8 — FORM EMPLOYÉ ═══════════ */
+    html += _renderPagination('tx', _txPage, maxPage);
+    html += '</div>';
+    return html;
+  }
 
-function openHREmployeeModal(employeeId) {
-  try {
-    var modal = document.getElementById('hrEmployeeModal');
-    var title = document.getElementById('hrEmployeeModalTitle');
-    if (!modal) return;
+  function _renderPagination(kind, page, maxPage) {
+    if (maxPage <= 0) return '';
+    var fn = kind === 'work' ? 'setWorkPage' : 'setTxPage';
+    return '<div class="hr-pagination">' +
+      '<button type="button" class="btn btn-sm"' + (page <= 0 ? ' disabled' : '') +
+      ' onclick="VC.HR.' + fn + '(' + (page - 1) + ')">◀ Précédent</button>' +
+      '<span class="muted">Page ' + (page + 1) + ' / ' + (maxPage + 1) + '</span>' +
+      '<button type="button" class="btn btn-sm"' + (page >= maxPage ? ' disabled' : '') +
+      ' onclick="VC.HR.' + fn + '(' + (page + 1) + ')">Suivant ▶</button>' +
+      '</div>';
+  }
 
+  HR.setWorkPage = function (p) {
+    _workPage = Math.max(0, parseInt(p, 10) || 0);
+    _renderDetailBody();
+  };
+
+  HR.setTxPage = function (p) {
+    _txPage = Math.max(0, parseInt(p, 10) || 0);
+    _renderDetailBody();
+  };
+
+  function _detailItem(label, value) {
+    return '<div class="detail-item">' +
+      '<div class="detail-label">' + U.escapeHtml(label) + '</div>' +
+      '<div class="detail-value">' + U.escapeHtml(value) + '</div>' +
+      '</div>';
+  }
+
+  function _statItem(label, value, color) {
+    return '<div class="stat-item">' +
+      '<div class="stat-value"' + (color ? ' style="color:' + color + '"' : '') + '>' +
+      U.escapeHtml(value) + '</div>' +
+      '<div class="stat-label">' + U.escapeHtml(label) + '</div>' +
+      '</div>';
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 9 — FORM EMPLOYÉ
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.openEmployeeModal = function (id) {
     var form = document.getElementById('hrEmployeeForm');
     if (form) form.reset();
 
-    if (employeeId) {
-      var emp = getHREmployeeById(employeeId);
-      if (!emp) return;
-      if (title) title.textContent = 'Modifier employé';
-      _hrFill('hrEmployeeId', emp.id);
-      _hrFill('hrEmployeeNom', emp.nom || '');
-      _hrFill('hrEmployeePoste', emp.poste || '');
-      _hrFill('hrEmployeeTelephone', emp.telephone || '');
-      _hrFill('hrEmployeeRate', _getEmployeeRate(emp));
-      _hrFill('hrEmployeeDate', emp.dateEmbauche || '');
-      _hrFill('hrEmployeeNotes', emp.notes || '');
-      var cb = document.getElementById('hrEmployeeActif');
-      if (cb) cb.checked = emp.actif !== false;
+    if (id) {
+      var emp = HR.getEmployeeById(id);
+      if (!emp) {
+        U.toast('Employé introuvable.', 'error');
+        return;
+      }
+      U.setText('hrEmployeeModalTitle', 'Modifier employé');
+      U.setVal('hrEmployeeId', emp.id);
+      U.setVal('hrEmployeeNom', emp.nom || '');
+      U.setVal('hrEmployeePoste', emp.poste || '');
+      U.setVal('hrEmployeeTelephone', emp.telephone || '');
+      U.setVal('hrEmployeeRate', HR.getEmployeeRate(emp));
+      U.setVal('hrEmployeeDate', emp.dateEmbauche || '');
+      U.setVal('hrEmployeeNotes', emp.notes || '');
+      U.setChecked('hrEmployeeActif', emp.actif !== false);
     } else {
-      if (title) title.textContent = 'Nouvel employé';
-      _hrFill('hrEmployeeId', '');
-      var cb2 = document.getElementById('hrEmployeeActif');
-      if (cb2) cb2.checked = true;
+      U.setText('hrEmployeeModalTitle', 'Nouvel employé');
+      U.setVal('hrEmployeeId', '');
+      U.setChecked('hrEmployeeActif', true);
     }
 
+    U.setText('hrEmployeeFormError', '');
+    U.showFlex('hrEmployeeModal');
+
+    setTimeout(function () {
+      try {
+        var el = document.getElementById('hrEmployeeNom');
+        if (el) el.focus();
+      } catch (e) {
+        VC.logError('10-hr', 'openEmployeeModal focus échoué', e);
+      }
+    }, 100);
+  };
+
+  HR.closeEmployeeModal = function () {
+    U.hide('hrEmployeeModal');
+  };
+
+  HR.saveEmployeeFromForm = function () {
     var errEl = document.getElementById('hrEmployeeFormError');
     if (errEl) errEl.textContent = '';
 
-    modal.style.display = 'flex';
-    var nomInput = document.getElementById('hrEmployeeNom');
-    if (nomInput) setTimeout(function () { try { nomInput.focus(); } catch (e) {} }, 100);
-  } catch (e) { console.warn('openHREmployeeModal :', e); }
-}
+    var id = U.getVal('hrEmployeeId');
+    var nom = U.getVal('hrEmployeeNom');
 
-function closeHREmployeeModal() {
-  try {
-    var m = document.getElementById('hrEmployeeModal');
-    if (m) m.style.display = 'none';
-  } catch (e) {}
-}
-
-function _hrFill(id, value) {
-  try {
-    var el = document.getElementById(id);
-    if (el) el.value = (value === null || value === undefined) ? '' : value;
-  } catch (e) {}
-}
-
-function _hrGet(id) {
-  try {
-    var el = document.getElementById(id);
-    return el ? String(el.value || '').trim() : '';
-  } catch (e) { return ''; }
-}
-
-function _hrChecked(id) {
-  try { var el = document.getElementById(id); return !!(el && el.checked); }
-  catch (e) { return false; }
-}
-
-function saveHREmployeeFromForm() {
-  try {
-    var errEl = document.getElementById('hrEmployeeFormError');
-    var id = _hrGet('hrEmployeeId');
-    var nom = _hrGet('hrEmployeeNom');
-
-    if (!nom) { if (errEl) errEl.textContent = 'Le nom est obligatoire.'; return; }
-    if (hrEmployeeExists(nom, id)) {
+    if (!nom) {
+      if (errEl) errEl.textContent = 'Le nom est obligatoire.';
+      return;
+    }
+    if (HR.employeeExists(nom, id)) {
       if (errEl) errEl.textContent = 'Un employé avec ce nom existe déjà.';
       return;
     }
@@ -536,579 +565,517 @@ function saveHREmployeeFromForm() {
     var raw = {
       id: id || undefined,
       nom: nom,
-      poste: _hrGet('hrEmployeePoste'),
-      telephone: _hrGet('hrEmployeeTelephone'),
-      hourlyRate: _hrGet('hrEmployeeRate'),
-      dateEmbauche: _hrGet('hrEmployeeDate'),
-      notes: _hrGet('hrEmployeeNotes'),
-      actif: _hrChecked('hrEmployeeActif')
+      poste: U.getVal('hrEmployeePoste'),
+      telephone: U.getVal('hrEmployeeTelephone'),
+      hourlyRate: U.getVal('hrEmployeeRate'),
+      dateEmbauche: U.getVal('hrEmployeeDate'),
+      notes: U.getVal('hrEmployeeNotes'),
+      actif: U.getChecked('hrEmployeeActif')
     };
 
-    var clean = _normalizeEmployee(raw);
-    if (!clean) { if (errEl) errEl.textContent = 'Données invalides.'; return; }
-
-    if (id) {
-      var existing = getHREmployeeById(id);
-      if (!existing) { if (errEl) errEl.textContent = 'Employé introuvable.'; return; }
-      clean.createdAt = existing.createdAt;
-      var idx = hrEmployees.indexOf(existing);
-      hrEmployees[idx] = clean;
-    } else {
-      hrEmployees.push(clean);
-    }
-
-    if (typeof saveAll === 'function') saveAll();
-    if (typeof logAction === 'function') {
-      logAction(id ? 'hr.employee.update' : 'hr.employee.create', clean.nom);
-    }
-
-    closeHREmployeeModal();
-    renderHR();
-    if (typeof showToast === 'function') {
-      showToast(id ? 'Employé modifié' : 'Employé créé', 'success', 2500);
-    }
-  } catch (e) {
-    console.warn('saveHREmployeeFromForm :', e);
-    var errEl2 = document.getElementById('hrEmployeeFormError');
-    if (errEl2) errEl2.textContent = 'Erreur lors de l\'enregistrement.';
-  }
-}
-
-/* ═══════════ SECTION 9 — FORM JOURNÉE ═══════════ */
-
-function openHRWorkModal(employeeId) {
-  try {
-    var modal = document.getElementById('hrWorkModal');
-    if (!modal) return;
-
-    var form = document.getElementById('hrWorkForm');
-    if (form) form.reset();
-
-    _hrFill('hrWorkId', '');
-    _hrFill('hrWorkEmployeeId', employeeId || '');
-    _hrFill('hrWorkDate', todayISO());
-    _hrFill('hrWorkHours', '8');
-
-    _populateHREmployeesSelect('hrWorkEmployeeSelect', employeeId);
-    _populateChantiersSelect('hrWorkChantierSelect', chantierActifId || '');
-
-    var emp = getHREmployeeById(employeeId);
-    if (emp) _hrFill('hrWorkRate', _getEmployeeRate(emp));
-
-    var errEl = document.getElementById('hrWorkFormError');
-    if (errEl) errEl.textContent = '';
-
-    modal.style.display = 'flex';
-  } catch (e) { console.warn('openHRWorkModal :', e); }
-}
-
-function _populateHREmployeesSelect(selectId, selectedId) {
-  try {
-    var sel = document.getElementById(selectId);
-    if (!sel) return;
-    var html = '<option value="">— Sélectionner —</option>';
-    if (Array.isArray(hrEmployees)) {
-      var actifs = hrEmployees.filter(function (e) { return e && e.actif !== false; });
-      actifs.sort(function (a, b) {
-        return normalizeText(a.nom || '') > normalizeText(b.nom || '') ? 1 : -1;
-      });
-      for (var i = 0; i < actifs.length; i++) {
-        var e = actifs[i];
-        var sid = String(e.id);
-        html += '<option value="' + escapeAttr(sid) + '"' +
-          (sid === String(selectedId || '') ? ' selected' : '') + '>' +
-          escapeHtml(e.nom || '') + '</option>';
-      }
-    }
-    sel.innerHTML = html;
-  } catch (e) { console.warn('_populateHREmployeesSelect :', e); }
-}
-
-function _populateChantiersSelect(selectId, selectedId) {
-  try {
-    var sel = document.getElementById(selectId);
-    if (!sel) return;
-    var html = '<option value="">— Aucun —</option>';
-    if (Array.isArray(savedChantiers)) {
-      var sorted = savedChantiers.slice().sort(function (a, b) {
-        return normalizeText(a.nom || '') > normalizeText(b.nom || '') ? 1 : -1;
-      });
-      for (var i = 0; i < sorted.length; i++) {
-        var ch = sorted[i];
-        var sid = String(ch.id);
-        html += '<option value="' + escapeAttr(sid) + '"' +
-          (sid === String(selectedId || '') ? ' selected' : '') + '>' +
-          escapeHtml(ch.nom || '') + '</option>';
-      }
-    }
-    sel.innerHTML = html;
-  } catch (e) { console.warn('_populateChantiersSelect :', e); }
-}
-
-function saveHRWorkFromForm() {
-  try {
-    var errEl = document.getElementById('hrWorkFormError');
-    var raw = {
-      employeeId: _hrGet('hrWorkEmployeeSelect') || _hrGet('hrWorkEmployeeId'),
-      date: _hrGet('hrWorkDate'),
-      hours: _hrGet('hrWorkHours'),
-      rate: _hrGet('hrWorkRate'),
-      chantierId: _hrGet('hrWorkChantierSelect'),
-      description: _hrGet('hrWorkDescription')
-    };
-
-    if (!raw.employeeId) { if (errEl) errEl.textContent = 'Employé requis.'; return; }
-    if (!raw.date) { if (errEl) errEl.textContent = 'Date requise.'; return; }
-    if (parseNumber(raw.hours) <= 0) { if (errEl) errEl.textContent = 'Heures > 0 requises.'; return; }
-
-    var clean = _normalizeWorkEntry(raw);
-    if (!clean) { if (errEl) errEl.textContent = 'Données invalides.'; return; }
-
-    if (!Array.isArray(hrWorkEntries)) hrWorkEntries = [];
-    hrWorkEntries.push(clean);
-
-    if (typeof saveAll === 'function') saveAll();
-    if (typeof logAction === 'function') {
-      logAction('hr.work.add', getHREmployeeNom(clean.employeeId) + ' ' + clean.hours + 'h');
-    }
-
-    var modal = document.getElementById('hrWorkModal');
-    if (modal) modal.style.display = 'none';
-    renderHR();
-    if (__hrDetailEmployeeId) _renderHRDetailBody();
-    if (typeof showToast === 'function') showToast('Journée ajoutée', 'success', 2000);
-  } catch (e) {
-    console.warn('saveHRWorkFromForm :', e);
-    var errEl2 = document.getElementById('hrWorkFormError');
-    if (errEl2) errEl2.textContent = 'Erreur lors de l\'enregistrement.';
-  }
-}
-
-/* ═══════════ SECTION 10 — FORM PAIEMENT ═══════════ */
-
-function openHRTxModal(employeeId) {
-  try {
-    var modal = document.getElementById('hrTxModal');
-    if (!modal) return;
-
-    var form = document.getElementById('hrTxForm');
-    if (form) form.reset();
-
-    _hrFill('hrTxEmployeeId', employeeId || '');
-    _hrFill('hrTxDate', todayISO());
-
-    _populateHREmployeesSelect('hrTxEmployeeSelect', employeeId);
-
-    if (employeeId) {
-      var stats = computeHREmployeeStats(employeeId);
-      if (stats.balance > 0.01) {
-        _hrFill('hrTxMontant', stats.balance.toFixed(3));
-      }
-    }
-
-    var errEl = document.getElementById('hrTxFormError');
-    if (errEl) errEl.textContent = '';
-
-    modal.style.display = 'flex';
-  } catch (e) { console.warn('openHRTxModal :', e); }
-}
-
-function saveHRTxFromForm() {
-  try {
-    var errEl = document.getElementById('hrTxFormError');
-    var raw = {
-      employeeId: _hrGet('hrTxEmployeeSelect') || _hrGet('hrTxEmployeeId'),
-      date: _hrGet('hrTxDate'),
-      montant: _hrGet('hrTxMontant'),
-      type: _hrGet('hrTxType') || 'salaire',
-      period: _hrGet('hrTxPeriod'),
-      note: _hrGet('hrTxNote')
-    };
-
-    if (!raw.employeeId) { if (errEl) errEl.textContent = 'Employé requis.'; return; }
-    if (!raw.date) { if (errEl) errEl.textContent = 'Date requise.'; return; }
-    if (parseNumber(raw.montant) <= 0) { if (errEl) errEl.textContent = 'Montant > 0 requis.'; return; }
-
-    var clean = _normalizeTx(raw);
-    if (!clean) { if (errEl) errEl.textContent = 'Données invalides.'; return; }
-
-    if (!Array.isArray(hrTransactions)) hrTransactions = [];
-    hrTransactions.push(clean);
-
-    if (typeof saveAll === 'function') saveAll();
-    if (typeof logAction === 'function') {
-      logAction('hr.tx.add', getHREmployeeNom(clean.employeeId) + ' ' + clean.montant);
-    }
-
-    var modal = document.getElementById('hrTxModal');
-    if (modal) modal.style.display = 'none';
-    renderHR();
-    if (__hrDetailEmployeeId) _renderHRDetailBody();
-    if (typeof showToast === 'function') showToast('Paiement enregistré', 'success', 2000);
-  } catch (e) {
-    console.warn('saveHRTxFromForm :', e);
-    var errEl2 = document.getElementById('hrTxFormError');
-    if (errEl2) errEl2.textContent = 'Erreur lors de l\'enregistrement.';
-  }
-}
-
-/* ═══════════ SECTION 11 — SUPPRESSION + UNDO ═══════════ */
-
-function deleteHREmployee(id) {
-  try {
-    var emp = getHREmployeeById(id);
-    if (!emp) return;
-
-    var works = getWorkEntriesFor(id);
-    var txs = getTransactionsFor(id);
-    if (works.length > 0 || txs.length > 0) {
-      if (typeof showToast === 'function') {
-        showToast('Impossible : employé lié à ' + works.length + ' journée(s) et ' +
-          txs.length + ' paiement(s). Supprime-les d\'abord.', 'error', 5000);
-      }
+    var saved = S.save('hrEmployees', raw);
+    if (!saved) {
+      if (errEl) errEl.textContent = 'Données invalides.';
       return;
     }
 
-    var idx = hrEmployees.indexOf(emp);
-    if (idx < 0) return;
-    hrEmployees.splice(idx, 1);
+    HR.closeEmployeeModal();
+    U.toast(id ? 'Employé modifié' : 'Employé créé', 'success', 2500);
+  };
 
-    if (!trash || typeof trash !== 'object') trash = { clients: [], articles: [], documents: [] };
-    if (!Array.isArray(trash.hrEmployees)) trash.hrEmployees = [];
-    var entry = {
-      item: emp,
-      deletedAt: new Date().toISOString(),
-      deletedBy: (currentUser && currentUser.username) || 'anon'
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 10 — FORM JOURNÉE (FIX C5)
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.openWorkModal = function (employeeId) {
+    var form = document.getElementById('hrWorkForm');
+    if (form) form.reset();
+
+    _populateEmployeesSelect('hrWorkEmployeeSelect', employeeId || '');
+    _populateChantiersSelect('hrWorkChantierSelect', S.getValue('chantierActif') || '');
+
+    U.setVal('hrWorkId', '');
+    U.setVal('hrWorkEmployeeId', employeeId || '');
+    U.setVal('hrWorkDate', U.todayISO());
+    U.setVal('hrWorkHours', '8');
+
+    /* FIX C5 : pré-remplit le taux si employé fourni */
+    if (employeeId) {
+      var emp = HR.getEmployeeById(employeeId);
+      if (emp) {
+        U.setVal('hrWorkRate', String(HR.getEmployeeRate(emp)));
+      }
+    } else {
+      U.setVal('hrWorkRate', '');
+    }
+
+    U.setText('hrWorkFormError', '');
+    U.showFlex('hrWorkModal');
+  };
+
+  function _populateEmployeesSelect(selectId, selectedId) {
+    var employees = S.getAll('hrEmployees').filter(function (e) {
+      return e && e.actif !== false;
+    });
+    employees.sort(function (a, b) {
+      return U.normalizeText(a.nom || '') > U.normalizeText(b.nom || '') ? 1 : -1;
+    });
+
+    var items = [{ id: '', nom: '— Sélectionner —' }];
+    for (var i = 0; i < employees.length; i++) {
+      items.push({ id: employees[i].id, nom: employees[i].nom });
+    }
+
+    U.populateSelect(selectId, items, 'nom', 'id', selectedId || '');
+  }
+
+  function _populateChantiersSelect(selectId, selectedId) {
+    var chantiers = S.getAll('chantiers').slice();
+    chantiers.sort(function (a, b) {
+      return U.normalizeText(a.nom || '') > U.normalizeText(b.nom || '') ? 1 : -1;
+    });
+
+    var items = [{ id: '', nom: '— Aucun —' }];
+    for (var i = 0; i < chantiers.length; i++) {
+      items.push({ id: chantiers[i].id, nom: chantiers[i].nom });
+    }
+
+    U.populateSelect(selectId, items, 'nom', 'id', selectedId || '');
+  }
+
+  HR.saveWorkFromForm = function () {
+    var errEl = document.getElementById('hrWorkFormError');
+    if (errEl) errEl.textContent = '';
+
+    var empId = U.getVal('hrWorkEmployeeSelect') || U.getVal('hrWorkEmployeeId');
+    var date = U.getVal('hrWorkDate');
+    var hours = U.getVal('hrWorkHours');
+
+    if (!empId) {
+      if (errEl) errEl.textContent = 'Employé requis.';
+      return;
+    }
+    if (!date) {
+      if (errEl) errEl.textContent = 'Date requise.';
+      return;
+    }
+    if (U.parseNumber(hours) <= 0) {
+      if (errEl) errEl.textContent = 'Heures > 0 requises.';
+      return;
+    }
+
+    var raw = {
+      employeeId: empId,
+      date: date,
+      hours: hours,
+      rate: U.getVal('hrWorkRate'),
+      chantierId: U.getVal('hrWorkChantierSelect'),
+      description: U.getVal('hrWorkDescription')
     };
-    trash.hrEmployees.push(entry);
 
-    if (typeof saveAll === 'function') saveAll();
-    if (typeof logAction === 'function') logAction('hr.employee.delete', emp.nom);
-    renderHR();
-
-    if (typeof showUndoToast === 'function') {
-      showUndoToast('Employé supprimé : ' + emp.nom,
-        function () { _restoreDeletedHREmployee(entry, emp); }, 5000);
+    var saved = S.save('hrWorkEntries', raw);
+    if (!saved) {
+      if (errEl) errEl.textContent = 'Données invalides.';
+      return;
     }
-  } catch (e) { console.warn('deleteHREmployee :', e); }
-}
 
-function _restoreDeletedHREmployee(entry, empObj) {
-  try {
-    if (!entry || !empObj) return;
-    if (Array.isArray(trash.hrEmployees)) {
-      var idx = trash.hrEmployees.indexOf(entry);
-      if (idx >= 0) trash.hrEmployees.splice(idx, 1);
+    U.hide('hrWorkModal');
+    U.toast('Journée ajoutée', 'success', 2000);
+    if (_detailEmployeeId) _renderDetailBody();
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 11 — FORM PAIEMENT
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.openTxModal = function (employeeId) {
+    var form = document.getElementById('hrTxForm');
+    if (form) form.reset();
+
+    _populateEmployeesSelect('hrTxEmployeeSelect', employeeId || '');
+
+    U.setVal('hrTxEmployeeId', employeeId || '');
+    U.setVal('hrTxDate', U.todayISO());
+
+    /* Pré-remplit le montant avec le solde dû si > 0 */
+    if (employeeId) {
+      var stats = HR.getEmployeeStats(employeeId);
+      if (stats.balance > 0.01) {
+        U.setVal('hrTxMontant', stats.balance.toFixed(3));
+      }
+    } else {
+      U.setVal('hrTxMontant', '');
     }
-    if (getHREmployeeById(empObj.id)) return;
-    hrEmployees.push(empObj);
-    if (typeof saveAll === 'function') saveAll();
-    renderHR();
-    if (typeof showToast === 'function') showToast('Employé restauré : ' + empObj.nom, 'success', 2500);
-  } catch (e) { console.warn('_restoreDeletedHREmployee :', e); }
-}
 
-function deleteHRWorkEntry(id) {
-  try {
-    if (!Array.isArray(hrWorkEntries) || !id) return;
-    var idx = hrWorkEntries.findIndex(function (w) { return w && String(w.id) === String(id); });
-    if (idx < 0) return;
-    var removed = hrWorkEntries[idx];
-    hrWorkEntries.splice(idx, 1);
+    U.setText('hrTxFormError', '');
+    U.showFlex('hrTxModal');
+  };
 
-    if (!trash) trash = { clients: [], articles: [], documents: [] };
-    if (!Array.isArray(trash.hrWorkEntries)) trash.hrWorkEntries = [];
-    var entry = { item: removed, deletedAt: new Date().toISOString() };
-    trash.hrWorkEntries.push(entry);
+  HR.saveTxFromForm = function () {
+    var errEl = document.getElementById('hrTxFormError');
+    if (errEl) errEl.textContent = '';
 
-    if (typeof saveAll === 'function') saveAll();
-    if (__hrDetailEmployeeId) _renderHRDetailBody();
-    renderHR();
+    var empId = U.getVal('hrTxEmployeeSelect') || U.getVal('hrTxEmployeeId');
+    var date = U.getVal('hrTxDate');
+    var montant = U.getVal('hrTxMontant');
 
-    if (typeof showUndoToast === 'function') {
-      showUndoToast('Journée supprimée',
-        function () {
-          var i2 = trash.hrWorkEntries.indexOf(entry);
-          if (i2 >= 0) trash.hrWorkEntries.splice(i2, 1);
-          hrWorkEntries.push(removed);
-          if (typeof saveAll === 'function') saveAll();
-          if (__hrDetailEmployeeId) _renderHRDetailBody();
-          renderHR();
-        }, 5000);
+    if (!empId) {
+      if (errEl) errEl.textContent = 'Employé requis.';
+      return;
     }
-  } catch (e) { console.warn('deleteHRWorkEntry :', e); }
-}
-
-function deleteHRTx(id) {
-  try {
-    if (!Array.isArray(hrTransactions) || !id) return;
-    var idx = hrTransactions.findIndex(function (t) { return t && String(t.id) === String(id); });
-    if (idx < 0) return;
-    var removed = hrTransactions[idx];
-    hrTransactions.splice(idx, 1);
-
-    if (!trash) trash = { clients: [], articles: [], documents: [] };
-    if (!Array.isArray(trash.hrTransactions)) trash.hrTransactions = [];
-    var entry = { item: removed, deletedAt: new Date().toISOString() };
-    trash.hrTransactions.push(entry);
-
-    if (typeof saveAll === 'function') saveAll();
-    if (__hrDetailEmployeeId) _renderHRDetailBody();
-    renderHR();
-
-    if (typeof showUndoToast === 'function') {
-      showUndoToast('Paiement supprimé',
-        function () {
-          var i2 = trash.hrTransactions.indexOf(entry);
-          if (i2 >= 0) trash.hrTransactions.splice(i2, 1);
-          hrTransactions.push(removed);
-          if (typeof saveAll === 'function') saveAll();
-          if (__hrDetailEmployeeId) _renderHRDetailBody();
-          renderHR();
-        }, 5000);
+    if (!date) {
+      if (errEl) errEl.textContent = 'Date requise.';
+      return;
     }
-  } catch (e) { console.warn('deleteHRTx :', e); }
-}
+    if (U.parseNumber(montant) <= 0) {
+      if (errEl) errEl.textContent = 'Montant > 0 requis.';
+      return;
+    }
 
-/* ═══════════ SECTION 12 — RECHERCHE / FILTRES / PAGINATION ═══════════ */
+    var raw = {
+      employeeId: empId,
+      date: date,
+      montant: montant,
+      type: U.getVal('hrTxType') || 'salaire',
+      period: U.getVal('hrTxPeriod'),
+      note: U.getVal('hrTxNote')
+    };
 
-function setHRSearch(term) {
-  __hrSearchTerm = String(term || '');
-  renderHR();
-}
+    var saved = S.save('hrTransactions', raw);
+    if (!saved) {
+      if (errEl) errEl.textContent = 'Données invalides.';
+      return;
+    }
 
-function setHRFilter(filter) {
-  __hrFilter = filter || 'all';
-  renderHR();
-}
+    U.hide('hrTxModal');
+    U.toast('Paiement enregistré', 'success', 2000);
+    if (_detailEmployeeId) _renderDetailBody();
+  };
 
-function setHRWorkPage(page) {
-  window.__hrWorkPage = Math.max(0, parseInt(page, 10) || 0);
-  _renderHRDetailBody();
-}
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 12 — SUPPRESSION
+     ═══════════════════════════════════════════════════════════ */
 
-function setHRTxPage(page) {
-  window.__hrTxPage = Math.max(0, parseInt(page, 10) || 0);
-  _renderHRDetailBody();
-}
+  HR.removeEmployee = function (id) {
+    var emp = HR.getEmployeeById(id);
+    if (!emp) return;
 
-function _getFilteredHREmployees() {
-  try {
-    if (!Array.isArray(hrEmployees)) return [];
-    var out = hrEmployees.slice();
+    var works = HR.getWorkEntriesFor(id);
+    var txs = HR.getTransactionsFor(id);
 
-    if (__hrSearchTerm) {
-      var term = normalizeText(__hrSearchTerm);
+    if (works.length > 0 || txs.length > 0) {
+      U.toast('Impossible : employé lié à ' + works.length +
+        ' journée(s) et ' + txs.length + ' paiement(s). Supprime-les d\'abord.',
+        'error', 5000);
+      return;
+    }
+
+    if (!U.confirm('Supprimer l\'employé "' + (emp.nom || '') + '" ?')) return;
+
+    if (!S.delete('hrEmployees', id)) {
+      U.toast('Erreur suppression.', 'error');
+      return;
+    }
+
+    U.toastUndo('Employé supprimé : ' + (emp.nom || ''),
+      function () { _restoreEmployee(id); }, 5000);
+  };
+
+  function _restoreEmployee(id) {
+    var entries = S.getTrashEntries('hrEmployees');
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].item && String(entries[i].item.id) === String(id)) {
+        S.restoreFromTrash('hrEmployees', i);
+        U.toast('Employé restauré', 'success', 2000);
+        return;
+      }
+    }
+  }
+
+  HR.removeWorkEntry = function (id) {
+    var entry = S.getById('hrWorkEntries', id);
+    if (!entry) return;
+
+    if (!U.confirm('Supprimer cette journée ?')) return;
+
+    S.delete('hrWorkEntries', id);
+    if (_detailEmployeeId) _renderDetailBody();
+
+    U.toastUndo('Journée supprimée', function () {
+      var entries = S.getTrashEntries('hrWorkEntries');
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].item && String(entries[i].item.id) === String(id)) {
+          S.restoreFromTrash('hrWorkEntries', i);
+          if (_detailEmployeeId) _renderDetailBody();
+          U.toast('Journée restaurée', 'success', 2000);
+          return;
+        }
+      }
+    }, 5000);
+  };
+
+  HR.removeTx = function (id) {
+    var entry = S.getById('hrTransactions', id);
+    if (!entry) return;
+
+    if (!U.confirm('Supprimer ce paiement ?')) return;
+
+    S.delete('hrTransactions', id);
+    if (_detailEmployeeId) _renderDetailBody();
+
+    U.toastUndo('Paiement supprimé', function () {
+      var entries = S.getTrashEntries('hrTransactions');
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].item && String(entries[i].item.id) === String(id)) {
+          S.restoreFromTrash('hrTransactions', i);
+          if (_detailEmployeeId) _renderDetailBody();
+          U.toast('Paiement restauré', 'success', 2000);
+          return;
+        }
+      }
+    }, 5000);
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 13 — FILTRES
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.setSearch = function (term) {
+    _searchTerm = String(term || '');
+    HR.render();
+  };
+
+  HR.setFilter = function (filter) {
+    _filter = String(filter || 'all');
+    HR.render();
+  };
+
+  HR.getFiltered = function () {
+    var out = S.getAll('hrEmployees').slice();
+
+    if (_searchTerm) {
+      var term = U.normalizeText(_searchTerm);
       out = out.filter(function (e) {
         if (!e) return false;
-        var hay = normalizeText([e.nom, e.poste, e.telephone].join(' '));
+        var hay = U.normalizeText([e.nom, e.poste, e.telephone].join(' '));
         return hay.indexOf(term) >= 0;
       });
     }
 
-    if (__hrFilter === 'actifs') {
+    if (_filter === 'actifs') {
       out = out.filter(function (e) { return e.actif !== false; });
-    } else if (__hrFilter === 'inactifs') {
+    } else if (_filter === 'inactifs') {
       out = out.filter(function (e) { return e.actif === false; });
-    } else if (__hrFilter === 'doivent') {
+    } else if (_filter === 'doivent') {
       out = out.filter(function (e) {
-        return computeHREmployeeStats(e.id).balance > 0.01;
+        return HR.getEmployeeStats(e.id).balance > 0.01;
       });
     }
 
     out.sort(function (a, b) {
-      var na = normalizeText(a.nom || '');
-      var nb = normalizeText(b.nom || '');
+      var na = U.normalizeText(a.nom || '');
+      var nb = U.normalizeText(b.nom || '');
       return na > nb ? 1 : (na < nb ? -1 : 0);
     });
+
     return out;
-  } catch (e) { return []; }
-}
+  };
 
-/* ═══════════ SECTION 13 — IMPORT / EXPORT ═══════════ */
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 14 — IMPORT / EXPORT
+     ═══════════════════════════════════════════════════════════ */
 
-function exportHRJSON() {
-  try {
+  HR.exportJSON = function () {
     var data = {
       version: 1,
       exportedAt: new Date().toISOString(),
-      employees: hrEmployees,
-      workEntries: hrWorkEntries,
-      transactions: hrTransactions
+      employees: S.getAll('hrEmployees'),
+      workEntries: S.getAll('hrWorkEntries'),
+      transactions: S.getAll('hrTransactions')
     };
     var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    var filename = 'voltcore-rh-' + todayISO() + '.json';
-    if (typeof downloadBlob === 'function') downloadBlob(blob, filename);
-    else _hrFallbackDownload(blob, filename);
-    if (typeof showToast === 'function') {
-      showToast((hrEmployees || []).length + ' employé(s) exporté(s)', 'success');
-    }
-  } catch (e) { console.warn('exportHRJSON :', e); }
-}
+    U.downloadBlob(blob, 'voltcore-rh-' + U.todayISO() + '.json');
+    U.toast('Export RH effectué', 'success');
+  };
 
-/* v6.7 — Fallback download aligné sur 03-utils.js (30s au lieu de 1s). */
-function _hrFallbackDownload(blob, filename) {
-  try {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 30000);
-  } catch (e) {
-    console.warn('_hrFallbackDownload :', e);
-  }
-}
+  HR.importJSON = function (file) {
+    return new Promise(function (resolve, reject) {
+      if (!file) {
+        reject(new Error('Fichier requis'));
+        return;
+      }
 
-function importHRJSON(file, options) {
-  return new Promise(function (resolve, reject) {
-    try {
-      if (!file) return reject(new Error('Fichier requis'));
-      var mode = (options && options.mode) || 'merge';
       var reader = new FileReader();
       reader.onload = function (ev) {
         try {
           var parsed = JSON.parse(ev.target.result);
-          if (!parsed || typeof parsed !== 'object') throw new Error('JSON invalide');
+          if (!parsed || typeof parsed !== 'object') {
+            reject(new Error('JSON invalide'));
+            return;
+          }
 
           var emps = Array.isArray(parsed.employees) ? parsed.employees : [];
           var works = Array.isArray(parsed.workEntries) ? parsed.workEntries : [];
           var txs = Array.isArray(parsed.transactions) ? parsed.transactions : [];
 
           var added = { employees: 0, workEntries: 0, transactions: 0 };
-          if (mode === 'replace') { if (typeof _pushAllToTrashBeforeReplace === 'function') { _pushAllToTrashBeforeReplace('hrEmployees', hrEmployees); _pushAllToTrashBeforeReplace('hrWorkEntries', hrWorkEntries); _pushAllToTrashBeforeReplace('hrTransactions', hrTransactions); } hrEmployees = []; hrWorkEntries = []; hrTransactions = []; }
 
           for (var i = 0; i < emps.length; i++) {
-            var clean = _normalizeEmployee(emps[i]);
-            if (!clean) continue;
-            if (hrEmployeeExists(clean.nom)) continue;
-            hrEmployees.push(clean);
-            added.employees++;
+            var cleanE = S.normalize('hrEmployees', emps[i]);
+            if (cleanE && !HR.employeeExists(cleanE.nom)) {
+              if (S.save('hrEmployees', cleanE)) added.employees++;
+            }
           }
           for (var j = 0; j < works.length; j++) {
-            var cw = _normalizeWorkEntry(works[j]);
-            if (cw) { hrWorkEntries.push(cw); added.workEntries++; }
+            var cleanW = S.normalize('hrWorkEntries', works[j]);
+            if (cleanW && S.save('hrWorkEntries', cleanW)) added.workEntries++;
           }
           for (var k = 0; k < txs.length; k++) {
-            var ct = _normalizeTx(txs[k]);
-            if (ct) { hrTransactions.push(ct); added.transactions++; }
+            var cleanT = S.normalize('hrTransactions', txs[k]);
+            if (cleanT && S.save('hrTransactions', cleanT)) added.transactions++;
           }
 
-          if (typeof saveAll === 'function') saveAll();
-          if (typeof logAction === 'function') logAction('hr.import', JSON.stringify(added));
-          renderHR();
-          if (typeof showToast === 'function') {
-            showToast('Import RH : ' + added.employees + ' employé(s), ' +
-              added.workEntries + ' journée(s), ' + added.transactions + ' paiement(s)',
-              'success', 4000);
-          }
+          U.toast('Import RH : ' + added.employees + ' employé(s), ' +
+            added.workEntries + ' journée(s), ' + added.transactions + ' paiement(s)',
+            'success', 4000);
+
           resolve(added);
-        } catch (err) { reject(err); }
+        } catch (err) {
+          VC.logError('10-hr', 'importJSON parse échoué', err);
+          reject(err);
+        }
       };
-      reader.onerror = function () { reject(reader.error || new Error('Lecture échouée')); };
+      reader.onerror = function () {
+        reject(reader.error || new Error('Lecture échouée'));
+      };
       reader.readAsText(file);
-    } catch (e) { reject(e); }
-  });
-}
+    });
+  };
 
-function printHRRecap() {
-  try {
-    var emps = _getFilteredHREmployees();
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 15 — IMPRESSION
+     ═══════════════════════════════════════════════════════════ */
+
+  HR.print = function () {
+    var emps = HR.getFiltered();
     var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>RH — VOLTCORE</title><style>' +
       'body{font-family:Arial;margin:20px;font-size:12px}' +
-      'h1{color:#0b3d91;border-bottom:2px solid #0b3d91;padding-bottom:6px}' +
+      'h1{color:#1A2B4C;border-bottom:2px solid #1A2B4C;padding-bottom:6px}' +
       'table{width:100%;border-collapse:collapse;margin-top:10px}' +
       'th,td{border:1px solid #ccc;padding:6px;text-align:left}' +
       'th{background:#f0f0f0}.right{text-align:right}' +
       '</style></head><body>';
-    html += '<h1>Récap RH</h1><div>Total : ' + emps.length + ' · ' + todayISO() + '</div>';
+    html += '<h1>Récap RH</h1><div>Total : ' + emps.length + ' · ' + U.todayISO() + '</div>';
     html += '<table><thead><tr><th>Nom</th><th>Poste</th><th>Téléphone</th>' +
       '<th class="right">Heures</th><th class="right">Total dû</th>' +
       '<th class="right">Total payé</th><th class="right">Balance</th>' +
       '</tr></thead><tbody>';
+
     var totDu = 0, totPaye = 0, totBal = 0;
     for (var i = 0; i < emps.length; i++) {
       var e = emps[i];
-      var s = computeHREmployeeStats(e.id);
-      totDu += s.totalDu; totPaye += s.totalPaye; totBal += s.balance;
-      html += '<tr><td>' + escapeHtml(e.nom) + '</td><td>' + escapeHtml(e.poste || '') + '</td>' +
-        '<td>' + escapeHtml(e.telephone || '') + '</td>' +
+      var s = HR.getEmployeeStats(e.id);
+      totDu += s.totalDu;
+      totPaye += s.totalPaye;
+      totBal += s.balance;
+      html += '<tr><td>' + U.escapeHtml(e.nom) + '</td>' +
+        '<td>' + U.escapeHtml(e.poste || '') + '</td>' +
+        '<td>' + U.escapeHtml(e.telephone || '') + '</td>' +
         '<td class="right">' + s.totalHeures.toFixed(1) + 'h</td>' +
-        '<td class="right">' + formatMoney(s.totalDu) + '</td>' +
-        '<td class="right">' + formatMoney(s.totalPaye) + '</td>' +
-        '<td class="right">' + formatMoney(s.balance) + '</td></tr>';
+        '<td class="right">' + U.formatMoney(s.totalDu) + '</td>' +
+        '<td class="right">' + U.formatMoney(s.totalPaye) + '</td>' +
+        '<td class="right">' + U.formatMoney(s.balance) + '</td></tr>';
     }
+
     html += '<tr style="background:#f0f0f0;font-weight:bold">' +
-      '<td colspan="4">TOTAUX</td>' +
-      '<td class="right">' + formatMoney(totDu) + '</td>' +
-      '<td class="right">' + formatMoney(totPaye) + '</td>' +
-      '<td class="right">' + formatMoney(totBal) + '</td></tr>';
+      '<td colspan="3">TOTAUX</td>' +
+      '<td class="right">—</td>' +
+      '<td class="right">' + U.formatMoney(totDu) + '</td>' +
+      '<td class="right">' + U.formatMoney(totPaye) + '</td>' +
+      '<td class="right">' + U.formatMoney(totBal) + '</td></tr>';
     html += '</tbody></table></body></html>';
 
-    var w = window.open('', '_blank');
-    if (!w) { if (typeof showToast === 'function') showToast('Autorise les pop-ups.', 'warning'); return; }
-    w.document.write(html); w.document.close();
-    setTimeout(function () { try { w.print(); } catch (e) {} }, 500);
-  } catch (e) { console.warn('printHRRecap :', e); }
-}
-
-/* ═══════════ SECTION 14 — ÉVÉNEMENTS ═══════════ */
-
-function attachHREvents() {
-  try {
-    var searchInput = document.getElementById('hrSearchInput');
-    if (searchInput && !searchInput.__bound) {
-      searchInput.__bound = true;
-      searchInput.addEventListener('input', debounce(function (ev) {
-        setHRSearch(ev.target.value);
-      }, 250));
+    var w = global.open('', '_blank');
+    if (!w) {
+      U.toast('Autorise les pop-ups pour imprimer.', 'warning');
+      return;
     }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(function () {
+      try { w.print(); } catch (e) {
+        VC.logError('10-hr', 'print échoué', e);
+      }
+    }, 500);
+  };
 
-    var filterSel = document.getElementById('hrFilterSelect');
-    if (filterSel && !filterSel.__bound) {
-      filterSel.__bound = true;
-      filterSel.addEventListener('change', function (ev) {
-        setHRFilter(ev.target.value);
-      });
-    }
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 16 — EVENTS
+     ═══════════════════════════════════════════════════════════ */
 
-    var addBtn = document.getElementById('btnAddHREmployee');
-    if (addBtn && !addBtn.__bound) {
-      addBtn.__bound = true;
-      addBtn.addEventListener('click', function () { openHREmployeeModal(null); });
-    }
+  HR.attachEvents = function () {
+    U.on('hrSearchInput', 'input', U.debounce(function (ev) {
+      HR.setSearch(ev.target.value);
+    }, 250));
 
-    var importBtn = document.getElementById('btnImportHR');
-    if (importBtn && !importBtn.__bound) {
-      importBtn.__bound = true;
-      importBtn.addEventListener('click', function () {
-        var input = document.createElement('input');
-        input.type = 'file'; input.accept = '.json,application/json';
-        input.onchange = function (ev) {
-          var f = ev.target.files && ev.target.files[0];
-          if (!f) return;
-          importHRJSON(f, { mode: 'merge' }).catch(function (err) {
-            if (typeof showToast === 'function') showToast('Import échoué : ' + (err.message || ''), 'error');
-          });
-        };
-        input.click();
-      });
-    }
+    U.on('hrFilterSelect', 'change', function (ev) {
+      HR.setFilter(ev.target.value);
+    });
 
-    var exportBtn = document.getElementById('btnExportHR');
-    if (exportBtn && !exportBtn.__bound) {
-      exportBtn.__bound = true;
-      exportBtn.addEventListener('click', exportHRJSON);
-    }
+    U.on('btnAddHREmployee', 'click', function () {
+      HR.openEmployeeModal(null);
+    });
 
-    var printBtn = document.getElementById('btnPrintHR');
-    if (printBtn && !printBtn.__bound) {
-      printBtn.__bound = true;
-      printBtn.addEventListener('click', printHRRecap);
-    }
-  } catch (e) { console.warn('attachHREvents :', e); }
-}
+    U.on('btnImportHR', 'click', function () {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = function (ev) {
+        var f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        HR.importJSON(f).catch(function (err) {
+          U.toast('Import échoué : ' + (err.message || ''), 'error');
+        });
+      };
+      input.click();
+    });
 
-console.log('✅ 10-hr.js chargé — v6.7 (fallback download 30s)');
+    U.on('btnExportHR', 'click', HR.exportJSON);
+    U.on('btnPrintHR', 'click', HR.print);
+
+    /* FIX C5 : auto-fill taux au change du select employé (journée) */
+    U.on('hrWorkEmployeeSelect', 'change', function (ev) {
+      var empId = ev.target.value;
+      U.setVal('hrWorkEmployeeId', empId);
+      var emp = HR.getEmployeeById(empId);
+      if (emp) {
+        U.setVal('hrWorkRate', String(HR.getEmployeeRate(emp)));
+      }
+    });
+
+    /* Idem pour le paiement : sync hidden input */
+    U.on('hrTxEmployeeSelect', 'change', function (ev) {
+      U.setVal('hrTxEmployeeId', ev.target.value);
+    });
+
+    /* Subscribe pour re-render auto */
+    S.subscribe('hrEmployees', function () { HR.render(); });
+    S.subscribe('hrWorkEntries', function () {
+      HR.render();
+      if (_detailEmployeeId) _renderDetailBody();
+    });
+    S.subscribe('hrTransactions', function () {
+      HR.render();
+      if (_detailEmployeeId) _renderDetailBody();
+    });
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     SECTION 17 — MARQUEUR
+     ═══════════════════════════════════════════════════════════ */
+
+  VC._hrLoaded = true;
+
+  VC.logInfo('10-hr', 'Module chargé');
+
+})(window);
