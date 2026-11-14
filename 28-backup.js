@@ -509,11 +509,9 @@
   }
 
   function _pushAllToTrash(collections) {
-    /* FIX R60 : plus de limite à 100. Tous les items actuels sont
-       poussés en corbeille, sinon les imports REPLACER massifs perdent
-       les données au-delà de 100 par collection. */
     var names = Object.keys(collections);
     var pushed = 0;
+    var internalTrash = S.getTrash(); // On récupère la corbeille en mémoire
 
     for (var i = 0; i < names.length; i++) {
       var name = names[i];
@@ -521,16 +519,39 @@
       if (!spec || spec.type !== 'array' || !spec.trash) continue;
 
       var current = S.getAll(name);
+      
+      // On s'assure que le dossier existe dans la corbeille
+      if (!Array.isArray(internalTrash[name])) {
+        internalTrash[name] = [];
+      }
+
+      var now = new Date().toISOString();
+      var user = 'anon';
+      if (VC.Auth && VC.Auth.currentUser && VC.Auth.currentUser.username) {
+        user = String(VC.Auth.currentUser.username);
+      }
+
       for (var j = 0; j < current.length; j++) {
         if (current[j]) {
-          S.moveToTrash(name, current[j]);
+          // FIX : On ajoute directement dans la mémoire, sans sauvegarder le localStorage
+          internalTrash[name].push({
+            item: current[j],
+            deletedAt: now,
+            deletedBy: user
+          });
           pushed++;
         }
       }
     }
 
     if (pushed > 0) {
-      VC.logInfo('28-backup', pushed + ' élément(s) poussé(s) dans la corbeille');
+      // On sauvegarde TOUT d'un seul coup dans le localStorage
+      try {
+        localStorage.setItem('voltcore_trash', JSON.stringify(internalTrash));
+      } catch(e) {
+        VC.logError('28-backup', 'sauvegarde trash échouée', e);
+      }
+      VC.logInfo('28-backup', pushed + ' élément(s) poussé(s) dans la corbeille (optimisé)');
     }
   }
 

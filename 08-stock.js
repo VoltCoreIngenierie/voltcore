@@ -82,7 +82,7 @@
 
   var _searchTerm = '';
   var _familleFilter = '';
-  var _showMode = 'actif';
+  var _showMode = 'physique';
   var _page = 0;
   var _perPage = 50;
   var _filteredList = [];
@@ -413,15 +413,27 @@
 
     var metaParts = [];
     if (famille) metaParts.push(famille);
-    metaParts.push('Prix : ' + U.formatMoney(prix));
-    if (prixAchat > 0) metaParts.push('Achat : ' + U.formatMoney(prixAchat));
+    
+    // FIX : Si c'est un service (Hors Stock), on n'affiche pas l'achat ni la marge
+    var isService = St.isHS(art);
+    
+    if (isService) {
+      metaParts.push('<span style="color:var(--info)">Service / Main d\'œuvre</span>');
+      metaParts.push('Tarif : ' + U.formatMoney(prix) + ' / ' + U.escapeHtml(art.unite || 'U'));
+    } else {
+      metaParts.push('Prix : ' + U.formatMoney(prix));
+      if (prixAchat > 0) metaParts.push('Achat : ' + U.formatMoney(prixAchat));
+    }
+
+    var margeHtml = isService 
+      ? '<div class="stock-row-marge" style="color:var(--text-light)">Prestation facturée</div>'
+      : '<div class="stock-row-marge" style="color:' + margeColor + '">Marge : ' + margePct.toFixed(1) + '%</div>';
 
     return '<div class="stock-row" data-article-id="' + id + '">' +
       '<div class="stock-row-main">' +
         '<div class="stock-row-name">' + nom + ' ' + badges + '</div>' +
         '<div class="stock-row-meta">' + metaParts.join(' · ') + '</div>' +
-        '<div class="stock-row-marge" style="color:' + margeColor + '">Marge : ' +
-          margePct.toFixed(1) + '%</div>' +
+        margeHtml +
       '</div>' +
       '<div class="stock-row-actions">' +
         '<button type="button" class="btn-icon" title="Détail" ' +
@@ -879,7 +891,7 @@
   };
 
   St.setFilter = function (mode) {
-    _showMode = String(mode || 'actif');
+    _showMode = String(mode || 'physique');
     _page = 0;
     St.render();
   };
@@ -898,10 +910,10 @@
   St.getFiltered = function () {
     var out = S.getAll('articles').slice();
 
-    if (_showMode === 'actif') {
-      out = out.filter(St.isActif);
-    } else if (_showMode === 'hs') {
-      out = out.filter(St.isHS);
+    if (_showMode === 'physique') {
+      out = out.filter(function(art) { return St.isActif(art) && !St.isHS(art); });
+    } else if (_showMode === 'services') {
+      out = out.filter(function(art) { return St.isActif(art) && St.isHS(art); });
     } else if (_showMode === 'alertes') {
       var alertIds = {};
       var alerts = St.computePriceAlerts();

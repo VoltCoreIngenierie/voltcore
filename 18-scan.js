@@ -61,6 +61,7 @@
   var _dragState = null;
   var _abortCtrl = null;
   var _lastDetectedAt = 0;
+  var _scanTarget = 'default'; // FIX BLOC B : 'default' ou 'cachet'
 
   var MAX_PREVIEW_DIM = 500;         /* Preview live réduite pour fluidité */
   var DEBOUNCE_PREVIEW = 150;
@@ -177,8 +178,13 @@
      SECTION 3 — OUVERTURE / FERMETURE
      ═══════════════════════════════════════════════════════════ */
 
-  Scan.open = function () {
+  Scan.open = function (opts) {
     _resetState();
+    _scanTarget = (opts && opts.target === 'cachet') ? 'cachet' : 'default';
+    
+    // Afficher le bouton "Enregistrer comme cachet" uniquement si demandé
+    var btnCachet = document.getElementById('btnSaveScanAsCachet');
+    if (btnCachet) btnCachet.style.display = (_scanTarget === 'cachet') ? '' : 'none';
 
     U.showFlex('scanModal');
     _showSection('camera');
@@ -246,7 +252,8 @@
     if (empty) empty.style.display = name === 'empty' ? '' : 'none';
     if (improveBar) improveBar.style.display = name === 'preview' ? '' : 'none';
     if (pageBar) pageBar.style.display = (_pages.length > 0 || name === 'preview') ? '' : 'none';
-    if (actions) actions.style.display = name === 'empty' ? 'none' : '';
+    // FIX : Ne jamais cacher la barre d'actions (pour avoir toujours le bouton Fermer)
+    if (actions) actions.style.display = ''; 
 
     var btnStart = document.getElementById('btnStartCamera');
     var btnStop = document.getElementById('btnStopCamera');
@@ -629,10 +636,17 @@
      ═══════════════════════════════════════════════════════════ */
 
   Scan.setMode = function (mode) {
-    var valid = ['document', 'photo', 'text', 'none'];
+    var valid = ['document', 'photo', 'text', 'cachet', 'none'];
     if (valid.indexOf(mode) === -1) mode = 'document';
     _mode = mode;
     _updateModeButtons();
+    
+    // FIX : Afficher un petit message pour confirmer le changement
+    if (mode === 'cachet') {
+      U.toast('Mode Cachet activé : clique sur Appliquer', 'info', 2000);
+    } else if (mode === 'document') {
+      U.toast('Mode Document activé : clique sur Appliquer', 'info', 2000);
+    }
   };
 
   function _updateModeButtons() {
@@ -687,7 +701,10 @@
         throw new Error('Résultat vide');
       }
 
-      var dataUrl = resultCanvas.toDataURL('image/jpeg', 0.9);
+      // FIX BLOC B : Si c'est un cachet, on utilise PNG (pour la transparence)
+      var dataUrl = (_mode === 'cachet') 
+        ? resultCanvas.toDataURL('image/png') 
+        : resultCanvas.toDataURL('image/jpeg', 0.9);
       _currentResultDataUrl = dataUrl;
       _currentResultIsProcessed = true;
 
@@ -994,6 +1011,9 @@
     /* Boutons sauvegarde */
     U.on('btnSaveScanToDocs', 'click', Scan.saveToDocuments);
     U.on('btnAttachScanToInvoice', 'click', Scan.attachToInvoice);
+    
+    // FIX BLOC B : bouton spécifique pour le cachet
+    U.on('btnSaveScanAsCachet', 'click', Scan.saveAsCachet);
 
     /* Multi-pages */
     U.on('btnAddScanPage', 'click', Scan.addPage);
@@ -1019,6 +1039,67 @@
         VC.logError('18-scan', 'btnOpenScanner preventDefault échoué', e);
       }
       Scan.open();
+    });
+  };
+  /* ═══════════════════════════════════════════════════════════
+     FIX BLOC B — Enregistrer le scan courant comme cachet
+     ═══════════════════════════════════════════════════════════ */
+     Scan.saveAsCachet = function () {
+    if (!_currentResultDataUrl) {
+      U.toast('Aucun scan à enregistrer.', 'warning');
+      return;
+    }
+
+    _setProcessing(true, 'Enregistrement du cachet…');
+    var nom = 'Cachet scanné ' + U.todayISO();
+
+    VC.IDB.dataURLToBlob(_currentResultDataUrl).then(function (blob) {
+      var newRef = U.generateId('cac_blob');
+      
+      VC.IDB.blobs.put(newRef, blob, 'image/png').then(function () {
+        var entry = VC.Store.save('cachets', {
+          nom: nom,
+          ref: newRef,
+          mime: 'image/png',
+          taille: blob.size,
+          date: U.todayISO()
+        });
+
+        // FIX : On sépare la fermeture du scanner pour éviter les faux messages d'erreur
+        _setProcessing(false, '');
+        
+        if (entry) {
+          U.toast('Cachet ajouté au catalogue !', 'success', 3000);
+          Scan.close();
+          
+          // Mise à jour de l'interface Outils en arrière-plan
+          setTimeout(function() {
+            try {
+              if (VC.Tools && typeof VC.Tools.loadSettings === 'function') {
+                VC.Tools.loadSettings();
+                var sel = document.getElementById('cachetCatalogSelect');
+                if (sel) sel.value = entry.id;
+                if (VC.Tools && typeof VC.Tools._renderCachetPreview === 'function') {
+                  VC.Tools._renderCachetPreview();
+                }
+              }
+            } catch(e) {
+              VC.logError('18-scan', 'refresh Tools UI échoué', e);
+            }
+          }, 100);
+
+        } else {
+          U.toast('Erreur d\'enregistrement dans le catalogue.', 'error');
+        }
+      }).catch(function (err) {
+        _setProcessing(false, '');
+        VC.logError('18-scan', 'save cachet échoué', err);
+        U.toast('Erreur de sauvegarde : ' + (err && err.message ? err.message : 'inconnue'), 'error', 4000);
+      });
+    }).catch(function (err) {
+      _setProcessing(false, '');
+      VC.logError('18-scan', 'dataURLToBlob échoué', err);
+      U.toast('Erreur de conversion.', 'error');
     });
   };
 

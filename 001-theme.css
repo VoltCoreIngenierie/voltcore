@@ -534,3 +534,9 @@ button,
 .nav-item {
   touch-action: manipulation;
 }
+/* FIX BLOC B : s'assurer que les images de cachet gardent leur transparence */
+img[alt="Cachet"],
+img[alt="Signature"] {
+  background: transparent !important;
+  object-fit: contain;
+}

@@ -54,6 +54,26 @@
     backup: true
   });
 
+  // FIX : Catalogue de cachets (comme les signatures)
+  S.register('cachets', {
+    type: 'array',
+    saveKey: 'voltcore_cachets_v7',
+    default: [],
+    idPrefix: 'cac',
+    trash: true,
+    backup: true,
+    blobs: function (item) {
+      return (item && item.ref) ? [item.ref] : [];
+    },
+    schema: {
+      nom: 'string|required',
+      ref: 'string|required',
+      mime: 'string',
+      taille: 'float|0-999999999',
+      date: 'date'
+    }
+  });
+
   S.register('history', {
     type: 'array',
     saveKey: 'voltcore_log',
@@ -108,11 +128,40 @@
       }
     }
 
-    _renderSignaturePreview();
-    _renderCachetPreview();
+    _renderCatalogSelects();
+    T._renderSignaturePreview();
+    T._renderCachetPreview();
 
     _settingsLoaded = true;
   };
+
+  function _renderCatalogSelects() {
+    // Signatures
+    var sigs = S.getAll('signatures');
+    var sigSelect = document.getElementById('signatureCatalogSelect');
+    if (sigSelect) {
+      var currentSig = sigSelect.value; // Sauvegarder la sélection
+      var html = '<option value="">— Aucune —</option>';
+      for (var i = 0; i < sigs.length; i++) {
+        html += '<option value="' + U.escapeAttr(sigs[i].id) + '">' + U.escapeHtml(sigs[i].nom) + '</option>';
+      }
+      sigSelect.innerHTML = html;
+      if (currentSig) sigSelect.value = currentSig; // Restaurer
+    }
+    
+    // Cachets
+    var cacs = S.getAll('cachets');
+    var cacSelect = document.getElementById('cachetCatalogSelect');
+    if (cacSelect) {
+      var currentCac = cacSelect.value; // Sauvegarder la sélection
+      var html2 = '<option value="">— Aucun —</option>';
+      for (var j = 0; j < cacs.length; j++) {
+        html2 += '<option value="' + U.escapeAttr(cacs[j].id) + '">' + U.escapeHtml(cacs[j].nom) + '</option>';
+      }
+      cacSelect.innerHTML = html2;
+      if (currentCac) cacSelect.value = currentCac; // Restaurer
+    }
+  }
 
   T.saveSettings = function () {
     var c = T.getCompany();
@@ -202,111 +251,162 @@
 
   T.uploadSignature = function (file) {
     if (!file) return;
-    _uploadDefaultImage('sig', file, SIG_REF, SIG_META_KEY, '_renderSignaturePreview');
+    var nom = U.prompt('Nom de la signature :', 'Signature ' + U.todayISO());
+    if (nom === null) return;
+    _uploadDefaultImage('sig', file, '', '', '_renderSignaturePreview', nom);
   };
 
   T.uploadCachet = function (file) {
     if (!file) return;
-    _uploadDefaultImage('cachet', file, CACHET_REF, CACHET_META_KEY, '_renderCachetPreview');
+    var nom = U.prompt('Nom du cachet :', 'Cachet ' + U.todayISO());
+    if (nom === null) return;
+    _uploadDefaultImage('cachet', file, '', '', '_renderCachetPreview', nom);
   };
 
-  function _uploadDefaultImage(kind, file, ref, metaKey, renderFn) {
+  function _uploadDefaultImage(kind, file, ref, metaKey, renderFn, nomCustom) {
     if (!/^image\//.test(file.type)) {
       U.toast('Format image requis (PNG, JPG).', 'error');
       return;
     }
 
-    var doUpload = function (blob, name) {
-      IDB.blobs.put(ref, blob, blob.type).then(function () {
-        try {
-          localStorage.setItem(metaKey, JSON.stringify({
-            ref: ref,
-            name: name,
-            mime: blob.type,
-            size: blob.size,
-            uploadedAt: new Date().toISOString()
-          }));
-        } catch (e) {
-          VC.logError('25-tools', 'setItem ' + metaKey + ' échoué', e);
-        }
+    U.toast('Traitement de l\'image…', 'info', 2000);
 
-        if (typeof T[renderFn] === 'function') {
-          T[renderFn]();
-        }
-        U.toast(kind === 'sig' ? 'Signature enregistrée' : 'Cachet enregistré',
-          'success', 2000);
-      }).catch(function (e) {
-        VC.logError('25-tools', 'upload ' + kind + ' échoué', e);
-        U.toast('Erreur d\'enregistrement.', 'error');
+    function doUpload(blob) {
+      var processPromise = (kind === 'cachet') ? _detourerCachet(blob) : Promise.resolve(blob);
+
+      processPromise.then(function (processBlob) {
+        var newRef = U.generateId(kind + '_blob');
+        var collection = (kind === 'cachet') ? 'cachets' : 'signatures';
+
+        IDB.blobs.put(newRef, processBlob, processBlob.type).then(function () {
+          var entry = S.save(collection, {
+            nom: (nomCustom || (kind === 'cachet' ? 'Cachet ' : 'Signature ') + U.todayISO()).trim(),
+            ref: newRef,
+            mime: processBlob.type,
+            taille: processBlob.size,
+            date: U.todayISO()
+          });
+
+          if (entry) {
+            T.loadSettings();
+            setTimeout(function() {
+                var sel = document.getElementById(kind === 'cachet' ? 'cachetCatalogSelect' : 'signatureCatalogSelect');
+                if (sel) sel.value = entry.id;
+                if (typeof T[renderFn] === 'function') T[renderFn]();
+            }, 100);
+            U.toast('Ajouté au catalogue', 'success', 2000);
+          }
+        });
       });
-    };
+    }
 
     if (file.size > VC.SIGNATURE_MAX_BYTES) {
       U.compressImage(file, VC.SIGNATURE_MAX_BYTES).then(function (dataUrl) {
-        IDB.dataURLToBlob(dataUrl).then(function (blob) {
-          doUpload(blob, file.name || kind);
-        });
-      }).catch(function (e) {
-        VC.logError('25-tools', 'compression ' + kind + ' échouée', e);
-        U.toast('Image trop lourde.', 'error');
+        IDB.dataURLToBlob(dataUrl).then(doUpload);
       });
     } else {
-      doUpload(file, file.name || kind);
+      doUpload(file);
     }
   }
 
-  T._renderSignaturePreview = function () {
-    _renderDefaultImagePreview('signatureDefaultPreview',
-      'btnRemoveSignatureDefault', _getSigMeta(), 'Signature');
+   T._renderSignaturePreview = function () {
+    var sel = document.getElementById('signatureCatalogSelect');
+    var selectedId = sel ? sel.value : '';
+    var entry = selectedId ? S.getById('signatures', selectedId) : null;
+    _renderCatalogPreview('signatureDefaultPreview', 'btnRemoveSignatureDefault', entry, 'Signature');
   };
 
   T._renderCachetPreview = function () {
-    _renderDefaultImagePreview('cachetDefaultPreview',
-      'btnRemoveCachetDefault', _getCachetMeta(), 'Cachet');
+    var sel = document.getElementById('cachetCatalogSelect');
+    var selectedId = sel ? sel.value : '';
+    var entry = selectedId ? S.getById('cachets', selectedId) : null;
+    _renderCatalogPreview('cachetDefaultPreview', 'btnRemoveCachetDefault', entry, 'Cachet');
   };
 
-  function _renderDefaultImagePreview(previewId, removeBtnId, meta, label) {
+  function _renderCatalogPreview(previewId, removeBtnId, entry, label) {
     var preview = document.getElementById(previewId);
     var removeBtn = document.getElementById(removeBtnId);
+    var nameInput = document.getElementById(label === 'Cachet' ? 'cachetNameInput' : 'signatureNameInput');
+    
     if (!preview) return;
 
-    if (!meta || !meta.ref) {
+    if (nameInput) nameInput.value = entry ? (entry.nom || '') : '';
+    if (!entry || !entry.ref) {
       preview.innerHTML = '<span class="muted" style="font-size:12px">' +
-        'Aucun(e) ' + label.toLowerCase() + ' configuré(e)</span>';
+        'Sélectionne ou ajoute un(e) ' + label.toLowerCase() + '</span>';
       if (removeBtn) removeBtn.style.display = 'none';
       return;
     }
 
-    IDB.blobs.get(meta.ref).then(function (row) {
+    if (removeBtn) removeBtn.style.display = '';
+
+    IDB.blobs.get(entry.ref).then(function (row) {
       if (!row || !row.data) {
-        preview.innerHTML = '<span class="muted" style="font-size:12px">' +
-          'Fichier introuvable</span>';
+        preview.innerHTML = '<span class="muted" style="font-size:12px">Fichier introuvable</span>';
         return;
       }
-
       IDB.blobToDataURL(row.data).then(function (d) {
         preview.innerHTML =
-          '<img src="' + d + '" alt="' + label + '" ' +
-          'style="max-height:80px;max-width:200px;background:#fff;' +
-          'padding:4px;border:1px solid var(--border);border-radius:4px">' +
-          '<div class="muted" style="font-size:11px;margin-top:4px">' +
-            U.escapeHtml(meta.name || label) + ' · ' +
-            U.formatBytes(meta.size || 0) +
+          '<div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px;">' +
+            '<img src="' + d + '" alt="' + label + '" style="width:100%; height:100%; max-height:120px; object-fit:contain; mix-blend-mode: multiply;">' +
+            '<div class="muted" style="font-size:11px;margin-top:8px">' + U.escapeHtml(entry.nom) + '</div>' +
           '</div>';
       }).catch(function (e) {
-        VC.logError('25-tools', 'render preview dataURL échoué', e);
-        preview.innerHTML = '<span class="muted" style="font-size:12px">' +
-          'Erreur d\'affichage</span>';
+        VC.logError('25-tools', 'render preview échoué', e);
       });
     }).catch(function (e) {
       VC.logError('25-tools', 'render preview load échoué', e);
-      preview.innerHTML = '<span class="muted" style="font-size:12px">' +
-        'Erreur d\'accès IDB</span>';
     });
-
-    if (removeBtn) removeBtn.style.display = '';
   }
+  /**
+   * FIX BLOC B : détoure un cachet (rend le fond blanc transparent).
+   * Utilise un Canvas pour analyser les pixels.
+   */
+  function _detourerCachet(blob) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      var url = URL.createObjectURL(blob);
+      
+      img.onload = function () {
+        var canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
 
+        var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        var data = imgData.data;
+        
+        // Parcours de chaque pixel
+        for (var i = 0; i < data.length; i += 4) {
+          var r = data[i];
+          var g = data[i + 1];
+          var b = data[i + 2];
+          
+          // Si le pixel est clair (proche du blanc/gris clair), on le rend transparent
+          // Le seuil de 180 permet de gérer les ombres légères sur la photo
+          if (r > 180 && g > 180 && b > 180) {
+            data[i + 3] = 0; // Alpha = 0 (transparent)
+          }
+        }
+        
+        ctx.putImageData(imgData, 0, 0);
+        
+        // Reconvertir en Blob PNG (qui gère la transparence)
+        canvas.toBlob(function (newBlob) {
+          if (!newBlob) resolve(blob); // Fallback si ça échoue
+          else resolve(newBlob);
+        }, 'image/png');
+      };
+      
+      img.onerror = function () {
+        resolve(blob); // Si l'image ne charge pas, on garde l'original
+      };
+      
+      img.src = url;
+    });
+  }
   T.removeSignature = function () {
     if (!U.confirm('Supprimer la signature par défaut ?')) return;
     try {
@@ -320,7 +420,109 @@
     T._renderSignaturePreview();
     U.toast('Signature supprimée', 'info', 2000);
   };
+  /**
+   * FIX BLOC B : Scanner un cachet spécifiquement.
+   * Ouvre la caméra, prend la photo, et lance un algorithme de détourage
+   * avancé pour ne garder QUE l'encre (transparence parfaite).
+   */
+  T.scanCachet = function () {
+    // FIX BLOC B : Ouvre le vrai scanner principal avec un mode "cachet"
+    if (VC.Scan && typeof VC.Scan.open === 'function') {
+      VC.Scan.open({ target: 'cachet' });
+    } else {
+      U.toast('Module Scanner indisponible.', 'error');
+    }
+  };
 
+  /**
+   * Algorithme de détourage avancé pour le cachet.
+   * 1. Enlève le papier (rend blanc transparent)
+   * 2. Renforce l'encre (contraste + saturation)
+   */
+  function _processCachetImage(img) {
+    var canvas = document.createElement('canvas');
+    // Augmenté à 1200 pour plus de détails sur le cachet
+    var maxDim = 1200;
+    var scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
+    
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    
+    var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    var data = imgData.data;
+    var w = canvas.width;
+    var h = canvas.height;
+    
+    // ═══════════════════════════════════════════════════════════
+    // 1. FILTRE DE NETTETÉ (Unsharp Mask / Convolution)
+    // Rend les traits de l'encre beaucoup plus nets
+    // ═══════════════════════════════════════════════════════════
+    var copy = new Uint8ClampedArray(data);
+    // Matrice de convolution 3x3 (netteté)
+    //  0 -1  0
+    // -1  5 -1
+    //  0 -1  0
+    for (var y = 1; y < h - 1; y++) {
+      for (var x = 1; x < w - 1; x++) {
+        var idx = (y * w + x) * 4;
+        for (var c = 0; c < 3; c++) {
+          var val = 
+            (copy[idx - w*4 + c] * 0) + (copy[idx - w*4 + 4 + c] * -1) + (copy[idx - w*4 + 8 + c] * 0) +
+            (copy[idx - 4 + c] * -1)    + (copy[idx + c] * 5)           + (copy[idx + 4 + c] * -1) +
+            (copy[idx + w*4 + c] * 0)   + (copy[idx + w*4 + 4 + c] * -1) + (copy[idx + w*4 + 8 + c] * 0);
+            
+          data[idx + c] = Math.max(0, Math.min(255, val));
+        }
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 2. DÉTOURAGE ET CONTRASTE
+    // ═══════════════════════════════════════════════════════════
+    var SEUIL_BLANC = 170; // Ajusté pour être plus propre
+    
+    for (var i = 0; i < data.length; i += 4) {
+      var r = data[i];
+      var g = data[i + 1];
+      var b = data[i + 2];
+      
+      // Calcul de la luminance
+      var luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      
+      if (luminance > SEUIL_BLANC) {
+        // Papier ou fond clair -> transparent
+        data[i + 3] = 0; 
+      } else {
+        // Encre -> on augmente le contraste et on sature un peu
+        var facteur = 1.8; // Contraste fort pour la netteté
+        data[i] = Math.max(0, Math.min(255, (r - 128) * facteur + 128));
+        data[i + 1] = Math.max(0, Math.min(255, (g - 128) * facteur + 128));
+        data[i + 2] = Math.max(0, Math.min(255, (b - 128) * facteur + 128));
+        
+        // L'encre devient 100% opaque
+        data[i + 3] = 255; 
+      }
+    }
+    
+    ctx.putImageData(imgData, 0, 0);
+    
+    // On retourne un Blob PNG (obligatoire pour la transparence)
+    var dataUrl = canvas.toDataURL('image/png');
+    
+    // Conversion dataURL -> Blob
+    var parts = dataUrl.split(',');
+    var mime = parts[0].match(/:(.*?);/)[1];
+    var bstr = atob(parts[1]);
+    var n = bstr.length;
+    var u8arr = new Uint8Array(n);
+    for (var j = 0; j < n; j++) {
+      u8arr[j] = bstr.charCodeAt(j);
+    }
+    return new Blob([u8arr], { type: mime });
+  }
   T.removeCachet = function () {
     if (!U.confirm('Supprimer le cachet par défaut ?')) return;
     try {
@@ -380,8 +582,13 @@
       totalShown += entries.length;
       var label = labels[key] || key;
 
-      html += '<div class="trash-category"><h4>' +
-        U.escapeHtml(label) + ' (' + entries.length + ')</h4>';
+      // FIX : Utilisation de <details> pour faire un accordéon
+      html += '<details class="trash-category" style="margin-bottom:12px; background:var(--bg-soft); border-radius:var(--radius-sm); border:1px solid var(--border)">' +
+        '<summary style="cursor:pointer; padding:12px; font-weight:600; color:var(--vc-navy); user-select:none; display:flex; justify-content:space-between; align-items:center">' +
+          '<span>' + U.escapeHtml(label) + '</span>' +
+          '<span class="badge">' + entries.length + '</span>' +
+        '</summary>' +
+        '<div style="padding: 0 12px 12px 12px; display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;">';
 
       for (var j = 0; j < entries.length; j++) {
         var entry = entries[j];
@@ -403,10 +610,10 @@
           }
         }
 
-        html += '<div class="trash-row">' +
+        html += '<div class="trash-row" style="background:var(--card); border:1px solid var(--border); padding:8px; border-radius:4px; display:flex; justify-content:space-between; align-items:center">' +
           '<div class="trash-row-main">' +
-            '<div class="trash-row-label">' + U.escapeHtml(itemLabel) + '</div>' +
-            '<div class="trash-row-meta">Supprimé le ' + U.escapeHtml(dateStr) +
+            '<div class="trash-row-label" style="font-size:13px; font-weight:600">' + U.escapeHtml(itemLabel) + '</div>' +
+            '<div class="trash-row-meta" style="font-size:11px; color:var(--text-light)">Supprimé le ' + U.escapeHtml(dateStr) +
             ' (' + daysOld + ' j)</div>' +
           '</div>' +
           '<div class="trash-row-actions">' +
@@ -416,7 +623,7 @@
           '</div>' +
         '</div>';
       }
-      html += '</div>';
+      html += '</div></details>';
     }
 
     if (html === '') {
@@ -1089,18 +1296,68 @@
     U.on('btnRemoveLogo', 'click', T.removeLogo);
 
     /* Signature / cachet */
-    U.on('btnUploadSignatureDefault', 'click', function () {
-      var input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/png,image/jpeg,image/webp';
-      input.onchange = function (ev) {
-        var f = ev.target.files && ev.target.files[0];
-        if (f) T.uploadSignature(f);
-      };
-      input.click();
+    // FIX : Le bouton Ajouter Signature ouvre la modale de dessin !
+    U.on('btnOpenSignatureModal', 'click', function () {
+      if (VC.Sign && typeof VC.Sign.open === 'function') {
+        VC.Sign.open();
+      } else {
+        U.toast('Module signature indisponible.', 'error');
+      }
     });
-    U.on('btnRemoveSignatureDefault', 'click', T.removeSignature);
+    
+    U.on('btnRemoveSignatureDefault', 'click', function() {
+       var sel = document.getElementById('signatureCatalogSelect');
+       if (sel && sel.value) {
+           if (U.confirm('Supprimer cette signature du catalogue ?')) {
+               S.delete('signatures', sel.value);
+               _renderCatalogSelects();
+               T._renderSignaturePreview();
+           }
+       }
+    });
+        // FIX : Renommer Signature
+    U.on('btnRenameSignature', 'click', function() {
+       var sel = document.getElementById('signatureCatalogSelect');
+       var input = document.getElementById('signatureNameInput');
+       if (sel && sel.value && input) {
+           var entry = S.getById('signatures', sel.value);
+           if (entry && input.value.trim()) {
+               entry.nom = input.value.trim();
+               S.save('signatures', entry);
+               T.loadSettings();
+               U.toast('Signature renommée !', 'success', 2000);
+           }
+       }
+    });
 
+    // FIX : Renommer Cachet
+    U.on('btnRenameCachet', 'click', function() {
+       var sel = document.getElementById('cachetCatalogSelect');
+       var input = document.getElementById('cachetNameInput');
+       if (sel && sel.value && input) {
+           var entry = S.getById('cachets', sel.value);
+           if (entry && input.value.trim()) {
+               entry.nom = input.value.trim();
+               S.save('cachets', entry);
+               T.loadSettings();
+               U.toast('Cachet renommé !', 'success', 2000);
+           }
+       }
+    });
+    // FIX : Écouter le changement dans les listes déroulantes
+    U.on('signatureCatalogSelect', 'change', T._renderSignaturePreview);
+    U.on('cachetCatalogSelect', 'change', T._renderCachetPreview);
+
+    U.on('btnRemoveCachetDefault', 'click', function() {
+       var sel = document.getElementById('cachetCatalogSelect');
+       if (sel && sel.value) {
+           if (U.confirm('Supprimer ce cachet du catalogue ?')) {
+               S.delete('cachets', sel.value);
+               _renderCatalogSelects();
+               T._renderCachetPreview();
+           }
+       }
+    });
     U.on('btnUploadCachetDefault', 'click', function () {
       var input = document.createElement('input');
       input.type = 'file';
@@ -1111,6 +1368,10 @@
       };
       input.click();
     });
+    
+    // FIX BLOC B : binding du nouveau bouton Scanner
+    U.on('btnScanCachet', 'click', T.scanCachet);
+    
     U.on('btnRemoveCachetDefault', 'click', T.removeCachet);
 
     /* Diagnostics */

@@ -366,7 +366,7 @@
     }
   }
 
-  function showSection(sectionId) {
+  function showSection(sectionId, isBackNavigation) {
     try {
       var sec = String(sectionId || 'dashboard');
       if (VALID_SECTIONS.indexOf(sec) === -1) sec = 'dashboard';
@@ -392,11 +392,16 @@
 
       /* Met à jour l'URL */
       try {
-        if (global.history && typeof global.history.replaceState === 'function') {
-          global.history.replaceState(null, '', '#' + sec);
+        if (global.history && typeof global.history.pushState === 'function') {
+          // FIX BLOC A : pushState au lieu de replaceState pour que le bouton
+          // retour du téléphone revienne à la section précédente au lieu de quitter l'app.
+          // Si c'est une navigation retour (bouton Android), on ne push PAS.
+          if (!isBackNavigation) {
+            global.history.pushState({ section: sec }, '', '#' + sec);
+          }
         }
       } catch (e) {
-        VC.logError('29-init', 'replaceState échoué', e);
+        VC.logError('29-init', 'pushState échoué', e);
       }
 
       /* Émet l'event (capté par 24-mobile pour la bottom bar / FAB) */
@@ -562,12 +567,30 @@
   }
 
   function _attachHashNav() {
+    /* FIX BLOC A : gérer le bouton retour Android via popstate */
+    global.addEventListener('popstate', function (ev) {
+      try {
+        var state = ev.state;
+        if (state && state.section && VALID_SECTIONS.indexOf(state.section) !== -1) {
+          // Restaurer la section depuis l'historique
+          _currentSection = state.section;
+          showSection(state.section, true); // true = pas de pushState supplémentaire
+        } else {
+          // Si pas d'état, on ramène au dashboard au lieu de quitter l'app
+          showSection('dashboard', true);
+        }
+      } catch (e) {
+        VC.logError('29-init', 'popstate échoué', e);
+      }
+    });
+
+    /* Garder hashchange pour la compatibilité (liens manuels) */
     global.addEventListener('hashchange', function () {
       try {
         var hash = String(global.location.hash || '').replace('#', '');
         if (hash && VALID_SECTIONS.indexOf(hash) !== -1 &&
             hash !== _currentSection) {
-          showSection(hash);
+          showSection(hash, true);
         }
       } catch (e) {
         VC.logError('29-init', 'hashchange échoué', e);

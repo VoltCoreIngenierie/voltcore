@@ -712,8 +712,55 @@
       case 'document': return _modeDocument(canvas, signal);
       case 'photo':    return _modePhoto(canvas, signal);
       case 'text':     return _modeText(canvas, signal);
+      case 'cachet':   return _modeCachet(canvas, signal);
       case 'none':     return canvas;
       default:         return _modeDocument(canvas, signal);
+    }
+  }
+
+  /**
+   * MODE CACHET — Garde les couleurs, rend le fond transparent.
+   */
+  function _modeCachet(canvas, signal) {
+    var cv = _cv();
+    var mats = [];
+    try {
+      _checkAbort(signal);
+      var src = cv.imread(canvas);
+      mats.push(src);
+
+      // 1. Trouver le fond (en niveaux de gris)
+      var gray = new cv.Mat();
+      mats.push(gray);
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+      // 2. Créer le masque : blanc pur sur l'encre, noir pur sur le papier
+      var mask = new cv.Mat();
+      mats.push(mask);
+      cv.threshold(gray, mask, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+
+      // 3. Appliquer le masque sur le canal Alpha (Transparence)
+      // On découpe l'image originale (src) en 4 canaux (Rouge, Vert, Bleu, Alpha)
+      var channels = new cv.MatVector();
+      mats.push(channels);
+      cv.split(src, channels);
+
+      // On remplace le canal Alpha (le 4ème, index 3) par notre masque
+      // (le masque a 0 sur le papier, donc transparent, et 255 sur l'encre, donc opaque)
+      channels.set(3, mask);
+
+      var result = new cv.Mat();
+      mats.push(result);
+      cv.merge(channels, result);
+
+      var outCanvas = document.createElement('canvas');
+      cv.imshow(outCanvas, result);
+      return outCanvas;
+    } catch (e) {
+      VC.logError('19-scan-cv', '_modeCachet échoué', e);
+      return null;
+    } finally {
+      for (var m = 0; m < mats.length; m++) { try { mats[m].delete(); } catch (e) {} }
     }
   }
 

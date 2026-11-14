@@ -65,81 +65,59 @@
      ═══════════════════════════════════════════════════════════ */
 
   var PROMPT_CHATGPT = [
-    'Tu es un assistant qui extrait les données d\'une facture d\'achat fournisseur (image ou texte) et les retourne EN JSON STRICT, sans AUCUNE phrase avant ou après.',
+    'RÔLE : Tu es un Ingénieur Électricien Senior, Métreur et Expert-Comptable en Tunisie, avec 20 ans d\'expérience dans le BTP. Tu maîtrises les normes (NFT, IEC), les prix du marché tunisien et le calcul de la TVA (19%) et du Timbre (1.000 DT).',
     '',
-    'CONTEXTE VOLTCORE',
-    'Articles existants dans le stock (matche si possible) :',
+    'MISSION : Analyse le document (plan d\'archi, facture, contrat ou texte) que je vais te fournir. Extrais toutes les données pour générer un Devis ou une Facture structurée, prête pour mon logiciel VOLTCORE.',
+    '',
+    'ÉTAPES DE RÉFLEXION (OBLIGATOIRE) :',
+    '1. Analyse spatiale (si plan) : Déduis la surface, le nombre de pièces. Estime les longueurs de câbles (avec 10% de perte), le nombre de prises, interrupteurs et disjoncteurs selon les normes.',
+    '2. Extraction (si facture/texte) : Extrais les quantités et prix exacts.',
+    '3. Prix : Sépare TOUJOURS la Main d\'œuvre (Service) du Matériel (Fourniture). Si les prix manquent, estime des prix de marché réalistes pour la Tunisie.',
+    '4. Vérification : Calcule le Total HT, la TVA (19%), le Timbre (1.000 DT) et le Total TTC. Vérifie tes calculs.',
+    '',
+    'CONTEXTE VOLTCORE :',
+    'Articles existants (matche si possible) :',
     '{ARTICLES_LIST}',
     '',
     'Fournisseurs existants (matche si possible) :',
     '{FOURNISSEURS_LIST}',
     '',
-    'SCHEMA DE SORTIE',
-    '{"fournisseur":"Nom","fournisseurMF":null,"numeroFacture":"N°","date":"YYYY-MM-DD","tvaRate":19,"timbre":1.000,"lignes":[{"articleId":null,"designation":"...","quantite":10,"prixUnitaire":1.200,"unite":"U"}]}',
+    'SCHÉMA JSON STRICT (Pas de texte avant/après, pas de ```json) :',
+    '{"client":{"nom":"Nom","telephone":null,"mf":null,"type":"entreprise"},"chantier":{"nom":"Nom projet","adresse":null},"document":{"type":"devis","sujet":"Description courte","date":"AAAA-MM-JJ","tvaRate":19,"timbre":1.000,"lignes":[{"designation":"Fourniture Câble 3x2.5","quantite":50,"prixUnitaire":1.500,"unite":"m","type":"materiel"},{"designation":"Main d\'œuvre tirage","quantite":5,"prixUnitaire":25.000,"unite":"h","type":"main_oeuvre"}]},"analyse_technique":"Explique ici tes hypothèses de calcul (ex: J\'ai estimé 15 prises car 3 chambres)"}',
     '',
-    'RÈGLES STRICTES',
-    '1. Retourne UNIQUEMENT le JSON brut. Pas de ```json``` autour, pas de phrase avant/après.',
-    '2. Montants en dinars tunisiens (DT).',
-    '3. Date au format YYYY-MM-DD (année-mois-jour).',
-    '4. Si un article est reconnu dans la liste, mets son articleId exact. Sinon null.',
-    '5. Toute valeur inconnue doit être null (jamais "", jamais 0 inventé).',
-    '6. Cohérence : Σ(quantite × prixUnitaire) × (1 + tvaRate/100) + timbre = totalTTC.',
-    '7. Au moins une ligne.',
-    '',
-    'EXEMPLE',
-    'Entrée : "Facture AFEL N° F-2026-42 du 20/10/2026. Câble 3x2.5 : 50 m à 1,200 DT. Disjoncteur 16A : 10 U à 18,500 DT. TVA 19%, timbre 1 DT."',
-    'Sortie :',
-    '{"fournisseur":"AFEL","fournisseurMF":null,"numeroFacture":"F-2026-42","date":"2026-10-20","tvaRate":19,"timbre":1.000,"lignes":[{"articleId":null,"designation":"Câble 3x2.5","quantite":50,"prixUnitaire":1.200,"unite":"m"},{"articleId":null,"designation":"Disjoncteur 16A","quantite":10,"prixUnitaire":18.500,"unite":"U"}]}',
-    '',
-    'Réponds maintenant en JSON pur.'
+    'Réponds UNIQUEMENT avec le JSON brut.'
   ].join('\n');
 
   var PROMPT_CLAUDE = [
-    'Tu es un assistant spécialisé dans l\'extraction fidèle de données de factures fournisseur. Analyse attentivement l\'image ou le texte fourni, puis retourne UNIQUEMENT un objet JSON valide, sans introduction, sans commentaire, sans balises markdown.',
+    'Tu es un Expert Métreur en Électricité BTP (Tunisie).',
+    'Ta mission : Analyser le document fourni (plan, facture ou texte) pour générer un Devis/Facture complet.',
     '',
-    'CONTEXTE VOLTCORE',
-    'Articles existants (pour matching) :',
+    'INSTRUCTIONS DE RECHERCHE BAS NIVEAU :',
+    '- Si c\'est un plan : Fais un métré précis. Estime les câbles, gaines, boîtiers. Justifie tes calculs dans "analyse_technique".',
+    '- Si c\'est une facture : Extrais les lignes exactes.',
+    '- Sépare impérativement le Matériel (type: "materiel") et la Main d\'œuvre (type: "main_oeuvre").',
+    '- Vérifie la cohérence mathématique (HT + 19% TVA + 1 DT Timbre).',
+    '',
+    'CONTEXTE :',
     '{ARTICLES_LIST}',
-    '',
-    'Fournisseurs existants (pour matching) :',
     '{FOURNISSEURS_LIST}',
     '',
-    'SCHEMA ATTENDU',
-    '{"fournisseur":"...","fournisseurMF":"...","numeroFacture":"...","date":"YYYY-MM-DD","tvaRate":19,"timbre":1.000,"lignes":[{"articleId":null,"designation":"...","quantite":10,"prixUnitaire":1.200,"unite":"U"}]}',
-    '',
-    'INSTRUCTIONS',
-    '- Extrait TOUS les chiffres avec exactitude (ne pas arrondir).',
-    '- Matching articles : préférer un articleId existant quand la désignation correspond clairement.',
-    '- Toute valeur manquante doit être null, jamais une chaîne vide ni un zéro inventé.',
-    '- Format date : YYYY-MM-DD (jour-mois-année, pas l\'inverse).',
-    '- Montants en dinars tunisiens, 3 décimales max.',
-    '- Une ligne par article distinct.',
-    '- Vérifie que Σ(quantite × prixUnitaire) × (1 + tvaRate/100) + timbre est cohérent avec le total visible sur la facture.',
-    '',
-    'Retourne maintenant le JSON pur.'
+    'FORMAT DE SORTIE : Retourne UNIQUEMENT un objet JSON valide. Pas de texte.',
+    '{"client":{"nom":"...","telephone":null,"mf":null,"type":"..."},"chantier":{"nom":"...","adresse":null},"document":{"type":"devis","sujet":"...","date":"AAAA-MM-JJ","tvaRate":19,"timbre":1,"lignes":[{"designation":"...","quantite":0,"prixUnitaire":0,"unite":"U","type":"materiel|main_oeuvre"}]},"analyse_technique":"..."}'
   ].join('\n');
 
   var PROMPT_DEEPSEEK = [
-    'Extrait les données de cette facture fournisseur et retourne UNIQUEMENT le JSON brut (aucun texte autour).',
+    'Agis comme un Ingénieur Métreur en BTP (Tunisie). Analyse le document fourni (plan, facture, texte) et génère un Devis/Facture.',
+    'RÈGLES :',
+    '1. Fais une recherche bas niveau (ex: si plan, compte les pièces, estime les mètres de câbles nécessaires).',
+    '2. Sépare le Matériel (materiel) et la Main d\'œuvre (main_oeuvre).',
+    '3. Vérifie les totaux (TVA 19%, Timbre 1 DT).',
     '',
-    'Articles disponibles :',
-    '{ARTICLES_LIST}',
+    'Articles dispo : {ARTICLES_LIST}',
+    'Fournisseurs dispo : {FOURNISSEURS_LIST}',
     '',
-    'Fournisseurs disponibles :',
-    '{FOURNISSEURS_LIST}',
-    '',
-    'Format :',
-    '{"fournisseur":"nom","fournisseurMF":null,"numeroFacture":"num","date":"YYYY-MM-DD","tvaRate":19,"timbre":1.000,"lignes":[{"articleId":null,"designation":"désignation","quantite":10,"prixUnitaire":1.200,"unite":"U"}]}',
-    '',
-    'Contraintes :',
-    '- JSON brut uniquement, pas de ```json``` autour',
-    '- Date YYYY-MM-DD',
-    '- Montants en DT',
-    '- articleId = ID existant si match, sinon null',
-    '- Valeur inconnue = null',
-    '- Min 1 ligne',
-    '',
-    'Retourne le JSON maintenant.'
+    'Retourne UNIQUEMENT ce JSON brut :',
+    '{"client":{"nom":"...","telephone":null,"mf":null,"type":"..."},"chantier":{"nom":"...","adresse":null},"document":{"type":"devis","sujet":"...","date":"AAAA-MM-JJ","tvaRate":19,"timbre":1,"lignes":[{"designation":"...","quantite":0,"prixUnitaire":0,"unite":"U","type":"materiel|main_oeuvre"}]},"analyse_technique":"..."}'
   ].join('\n');
 
   /* ═══════════════════════════════════════════════════════════
@@ -917,7 +895,197 @@
   /* ═══════════════════════════════════════════════════════════
      SECTION 9 — EVENTS
      ═══════════════════════════════════════════════════════════ */
+  /**
+   * FIX BLOC C : Importation universelle (Clients, Fournisseurs, Articles)
+   */
+  IA.importUniversalData = function () {
+    var textarea = document.getElementById('iaPasteTextarea');
+    var text = textarea ? textarea.value : '';
 
+    if (!text || text.trim().length < 10) {
+      U.toast('Colle le JSON de l\'IA dans la zone de texte.', 'warning');
+      return;
+    }
+
+    var parsed = IA.extractJSON(text);
+    if (!parsed) {
+      U.toast('JSON invalide.', 'error');
+      return;
+    }
+
+    var count = { clients: 0, fournisseurs: 0, articles: 0, chantiers: 0 };
+
+    // 1. Import Clients
+    if (Array.isArray(parsed.clients)) {
+      for (var i = 0; i < parsed.clients.length; i++) {
+        var c = parsed.clients[i];
+        if (c.nom) {
+          if (VC.Store.save('clients', c)) count.clients++;
+        }
+      }
+    }
+
+    // 2. Import Fournisseurs
+    if (Array.isArray(parsed.fournisseurs)) {
+      for (var j = 0; j < parsed.fournisseurs.length; j++) {
+        var f = parsed.fournisseurs[j];
+        if (f.nom) {
+          if (VC.Store.save('suppliers', f)) count.fournisseurs++;
+        }
+      }
+    }
+
+    // 3. Import Articles (avec distinction hs:true pour main d'oeuvre)
+    if (Array.isArray(parsed.articles)) {
+      for (var k = 0; k < parsed.articles.length; k++) {
+        var a = parsed.articles[k];
+        if (a.nom) {
+          // Si type = "main_oeuvre" ou "service", on force hs=true
+          if (a.type === 'main_oeuvre' || a.type === 'service') {
+            a.hs = true;
+          }
+          if (VC.Store.save('articles', a)) count.articles++;
+        }
+      }
+    }
+
+    // 4. Import Chantiers
+    if (Array.isArray(parsed.chantiers)) {
+      for (var l = 0; l < parsed.chantiers.length; l++) {
+        var ch = parsed.chantiers[l];
+        if (ch.nom) {
+          if (VC.Store.save('chantiers', ch)) count.chantiers++;
+        }
+      }
+    }
+
+    var msg = 'Import terminé : ' + count.clients + ' client(s), ' + 
+              count.fournisseurs + ' fournisseur(s), ' + 
+              count.articles + ' article(s), ' + 
+              count.chantiers + ' chantier(s).';
+
+    U.toast(msg, 'success', 5000);
+    
+    // Nettoyer la zone
+    textarea.value = '';
+    
+    // Rafraîchir l'interface globale
+    if (typeof VC.refreshAllUI === 'function') VC.refreshAllUI();
+  };
+    /**
+   * FIX BLOC C : Bouton Magique
+   * Transforme le JSON de l'IA en un formulaire de Devis/Facture pré-rempli.
+   */
+  IA.generateDocumentFromJSON = function () {
+    var textarea = document.getElementById('iaPasteTextarea');
+    var text = textarea ? textarea.value : '';
+
+    if (!text || text.trim().length < 10) {
+      U.toast('Colle le JSON de l\'IA dans la zone de texte.', 'warning');
+      return;
+    }
+
+    var parsed = IA.extractJSON(text);
+    if (!parsed || !parsed.document || !Array.isArray(parsed.document.lignes)) {
+      U.toast('Structure JSON invalide (il manque le bloc "document" ou "lignes").', 'error');
+      return;
+    }
+
+    var clientId = '';
+    var chantierId = '';
+
+    // 1. Créer le Client s'il n'existe pas
+    if (parsed.client && parsed.client.nom) {
+      var existingClient = VC.Clients.exists(parsed.client.nom) ? VC.Clients.getFiltered().find(function(c){ return c.nom === parsed.client.nom; }) : null;
+      if (existingClient) {
+        clientId = existingClient.id;
+      } else {
+        var newClient = VC.Store.save('clients', {
+          nom: parsed.client.nom,
+          telephone: parsed.client.telephone || '',
+          mf: parsed.client.mf || '',
+          type: parsed.client.type || 'entreprise',
+          notes: 'Créé par l\'IA'
+        });
+        if (newClient) clientId = newClient.id;
+      }
+    }
+
+    // 2. Créer le Chantier s'il n'existe pas
+    if (parsed.chantier && parsed.chantier.nom) {
+      var existingChantier = VC.Chantiers.exists(parsed.chantier.nom) ? VC.Chantiers.getFiltered().find(function(c){ return c.nom === parsed.chantier.nom; }) : null;
+      if (existingChantier) {
+        chantierId = existingChantier.id;
+      } else {
+        var newChantier = VC.Store.save('chantiers', {
+          nom: parsed.chantier.nom,
+          adresse: parsed.chantier.adresse || '',
+          clientId: clientId,
+          statut: 'en_cours',
+          notes: 'Créé par l\'IA'
+        });
+        if (newChantier) chantierId = newChantier.id;
+      }
+    }
+
+    // 3. Préparer les lignes et créer les articles si besoin
+    var finalItems = [];
+    for (var i = 0; i < parsed.document.lignes.length; i++) {
+      var l = parsed.document.lignes[i];
+      var artId = '';
+      
+      // Chercher si l'article existe déjà
+      var existingArt = VC.Stock.getFiltered().find(function(a){ return a.nom.toLowerCase() === l.designation.toLowerCase(); });
+      if (existingArt) {
+        artId = existingArt.id;
+      } else {
+        // Créer l'article
+        var isService = (l.type === 'main_oeuvre' || l.type === 'service');
+        var newArt = VC.Store.save('articles', {
+          nom: l.designation,
+          designation: l.designation,
+          prix: l.prixUnitaire,
+          prixAchat: isService ? 0 : (l.prixAchat || 0),
+          unite: l.unite || 'U',
+          hs: isService,
+          actif: true,
+          notes: 'Créé par l\'IA'
+        });
+        if (newArt) artId = newArt.id;
+      }
+
+      finalItems.push({
+        articleId: artId,
+        designation: l.designation,
+        quantite: l.quantite,
+        prix: l.prixUnitaire,
+        unite: l.unite || 'U',
+        remise: 0
+      });
+    }
+
+    // 4. Préparer l'objet pour le formulaire de facture
+    var prefill = {
+      type: parsed.document.type === 'facture' ? 'facture' : 'devis',
+      clientId: clientId,
+      chantierId: chantierId,
+      sujet: parsed.document.sujet || '',
+      notes: parsed.document.analyse_technique || '',
+      items: finalItems,
+      tvaRate: parsed.document.tvaRate || 19,
+      timbre: parsed.document.timbre || 1.000
+    };
+
+    // 5. Fermer la modale IA et ouvrir le formulaire
+    IA.close();
+    U.toast('Document préparé ! Vérifie et enregistre.', 'success', 3000);
+    
+    if (VC.Invoices && typeof VC.Invoices.openWithPrefill === 'function') {
+      VC.Invoices.openWithPrefill(prefill);
+    } else {
+      U.toast('Erreur : module Facture indisponible.', 'error');
+    }
+  };
   IA.attachEvents = function () {
     var keys = Object.keys(IA_MODELS);
     for (var i = 0; i < keys.length; i++) {
@@ -931,6 +1099,8 @@
     U.on('iaCopyBtn', 'click', IA.copyPrompt);
     U.on('iaOpenWebsiteBtn', 'click', IA.openWebsite);
     U.on('iaAnalyzeBtn', 'click', IA.parsePastedJSON);
+    U.on('iaUniversalBtn', 'click', IA.importUniversalData);
+    U.on('iaGenerateDocBtn', 'click', IA.generateDocumentFromJSON);
     U.on('iaClearBtn', 'click', _clearPaste);
 
     U.on('iaPreviewConfirmBtn', 'click', IA.confirmImport);

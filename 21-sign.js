@@ -269,8 +269,31 @@
         reject(new Error('Canvas absent'));
         return;
       }
-      if (typeof _canvas.toBlob === 'function') {
-        _canvas.toBlob(function (blob) {
+
+      // FIX BLOC D : Optimisation de la performance
+      // On crée un canvas temporaire plus petit pour accélérer la conversion
+      var maxDim = 800;
+      var w = _canvas.width;
+      var h = _canvas.height;
+      
+      if (w > maxDim || h > maxDim) {
+        var ratio = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+
+      var tempCanvas = document.createElement('canvas');
+      tempCanvas.width = w;
+      tempCanvas.height = h;
+      var tCtx = tempCanvas.getContext('2d');
+      
+      // Fond blanc obligatoire pour le PNG (sinon on aura du noir sur le PDF)
+      tCtx.fillStyle = '#ffffff';
+      tCtx.fillRect(0, 0, w, h);
+      tCtx.drawImage(_canvas, 0, 0, w, h);
+
+      if (typeof tempCanvas.toBlob === 'function') {
+        tempCanvas.toBlob(function (blob) {
           if (!blob) {
             reject(new Error('toBlob a renvoyé null'));
             return;
@@ -278,9 +301,8 @@
           resolve(blob);
         }, 'image/png');
       } else {
-        /* Fallback : toDataURL → blob */
         try {
-          var dataUrl = _canvas.toDataURL('image/png');
+          var dataUrl = tempCanvas.toDataURL('image/png');
           IDB.dataURLToBlob(dataUrl).then(resolve).catch(reject);
         } catch (e) {
           reject(e);
@@ -390,7 +412,33 @@
     if (!U.confirm('Supprimer la signature "' + (entry.nom || '') + '" ?')) {
       return;
     }
+  /**
+   * FIX BLOC B : définit une signature du catalogue comme signature par défaut
+   * pour les PDF (factures, bons route).
+   */
+  Sign.setDefault = function (id) {
+    var entry = S.getById('signatures', id);
+    if (!entry) return;
 
+    try {
+      localStorage.setItem('voltcore_signature_default', JSON.stringify({
+        ref: entry.ref,
+        name: entry.nom || 'Signature',
+        mime: 'image/png',
+        size: entry.taille || 0,
+        uploadedAt: new Date().toISOString()
+      }));
+      U.toast('Signature définie par défaut ⭐', 'success', 2000);
+      
+      // Rafraîchir l'aperçu dans Outils si ouvert
+      if (VC.Tools && typeof VC.Tools._renderSignaturePreview === 'function') {
+        VC.Tools._renderSignaturePreview();
+      }
+    } catch (e) {
+      VC.logError('21-sign', 'setDefault échoué', e);
+      U.toast('Erreur lors de la définition', 'error');
+    }
+  };
     S.delete('signatures', id);
     _renderList();
     U.toast('Signature supprimée', 'info', 1500);
@@ -425,6 +473,8 @@
             (s.taille ? ' · ' + U.escapeHtml(U.formatBytes(s.taille)) : '') +
           '</div>' +
         '</div>' +
+        '<button type="button" class="btn-icon-mini" ' +
+        'onclick="VC.Sign.setDefault(\'' + id + '\')" title="Définir par défaut">⭐</button>' +
         '<button type="button" class="btn-icon-mini btn-danger" ' +
         'onclick="VC.Sign.remove(\'' + id + '\')" title="Supprimer">✕</button>' +
         '</div>';

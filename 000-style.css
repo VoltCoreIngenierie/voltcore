@@ -2360,6 +2360,32 @@ input[type="file"].input::file-selector-button:hover {
     overflow-x: auto;
     flex-wrap: nowrap;
     padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* FIX BLOC A : boutons rouges trop grands sur mobile */
+  .section-actions .btn {
+    padding: 6px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  
+  .section-actions .btn-primary {
+    padding: 6px 14px;
+    font-size: 11px;
+  }
+  
+  /* Réduire aussi les boutons dans les modales */
+  .modal-actions .btn,
+  .modal-actions .btn-primary {
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+  
+  /* Le bouton d'action principal (ex: Importer) ne prend pas toute la largeur */
+  .btn.btn-primary:not(.btn-full) {
+    max-width: 90%;
   }
 
   .form-grid { grid-template-columns: 1fr; }

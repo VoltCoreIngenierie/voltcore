@@ -375,6 +375,28 @@
     U.on('btnInstallPwa', 'click', function () { Mob.installPWA(); });
     U.on('btnDismissInstallPwa', 'click', Mob.dismissInstallBanner);
 
+    /* FIX BLOC A : bouton hamburger (☰) pour ouvrir/fermer la sidebar sur mobile */
+    U.on('btnToggleSidebar', 'click', function (ev) {
+      try { ev.preventDefault(); } catch (e) {}
+      var sidebar = document.getElementById('appSidebar');
+      if (sidebar) {
+        sidebar.classList.toggle('open');
+      }
+    });
+
+    /* Fermer la sidebar si on clique sur un lien de navigation */
+    document.addEventListener('click', function (ev) {
+      var target = ev.target;
+      while (target && target !== document.body) {
+        if (target.hasAttribute && target.hasAttribute('data-nav-section')) {
+          var sidebar = document.getElementById('appSidebar');
+          if (sidebar) sidebar.classList.remove('open');
+          break;
+        }
+        target = target.parentNode;
+      }
+    });
+
     /* Synchronisation section (émis par 29-init via showSection) */
     global.addEventListener('voltcore:section:changed', function (ev) {
       var sec = ev && ev.detail && ev.detail.section;

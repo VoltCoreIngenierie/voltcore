@@ -236,9 +236,9 @@
       <div class="search-bar">
         <input type="text" id="stockSearchInput" placeholder="Rechercher un article…" class="input-search">
         <select id="stockFilterSelect" class="input-select">
-          <option value="actif">Actifs</option>
-          <option value="tous">Tous</option>
-          <option value="hs">Hors stock</option>
+          <option value="physique">📦 Stock Physique (Matériel)</option>
+          <option value="services">🛠️ Services (Main d'œuvre)</option>
+          <option value="tous">Tous les articles</option>
           <option value="alertes">Alertes prix</option>
           <option value="sans_famille">Sans famille</option>
         </select>
@@ -539,23 +539,34 @@
           </p>
           <div class="form-grid">
             <div>
-              <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Signature</label>
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Catalogue Signatures</label>
+              <select id="signatureCatalogSelect" class="input" style="margin-bottom:8px"></select>
+              <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <input type="text" id="signatureNameInput" class="input" placeholder="Nom de la signature" style="flex:1;">
+                <button type="button" id="btnRenameSignature" class="btn btn-sm">✏️ Renommer</button>
+              </div>
               <div id="signatureDefaultPreview" class="logo-preview-container" style="min-height:100px;margin-bottom:8px">
-                <span class="muted" style="font-size:12px">Aucune signature configurée</span>
+                <span class="muted" style="font-size:12px">Aucune signature sélectionnée</span>
               </div>
               <div class="tools-actions">
-                <button type="button" id="btnUploadSignatureDefault" class="btn btn-primary btn-sm">📤 Importer</button>
-                <button type="button" id="btnRemoveSignatureDefault" class="btn btn-danger btn-sm" style="display:none">🗑️ Supprimer</button>
+                <button type="button" id="btnOpenSignatureModal" class="btn btn-primary btn-sm">➕ Ajouter</button>
+                <button type="button" id="btnRemoveSignatureDefault" class="btn btn-danger btn-sm">🗑️ Supprimer</button>
               </div>
             </div>
             <div>
-              <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Cachet</label>
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Catalogue Cachets</label>
+              <select id="cachetCatalogSelect" class="input" style="margin-bottom:8px"></select>
+              <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <input type="text" id="cachetNameInput" class="input" placeholder="Nom du cachet" style="flex:1;">
+                <button type="button" id="btnRenameCachet" class="btn btn-sm">✏️ Renommer</button>
+              </div>
               <div id="cachetDefaultPreview" class="logo-preview-container" style="min-height:100px;margin-bottom:8px">
-                <span class="muted" style="font-size:12px">Aucun cachet configuré</span>
+                <span class="muted" style="font-size:12px">Aucun cachet sélectionné</span>
               </div>
               <div class="tools-actions">
+                <button type="button" id="btnScanCachet" class="btn btn-warning btn-sm" style="background:#0891B2;color:#fff;border:none">📷 Scanner</button>
                 <button type="button" id="btnUploadCachetDefault" class="btn btn-primary btn-sm">📤 Importer</button>
-                <button type="button" id="btnRemoveCachetDefault" class="btn btn-danger btn-sm" style="display:none">🗑️ Supprimer</button>
+                <button type="button" id="btnRemoveCachetDefault" class="btn btn-danger btn-sm">🗑️ Supprimer</button>
               </div>
             </div>
           </div>
@@ -1269,7 +1280,8 @@
 
 <!-- ═══ SCANNER ═══ -->
 <div id="scanModal" class="modal" style="display:none">
-  <div class="modal-content modal-large">
+  <div class="modal-content modal-large" style="position:relative">
+    <button type="button" class="btn-icon" style="position:absolute;top:15px;right:15px;font-size:20px;z-index:50;" onclick="if(window.VOLTCORE&&VOLTCORE.Scan)VOLTCORE.Scan.close()" title="Fermer">✕</button>
     <h2>Scanner un document</h2>
     <div id="scanError" class="form-error"></div>
     <div id="scanOpenCvStatus" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;margin-bottom:10px;font-size:12px">
@@ -1305,6 +1317,7 @@
         <button type="button" class="btn btn-sm active" data-scan-mode="document">📄 Document</button>
         <button type="button" class="btn btn-sm" data-scan-mode="photo">📷 Photo</button>
         <button type="button" class="btn btn-sm" data-scan-mode="text">✏️ Texte</button>
+        <button type="button" class="btn btn-sm" data-scan-mode="cachet">🎯 Cachet</button>
         <button type="button" class="btn btn-sm" data-scan-mode="none">🎨 Brut</button>
       </div>
     </div>
@@ -1331,6 +1344,7 @@
       <button class="btn btn-primary" id="btnSaveScanToDocs">📁 Documents</button>
       <button class="btn" id="btnAttachScanToInvoice">📎 Facture</button>
       <button class="btn btn-primary" id="btnSaveScanAll">💾 Tout enregistrer</button>
+      <button class="btn btn-warning" id="btnSaveScanAsCachet" style="display:none;background:#0891B2;color:#fff;border:none">🎯 Enregistrer comme cachet</button>
       <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.Scan)VOLTCORE.Scan.close()">Fermer</button>
     </div>
   </div>
@@ -1381,7 +1395,9 @@
     <div class="modal-actions">
       <button class="btn" onclick="if(window.VOLTCORE&&VOLTCORE.AssistantIA)VOLTCORE.AssistantIA.close()">Fermer</button>
       <button id="iaClearBtn" class="btn">Effacer</button>
-      <button id="iaAnalyzeBtn" class="btn btn-primary">🔍 Analyser</button>
+      <button id="iaUniversalBtn" class="btn" style="background:var(--info);color:#fff">📥 Importer Données</button>
+      <button id="iaAnalyzeBtn" class="btn">🔍 Analyser (Achats)</button>
+      <button id="iaGenerateDocBtn" class="btn btn-primary">📄 Créer Devis/Facture</button>
     </div>
   </div>
 </div>

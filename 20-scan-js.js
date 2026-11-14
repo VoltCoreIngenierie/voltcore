@@ -538,9 +538,39 @@
       case 'document': return _modeDocument(canvas);
       case 'photo':    return _modePhoto(canvas);
       case 'text':     return _modeText(canvas);
+      case 'cachet':   return _modeCachet(canvas);
       case 'none':     return _canvasCopy(canvas);
       default:         return _modeDocument(canvas);
     }
+  }
+
+  /**
+   * MODE CACHET JS — Garde les couleurs, rend le fond transparent.
+   */
+  function _modeCachet(canvas) {
+    var ctx = canvas.getContext('2d');
+    var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    var data = imgData.data;
+    var gray = _toGrayscale(imgData);
+    
+    // Otsu pour trouver le seuil idéal
+    var threshold = _otsuThreshold(gray);
+
+    for (var i = 0, j = 0; i < data.length; i += 4, j++) {
+      // Si la luminosité est supérieure au seuil (c'est le papier) -> transparent
+      if (gray[j] > threshold) {
+        // On force la couleur à blanc pur pour éviter les halos noirs sur les bords
+        data[i] = 255;
+        data[i + 1] = 255;
+        data[i + 2] = 255;
+        data[i + 3] = 0; // Alpha = 0 (invisible)
+      } else {
+        // C'est l'encre -> on garde la couleur d'origine et on rend 100% opaque
+        data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
   }
 
   /**
